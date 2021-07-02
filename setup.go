@@ -29,9 +29,11 @@ import (
 
 	"github.com/gobuffalo/flect"
 	"github.com/hashicorp/terraform-provider-google/google"
+	auditlib "go.bytebuilders.dev/audit/lib"
 	arv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	informers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
@@ -164,7 +166,7 @@ var runningControllers = struct {
 	mp map[schema.GroupVersionKind]bool
 }{mp: make(map[schema.GroupVersionKind]bool)}
 
-func watchCRD(crdClient *clientset.Clientset, vwcClient *admissionregistrationv1.AdmissionregistrationV1Client, stopCh <-chan struct{}, mgr manager.Manager) error {
+func watchCRD(ctx context.Context, crdClient *clientset.Clientset, vwcClient *admissionregistrationv1.AdmissionregistrationV1Client, stopCh <-chan struct{}, mgr manager.Manager, auditor *auditlib.EventPublisher, watchOnlyDefault bool) error {
 	informerFactory := informers.NewSharedInformerFactory(crdClient, time.Second*30)
 	i := informerFactory.Apiextensions().V1beta1().CustomResourceDefinitions().Informer()
 	l := informerFactory.Apiextensions().V1beta1().CustomResourceDefinitions().Lister()
@@ -230,7 +232,7 @@ func watchCRD(crdClient *clientset.Clientset, vwcClient *admissionregistrationv1
 						}
 					}
 
-					err = SetupManager(mgr, gvk)
+					err = SetupManager(ctx, mgr, gvk, auditor, watchOnlyDefault)
 					if err != nil {
 						setupLog.Error(err, "unable to start manager")
 						os.Exit(1)
@@ -247,8 +249,8 @@ func watchCRD(crdClient *clientset.Clientset, vwcClient *admissionregistrationv1
 
 func createFirstVWC(vwcClient *admissionregistrationv1.AdmissionregistrationV1Client, gvk schema.GroupVersionKind) error {
 	vwcName := strings.ReplaceAll(strings.ToLower(gvk.Group), ".", "-") + "-vwc"
-	_, err := vwcClient.ValidatingWebhookConfigurations().Get(context.TODO(), vwcName, metav1.GetOptions{})
-	if err == nil {
+	vwc, err := vwcClient.ValidatingWebhookConfigurations().Get(context.TODO(), vwcName, metav1.GetOptions{})
+	if err == nil || !(errors.IsNotFound(err)) {
 		return err
 	}
 
@@ -277,7 +279,7 @@ func createFirstVWC(vwcClient *admissionregistrationv1.AdmissionregistrationV1Cl
 		ObjectMeta: metav1.ObjectMeta{
 			Name: strings.ReplaceAll(strings.ToLower(gvk.Group), ".", "-") + "-vwc",
 			Labels: map[string]string{
-				"app.kubernetes.io/instance": "kubeform.com/" + flect.Singularize(gvk.Kind),
+				"app.kubernetes.io/instance": "google.kubeform.com",
 			},
 		},
 		Webhooks: []arv1.ValidatingWebhook{
@@ -335,7 +337,7 @@ func updateVWC(vwcClient *admissionregistrationv1.AdmissionregistrationV1Client,
 	return nil
 }
 
-func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
+func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVersionKind, auditor *auditlib.EventPublisher, watchOnlyDefault bool) error {
 	switch gvk {
 	case schema.GroupVersionKind{
 		Group:   "accesscontext.google.kubeform.com",
@@ -343,14 +345,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerAccessLevel",
 	}:
 		if err := (&controllersaccesscontext.ManagerAccessLevelReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerAccessLevel"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_access_level"],
-			TypeName: "google_access_context_manager_access_level",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerAccessLevel"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_access_level"],
+			TypeName:         "google_access_context_manager_access_level",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerAccessLevel")
 			return err
 		}
@@ -360,14 +363,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerAccessLevelCondition",
 	}:
 		if err := (&controllersaccesscontext.ManagerAccessLevelConditionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerAccessLevelCondition"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_access_level_condition"],
-			TypeName: "google_access_context_manager_access_level_condition",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerAccessLevelCondition"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_access_level_condition"],
+			TypeName:         "google_access_context_manager_access_level_condition",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerAccessLevelCondition")
 			return err
 		}
@@ -377,14 +381,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerAccessLevelBatch",
 	}:
 		if err := (&controllersaccesscontext.ManagerAccessLevelBatchReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerAccessLevelBatch"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_access_levels"],
-			TypeName: "google_access_context_manager_access_levels",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerAccessLevelBatch"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_access_levels"],
+			TypeName:         "google_access_context_manager_access_levels",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerAccessLevelBatch")
 			return err
 		}
@@ -394,14 +399,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerAccessPolicy",
 	}:
 		if err := (&controllersaccesscontext.ManagerAccessPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerAccessPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_access_policy"],
-			TypeName: "google_access_context_manager_access_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerAccessPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_access_policy"],
+			TypeName:         "google_access_context_manager_access_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerAccessPolicy")
 			return err
 		}
@@ -411,14 +417,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerGcpUserAccessBinding",
 	}:
 		if err := (&controllersaccesscontext.ManagerGcpUserAccessBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerGcpUserAccessBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_gcp_user_access_binding"],
-			TypeName: "google_access_context_manager_gcp_user_access_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerGcpUserAccessBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_gcp_user_access_binding"],
+			TypeName:         "google_access_context_manager_gcp_user_access_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerGcpUserAccessBinding")
 			return err
 		}
@@ -428,14 +435,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerServicePerimeter",
 	}:
 		if err := (&controllersaccesscontext.ManagerServicePerimeterReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerServicePerimeter"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_service_perimeter"],
-			TypeName: "google_access_context_manager_service_perimeter",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerServicePerimeter"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_service_perimeter"],
+			TypeName:         "google_access_context_manager_service_perimeter",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerServicePerimeter")
 			return err
 		}
@@ -445,14 +453,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerServicePerimeterResource",
 	}:
 		if err := (&controllersaccesscontext.ManagerServicePerimeterResourceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerServicePerimeterResource"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_service_perimeter_resource"],
-			TypeName: "google_access_context_manager_service_perimeter_resource",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerServicePerimeterResource"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_service_perimeter_resource"],
+			TypeName:         "google_access_context_manager_service_perimeter_resource",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerServicePerimeterResource")
 			return err
 		}
@@ -462,14 +471,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerServicePerimeterBatch",
 	}:
 		if err := (&controllersaccesscontext.ManagerServicePerimeterBatchReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerServicePerimeterBatch"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_access_context_manager_service_perimeters"],
-			TypeName: "google_access_context_manager_service_perimeters",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerServicePerimeterBatch"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_access_context_manager_service_perimeters"],
+			TypeName:         "google_access_context_manager_service_perimeters",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerServicePerimeterBatch")
 			return err
 		}
@@ -479,14 +489,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DirectoryDomain",
 	}:
 		if err := (&controllersactive.DirectoryDomainReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DirectoryDomain"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_active_directory_domain"],
-			TypeName: "google_active_directory_domain",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DirectoryDomain"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_active_directory_domain"],
+			TypeName:         "google_active_directory_domain",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DirectoryDomain")
 			return err
 		}
@@ -496,14 +507,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DirectoryDomainTrust",
 	}:
 		if err := (&controllersactive.DirectoryDomainTrustReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DirectoryDomainTrust"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_active_directory_domain_trust"],
-			TypeName: "google_active_directory_domain_trust",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DirectoryDomainTrust"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_active_directory_domain_trust"],
+			TypeName:         "google_active_directory_domain_trust",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DirectoryDomainTrust")
 			return err
 		}
@@ -513,14 +525,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Envgroup",
 	}:
 		if err := (&controllersapigee.EnvgroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Envgroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_apigee_envgroup"],
-			TypeName: "google_apigee_envgroup",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Envgroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_apigee_envgroup"],
+			TypeName:         "google_apigee_envgroup",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Envgroup")
 			return err
 		}
@@ -530,14 +543,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "EnvgroupAttachment",
 	}:
 		if err := (&controllersapigee.EnvgroupAttachmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("EnvgroupAttachment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_apigee_envgroup_attachment"],
-			TypeName: "google_apigee_envgroup_attachment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("EnvgroupAttachment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_apigee_envgroup_attachment"],
+			TypeName:         "google_apigee_envgroup_attachment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "EnvgroupAttachment")
 			return err
 		}
@@ -547,14 +561,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Environment",
 	}:
 		if err := (&controllersapigee.EnvironmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Environment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_apigee_environment"],
-			TypeName: "google_apigee_environment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Environment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_apigee_environment"],
+			TypeName:         "google_apigee_environment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
 			return err
 		}
@@ -564,14 +579,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersapigee.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_apigee_instance"],
-			TypeName: "google_apigee_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_apigee_instance"],
+			TypeName:         "google_apigee_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -581,14 +597,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceAttachment",
 	}:
 		if err := (&controllersapigee.InstanceAttachmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceAttachment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_apigee_instance_attachment"],
-			TypeName: "google_apigee_instance_attachment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceAttachment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_apigee_instance_attachment"],
+			TypeName:         "google_apigee_instance_attachment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceAttachment")
 			return err
 		}
@@ -598,14 +615,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Organization",
 	}:
 		if err := (&controllersapigee.OrganizationReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Organization"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_apigee_organization"],
-			TypeName: "google_apigee_organization",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Organization"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_apigee_organization"],
+			TypeName:         "google_apigee_organization",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Organization")
 			return err
 		}
@@ -615,14 +633,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Application",
 	}:
 		if err := (&controllersappengine.ApplicationReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Application"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_application"],
-			TypeName: "google_app_engine_application",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Application"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_application"],
+			TypeName:         "google_app_engine_application",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Application")
 			return err
 		}
@@ -632,14 +651,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ApplicationURLDispatchRules",
 	}:
 		if err := (&controllersappengine.ApplicationURLDispatchRulesReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ApplicationURLDispatchRules"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_application_url_dispatch_rules"],
-			TypeName: "google_app_engine_application_url_dispatch_rules",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ApplicationURLDispatchRules"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_application_url_dispatch_rules"],
+			TypeName:         "google_app_engine_application_url_dispatch_rules",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ApplicationURLDispatchRules")
 			return err
 		}
@@ -649,14 +669,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DomainMapping",
 	}:
 		if err := (&controllersappengine.DomainMappingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DomainMapping"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_domain_mapping"],
-			TypeName: "google_app_engine_domain_mapping",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DomainMapping"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_domain_mapping"],
+			TypeName:         "google_app_engine_domain_mapping",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DomainMapping")
 			return err
 		}
@@ -666,14 +687,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FirewallRule",
 	}:
 		if err := (&controllersappengine.FirewallRuleReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FirewallRule"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_firewall_rule"],
-			TypeName: "google_app_engine_firewall_rule",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FirewallRule"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_firewall_rule"],
+			TypeName:         "google_app_engine_firewall_rule",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FirewallRule")
 			return err
 		}
@@ -683,14 +705,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FlexibleAppVersion",
 	}:
 		if err := (&controllersappengine.FlexibleAppVersionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FlexibleAppVersion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_flexible_app_version"],
-			TypeName: "google_app_engine_flexible_app_version",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FlexibleAppVersion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_flexible_app_version"],
+			TypeName:         "google_app_engine_flexible_app_version",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FlexibleAppVersion")
 			return err
 		}
@@ -700,14 +723,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServiceNetworkSettings",
 	}:
 		if err := (&controllersappengine.ServiceNetworkSettingsReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServiceNetworkSettings"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_service_network_settings"],
-			TypeName: "google_app_engine_service_network_settings",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServiceNetworkSettings"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_service_network_settings"],
+			TypeName:         "google_app_engine_service_network_settings",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServiceNetworkSettings")
 			return err
 		}
@@ -717,14 +741,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServiceSplitTraffic",
 	}:
 		if err := (&controllersappengine.ServiceSplitTrafficReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServiceSplitTraffic"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_service_split_traffic"],
-			TypeName: "google_app_engine_service_split_traffic",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServiceSplitTraffic"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_service_split_traffic"],
+			TypeName:         "google_app_engine_service_split_traffic",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServiceSplitTraffic")
 			return err
 		}
@@ -734,14 +759,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "StandardAppVersion",
 	}:
 		if err := (&controllersappengine.StandardAppVersionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("StandardAppVersion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_app_engine_standard_app_version"],
-			TypeName: "google_app_engine_standard_app_version",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("StandardAppVersion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_app_engine_standard_app_version"],
+			TypeName:         "google_app_engine_standard_app_version",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "StandardAppVersion")
 			return err
 		}
@@ -751,14 +777,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DataTransferConfig",
 	}:
 		if err := (&controllersbigquery.DataTransferConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DataTransferConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_data_transfer_config"],
-			TypeName: "google_bigquery_data_transfer_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DataTransferConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_data_transfer_config"],
+			TypeName:         "google_bigquery_data_transfer_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DataTransferConfig")
 			return err
 		}
@@ -768,14 +795,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Dataset",
 	}:
 		if err := (&controllersbigquery.DatasetReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Dataset"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_dataset"],
-			TypeName: "google_bigquery_dataset",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Dataset"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_dataset"],
+			TypeName:         "google_bigquery_dataset",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Dataset")
 			return err
 		}
@@ -785,14 +813,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetAccess",
 	}:
 		if err := (&controllersbigquery.DatasetAccessReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetAccess"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_dataset_access"],
-			TypeName: "google_bigquery_dataset_access",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetAccess"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_dataset_access"],
+			TypeName:         "google_bigquery_dataset_access",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetAccess")
 			return err
 		}
@@ -802,14 +831,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetIamBinding",
 	}:
 		if err := (&controllersbigquery.DatasetIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_dataset_iam_binding"],
-			TypeName: "google_bigquery_dataset_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_dataset_iam_binding"],
+			TypeName:         "google_bigquery_dataset_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetIamBinding")
 			return err
 		}
@@ -819,14 +849,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetIamMember",
 	}:
 		if err := (&controllersbigquery.DatasetIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_dataset_iam_member"],
-			TypeName: "google_bigquery_dataset_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_dataset_iam_member"],
+			TypeName:         "google_bigquery_dataset_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetIamMember")
 			return err
 		}
@@ -836,14 +867,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetIamPolicy",
 	}:
 		if err := (&controllersbigquery.DatasetIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_dataset_iam_policy"],
-			TypeName: "google_bigquery_dataset_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_dataset_iam_policy"],
+			TypeName:         "google_bigquery_dataset_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetIamPolicy")
 			return err
 		}
@@ -853,14 +885,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Job",
 	}:
 		if err := (&controllersbigquery.JobReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Job"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_job"],
-			TypeName: "google_bigquery_job",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Job"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_job"],
+			TypeName:         "google_bigquery_job",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Job")
 			return err
 		}
@@ -870,14 +903,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Reservation",
 	}:
 		if err := (&controllersbigquery.ReservationReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Reservation"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_reservation"],
-			TypeName: "google_bigquery_reservation",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Reservation"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_reservation"],
+			TypeName:         "google_bigquery_reservation",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Reservation")
 			return err
 		}
@@ -887,14 +921,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Routine",
 	}:
 		if err := (&controllersbigquery.RoutineReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Routine"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_routine"],
-			TypeName: "google_bigquery_routine",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Routine"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_routine"],
+			TypeName:         "google_bigquery_routine",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Routine")
 			return err
 		}
@@ -904,14 +939,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Table",
 	}:
 		if err := (&controllersbigquery.TableReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Table"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_table"],
-			TypeName: "google_bigquery_table",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Table"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_table"],
+			TypeName:         "google_bigquery_table",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Table")
 			return err
 		}
@@ -921,14 +957,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TableIamBinding",
 	}:
 		if err := (&controllersbigquery.TableIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TableIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_table_iam_binding"],
-			TypeName: "google_bigquery_table_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TableIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_table_iam_binding"],
+			TypeName:         "google_bigquery_table_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TableIamBinding")
 			return err
 		}
@@ -938,14 +975,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TableIamMember",
 	}:
 		if err := (&controllersbigquery.TableIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TableIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_table_iam_member"],
-			TypeName: "google_bigquery_table_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TableIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_table_iam_member"],
+			TypeName:         "google_bigquery_table_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TableIamMember")
 			return err
 		}
@@ -955,14 +993,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TableIamPolicy",
 	}:
 		if err := (&controllersbigquery.TableIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TableIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigquery_table_iam_policy"],
-			TypeName: "google_bigquery_table_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TableIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigquery_table_iam_policy"],
+			TypeName:         "google_bigquery_table_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TableIamPolicy")
 			return err
 		}
@@ -972,14 +1011,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppProfile",
 	}:
 		if err := (&controllersbigtable.AppProfileReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppProfile"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_app_profile"],
-			TypeName: "google_bigtable_app_profile",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppProfile"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_app_profile"],
+			TypeName:         "google_bigtable_app_profile",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppProfile")
 			return err
 		}
@@ -989,14 +1029,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "GcPolicy",
 	}:
 		if err := (&controllersbigtable.GcPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("GcPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_gc_policy"],
-			TypeName: "google_bigtable_gc_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("GcPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_gc_policy"],
+			TypeName:         "google_bigtable_gc_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GcPolicy")
 			return err
 		}
@@ -1006,14 +1047,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersbigtable.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_instance"],
-			TypeName: "google_bigtable_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_instance"],
+			TypeName:         "google_bigtable_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -1023,14 +1065,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamBinding",
 	}:
 		if err := (&controllersbigtable.InstanceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_instance_iam_binding"],
-			TypeName: "google_bigtable_instance_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_instance_iam_binding"],
+			TypeName:         "google_bigtable_instance_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamBinding")
 			return err
 		}
@@ -1040,14 +1083,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamMember",
 	}:
 		if err := (&controllersbigtable.InstanceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_instance_iam_member"],
-			TypeName: "google_bigtable_instance_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_instance_iam_member"],
+			TypeName:         "google_bigtable_instance_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamMember")
 			return err
 		}
@@ -1057,14 +1101,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamPolicy",
 	}:
 		if err := (&controllersbigtable.InstanceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_instance_iam_policy"],
-			TypeName: "google_bigtable_instance_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_instance_iam_policy"],
+			TypeName:         "google_bigtable_instance_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamPolicy")
 			return err
 		}
@@ -1074,14 +1119,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Table",
 	}:
 		if err := (&controllersbigtable.TableReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Table"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_table"],
-			TypeName: "google_bigtable_table",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Table"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_table"],
+			TypeName:         "google_bigtable_table",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Table")
 			return err
 		}
@@ -1091,14 +1137,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TableIamBinding",
 	}:
 		if err := (&controllersbigtable.TableIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TableIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_table_iam_binding"],
-			TypeName: "google_bigtable_table_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TableIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_table_iam_binding"],
+			TypeName:         "google_bigtable_table_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TableIamBinding")
 			return err
 		}
@@ -1108,14 +1155,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TableIamMember",
 	}:
 		if err := (&controllersbigtable.TableIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TableIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_table_iam_member"],
-			TypeName: "google_bigtable_table_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TableIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_table_iam_member"],
+			TypeName:         "google_bigtable_table_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TableIamMember")
 			return err
 		}
@@ -1125,14 +1173,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TableIamPolicy",
 	}:
 		if err := (&controllersbigtable.TableIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TableIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_bigtable_table_iam_policy"],
-			TypeName: "google_bigtable_table_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TableIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_bigtable_table_iam_policy"],
+			TypeName:         "google_bigtable_table_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TableIamPolicy")
 			return err
 		}
@@ -1142,14 +1191,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamBinding",
 	}:
 		if err := (&controllersbillingaccount.IamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_billing_account_iam_binding"],
-			TypeName: "google_billing_account_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_billing_account_iam_binding"],
+			TypeName:         "google_billing_account_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamBinding")
 			return err
 		}
@@ -1159,14 +1209,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamMember",
 	}:
 		if err := (&controllersbillingaccount.IamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_billing_account_iam_member"],
-			TypeName: "google_billing_account_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_billing_account_iam_member"],
+			TypeName:         "google_billing_account_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamMember")
 			return err
 		}
@@ -1176,14 +1227,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamPolicy",
 	}:
 		if err := (&controllersbillingaccount.IamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_billing_account_iam_policy"],
-			TypeName: "google_billing_account_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_billing_account_iam_policy"],
+			TypeName:         "google_billing_account_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamPolicy")
 			return err
 		}
@@ -1193,14 +1245,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BillingBudget",
 	}:
 		if err := (&controllersbillingbudget.BillingBudgetReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BillingBudget"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_billing_budget"],
-			TypeName: "google_billing_budget",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BillingBudget"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_billing_budget"],
+			TypeName:         "google_billing_budget",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BillingBudget")
 			return err
 		}
@@ -1210,14 +1263,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BillingSubaccount",
 	}:
 		if err := (&controllersbillingsubaccount.BillingSubaccountReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BillingSubaccount"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_billing_subaccount"],
-			TypeName: "google_billing_subaccount",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BillingSubaccount"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_billing_subaccount"],
+			TypeName:         "google_billing_subaccount",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BillingSubaccount")
 			return err
 		}
@@ -1227,14 +1281,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Attestor",
 	}:
 		if err := (&controllersbinaryauthorization.AttestorReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Attestor"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_binary_authorization_attestor"],
-			TypeName: "google_binary_authorization_attestor",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Attestor"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_binary_authorization_attestor"],
+			TypeName:         "google_binary_authorization_attestor",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Attestor")
 			return err
 		}
@@ -1244,14 +1299,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AttestorIamBinding",
 	}:
 		if err := (&controllersbinaryauthorization.AttestorIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AttestorIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_binary_authorization_attestor_iam_binding"],
-			TypeName: "google_binary_authorization_attestor_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AttestorIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_binary_authorization_attestor_iam_binding"],
+			TypeName:         "google_binary_authorization_attestor_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AttestorIamBinding")
 			return err
 		}
@@ -1261,14 +1317,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AttestorIamMember",
 	}:
 		if err := (&controllersbinaryauthorization.AttestorIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AttestorIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_binary_authorization_attestor_iam_member"],
-			TypeName: "google_binary_authorization_attestor_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AttestorIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_binary_authorization_attestor_iam_member"],
+			TypeName:         "google_binary_authorization_attestor_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AttestorIamMember")
 			return err
 		}
@@ -1278,14 +1335,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AttestorIamPolicy",
 	}:
 		if err := (&controllersbinaryauthorization.AttestorIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AttestorIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_binary_authorization_attestor_iam_policy"],
-			TypeName: "google_binary_authorization_attestor_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AttestorIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_binary_authorization_attestor_iam_policy"],
+			TypeName:         "google_binary_authorization_attestor_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AttestorIamPolicy")
 			return err
 		}
@@ -1295,14 +1353,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Policy",
 	}:
 		if err := (&controllersbinaryauthorization.PolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Policy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_binary_authorization_policy"],
-			TypeName: "google_binary_authorization_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Policy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_binary_authorization_policy"],
+			TypeName:         "google_binary_authorization_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Policy")
 			return err
 		}
@@ -1312,14 +1371,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AssetFolderFeed",
 	}:
 		if err := (&controllerscloud.AssetFolderFeedReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AssetFolderFeed"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_asset_folder_feed"],
-			TypeName: "google_cloud_asset_folder_feed",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AssetFolderFeed"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_asset_folder_feed"],
+			TypeName:         "google_cloud_asset_folder_feed",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AssetFolderFeed")
 			return err
 		}
@@ -1329,14 +1389,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AssetOrganizationFeed",
 	}:
 		if err := (&controllerscloud.AssetOrganizationFeedReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AssetOrganizationFeed"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_asset_organization_feed"],
-			TypeName: "google_cloud_asset_organization_feed",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AssetOrganizationFeed"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_asset_organization_feed"],
+			TypeName:         "google_cloud_asset_organization_feed",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AssetOrganizationFeed")
 			return err
 		}
@@ -1346,14 +1407,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AssetProjectFeed",
 	}:
 		if err := (&controllerscloud.AssetProjectFeedReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AssetProjectFeed"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_asset_project_feed"],
-			TypeName: "google_cloud_asset_project_feed",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AssetProjectFeed"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_asset_project_feed"],
+			TypeName:         "google_cloud_asset_project_feed",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AssetProjectFeed")
 			return err
 		}
@@ -1363,14 +1425,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IdentityGroup",
 	}:
 		if err := (&controllerscloud.IdentityGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IdentityGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_identity_group"],
-			TypeName: "google_cloud_identity_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IdentityGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_identity_group"],
+			TypeName:         "google_cloud_identity_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IdentityGroup")
 			return err
 		}
@@ -1380,14 +1443,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IdentityGroupMembership",
 	}:
 		if err := (&controllerscloud.IdentityGroupMembershipReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IdentityGroupMembership"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_identity_group_membership"],
-			TypeName: "google_cloud_identity_group_membership",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IdentityGroupMembership"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_identity_group_membership"],
+			TypeName:         "google_cloud_identity_group_membership",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IdentityGroupMembership")
 			return err
 		}
@@ -1397,14 +1461,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RunDomainMapping",
 	}:
 		if err := (&controllerscloud.RunDomainMappingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RunDomainMapping"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_run_domain_mapping"],
-			TypeName: "google_cloud_run_domain_mapping",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RunDomainMapping"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_run_domain_mapping"],
+			TypeName:         "google_cloud_run_domain_mapping",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RunDomainMapping")
 			return err
 		}
@@ -1414,14 +1479,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RunService",
 	}:
 		if err := (&controllerscloud.RunServiceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RunService"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_run_service"],
-			TypeName: "google_cloud_run_service",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RunService"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_run_service"],
+			TypeName:         "google_cloud_run_service",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RunService")
 			return err
 		}
@@ -1431,14 +1497,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RunServiceIamBinding",
 	}:
 		if err := (&controllerscloud.RunServiceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RunServiceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_run_service_iam_binding"],
-			TypeName: "google_cloud_run_service_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RunServiceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_run_service_iam_binding"],
+			TypeName:         "google_cloud_run_service_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RunServiceIamBinding")
 			return err
 		}
@@ -1448,14 +1515,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RunServiceIamMember",
 	}:
 		if err := (&controllerscloud.RunServiceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RunServiceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_run_service_iam_member"],
-			TypeName: "google_cloud_run_service_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RunServiceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_run_service_iam_member"],
+			TypeName:         "google_cloud_run_service_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RunServiceIamMember")
 			return err
 		}
@@ -1465,14 +1533,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RunServiceIamPolicy",
 	}:
 		if err := (&controllerscloud.RunServiceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RunServiceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_run_service_iam_policy"],
-			TypeName: "google_cloud_run_service_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RunServiceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_run_service_iam_policy"],
+			TypeName:         "google_cloud_run_service_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RunServiceIamPolicy")
 			return err
 		}
@@ -1482,14 +1551,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SchedulerJob",
 	}:
 		if err := (&controllerscloud.SchedulerJobReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SchedulerJob"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_scheduler_job"],
-			TypeName: "google_cloud_scheduler_job",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SchedulerJob"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_scheduler_job"],
+			TypeName:         "google_cloud_scheduler_job",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SchedulerJob")
 			return err
 		}
@@ -1499,14 +1569,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TasksQueue",
 	}:
 		if err := (&controllerscloud.TasksQueueReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TasksQueue"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloud_tasks_queue"],
-			TypeName: "google_cloud_tasks_queue",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TasksQueue"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloud_tasks_queue"],
+			TypeName:         "google_cloud_tasks_queue",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TasksQueue")
 			return err
 		}
@@ -1516,14 +1587,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Trigger",
 	}:
 		if err := (&controllerscloudbuild.TriggerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Trigger"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudbuild_trigger"],
-			TypeName: "google_cloudbuild_trigger",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Trigger"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudbuild_trigger"],
+			TypeName:         "google_cloudbuild_trigger",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Trigger")
 			return err
 		}
@@ -1533,14 +1605,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CloudfunctionsFunction",
 	}:
 		if err := (&controllerscloudfunctionsfunction.CloudfunctionsFunctionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CloudfunctionsFunction"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudfunctions_function"],
-			TypeName: "google_cloudfunctions_function",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CloudfunctionsFunction"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudfunctions_function"],
+			TypeName:         "google_cloudfunctions_function",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CloudfunctionsFunction")
 			return err
 		}
@@ -1550,14 +1623,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamBinding",
 	}:
 		if err := (&controllerscloudfunctionsfunction.IamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudfunctions_function_iam_binding"],
-			TypeName: "google_cloudfunctions_function_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudfunctions_function_iam_binding"],
+			TypeName:         "google_cloudfunctions_function_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamBinding")
 			return err
 		}
@@ -1567,14 +1641,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamMember",
 	}:
 		if err := (&controllerscloudfunctionsfunction.IamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudfunctions_function_iam_member"],
-			TypeName: "google_cloudfunctions_function_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudfunctions_function_iam_member"],
+			TypeName:         "google_cloudfunctions_function_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamMember")
 			return err
 		}
@@ -1584,14 +1659,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamPolicy",
 	}:
 		if err := (&controllerscloudfunctionsfunction.IamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudfunctions_function_iam_policy"],
-			TypeName: "google_cloudfunctions_function_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudfunctions_function_iam_policy"],
+			TypeName:         "google_cloudfunctions_function_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamPolicy")
 			return err
 		}
@@ -1601,14 +1677,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Device",
 	}:
 		if err := (&controllerscloudiot.DeviceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Device"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudiot_device"],
-			TypeName: "google_cloudiot_device",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Device"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudiot_device"],
+			TypeName:         "google_cloudiot_device",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Device")
 			return err
 		}
@@ -1618,14 +1695,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Registry",
 	}:
 		if err := (&controllerscloudiot.RegistryReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Registry"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_cloudiot_registry"],
-			TypeName: "google_cloudiot_registry",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Registry"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_cloudiot_registry"],
+			TypeName:         "google_cloudiot_registry",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Registry")
 			return err
 		}
@@ -1635,14 +1713,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Environment",
 	}:
 		if err := (&controllerscomposer.EnvironmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Environment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_composer_environment"],
-			TypeName: "google_composer_environment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Environment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_composer_environment"],
+			TypeName:         "google_composer_environment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
 			return err
 		}
@@ -1652,14 +1731,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Address",
 	}:
 		if err := (&controllerscompute.AddressReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Address"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_address"],
-			TypeName: "google_compute_address",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Address"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_address"],
+			TypeName:         "google_compute_address",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Address")
 			return err
 		}
@@ -1669,14 +1749,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AttachedDisk",
 	}:
 		if err := (&controllerscompute.AttachedDiskReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AttachedDisk"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_attached_disk"],
-			TypeName: "google_compute_attached_disk",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AttachedDisk"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_attached_disk"],
+			TypeName:         "google_compute_attached_disk",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AttachedDisk")
 			return err
 		}
@@ -1686,14 +1767,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Autoscaler",
 	}:
 		if err := (&controllerscompute.AutoscalerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Autoscaler"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_autoscaler"],
-			TypeName: "google_compute_autoscaler",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Autoscaler"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_autoscaler"],
+			TypeName:         "google_compute_autoscaler",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Autoscaler")
 			return err
 		}
@@ -1703,14 +1785,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BackendBucket",
 	}:
 		if err := (&controllerscompute.BackendBucketReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BackendBucket"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_backend_bucket"],
-			TypeName: "google_compute_backend_bucket",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BackendBucket"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_backend_bucket"],
+			TypeName:         "google_compute_backend_bucket",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BackendBucket")
 			return err
 		}
@@ -1720,14 +1803,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BackendBucketSignedURLKey",
 	}:
 		if err := (&controllerscompute.BackendBucketSignedURLKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BackendBucketSignedURLKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_backend_bucket_signed_url_key"],
-			TypeName: "google_compute_backend_bucket_signed_url_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BackendBucketSignedURLKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_backend_bucket_signed_url_key"],
+			TypeName:         "google_compute_backend_bucket_signed_url_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BackendBucketSignedURLKey")
 			return err
 		}
@@ -1737,14 +1821,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BackendService",
 	}:
 		if err := (&controllerscompute.BackendServiceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BackendService"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_backend_service"],
-			TypeName: "google_compute_backend_service",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BackendService"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_backend_service"],
+			TypeName:         "google_compute_backend_service",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BackendService")
 			return err
 		}
@@ -1754,14 +1839,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BackendServiceSignedURLKey",
 	}:
 		if err := (&controllerscompute.BackendServiceSignedURLKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BackendServiceSignedURLKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_backend_service_signed_url_key"],
-			TypeName: "google_compute_backend_service_signed_url_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BackendServiceSignedURLKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_backend_service_signed_url_key"],
+			TypeName:         "google_compute_backend_service_signed_url_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BackendServiceSignedURLKey")
 			return err
 		}
@@ -1771,14 +1857,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Disk",
 	}:
 		if err := (&controllerscompute.DiskReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Disk"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_disk"],
-			TypeName: "google_compute_disk",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Disk"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_disk"],
+			TypeName:         "google_compute_disk",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Disk")
 			return err
 		}
@@ -1788,14 +1875,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DiskIamBinding",
 	}:
 		if err := (&controllerscompute.DiskIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DiskIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_disk_iam_binding"],
-			TypeName: "google_compute_disk_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DiskIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_disk_iam_binding"],
+			TypeName:         "google_compute_disk_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DiskIamBinding")
 			return err
 		}
@@ -1805,14 +1893,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DiskIamMember",
 	}:
 		if err := (&controllerscompute.DiskIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DiskIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_disk_iam_member"],
-			TypeName: "google_compute_disk_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DiskIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_disk_iam_member"],
+			TypeName:         "google_compute_disk_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DiskIamMember")
 			return err
 		}
@@ -1822,14 +1911,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DiskIamPolicy",
 	}:
 		if err := (&controllerscompute.DiskIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DiskIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_disk_iam_policy"],
-			TypeName: "google_compute_disk_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DiskIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_disk_iam_policy"],
+			TypeName:         "google_compute_disk_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DiskIamPolicy")
 			return err
 		}
@@ -1839,14 +1929,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DiskResourcePolicyAttachment",
 	}:
 		if err := (&controllerscompute.DiskResourcePolicyAttachmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DiskResourcePolicyAttachment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_disk_resource_policy_attachment"],
-			TypeName: "google_compute_disk_resource_policy_attachment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DiskResourcePolicyAttachment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_disk_resource_policy_attachment"],
+			TypeName:         "google_compute_disk_resource_policy_attachment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DiskResourcePolicyAttachment")
 			return err
 		}
@@ -1856,14 +1947,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ExternalVPNGateway",
 	}:
 		if err := (&controllerscompute.ExternalVPNGatewayReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ExternalVPNGateway"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_external_vpn_gateway"],
-			TypeName: "google_compute_external_vpn_gateway",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ExternalVPNGateway"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_external_vpn_gateway"],
+			TypeName:         "google_compute_external_vpn_gateway",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ExternalVPNGateway")
 			return err
 		}
@@ -1873,14 +1965,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Firewall",
 	}:
 		if err := (&controllerscompute.FirewallReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Firewall"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_firewall"],
-			TypeName: "google_compute_firewall",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Firewall"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_firewall"],
+			TypeName:         "google_compute_firewall",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Firewall")
 			return err
 		}
@@ -1890,14 +1983,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ForwardingRule",
 	}:
 		if err := (&controllerscompute.ForwardingRuleReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ForwardingRule"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_forwarding_rule"],
-			TypeName: "google_compute_forwarding_rule",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ForwardingRule"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_forwarding_rule"],
+			TypeName:         "google_compute_forwarding_rule",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ForwardingRule")
 			return err
 		}
@@ -1907,14 +2001,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "GlobalAddress",
 	}:
 		if err := (&controllerscompute.GlobalAddressReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("GlobalAddress"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_global_address"],
-			TypeName: "google_compute_global_address",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("GlobalAddress"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_global_address"],
+			TypeName:         "google_compute_global_address",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GlobalAddress")
 			return err
 		}
@@ -1924,14 +2019,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "GlobalForwardingRule",
 	}:
 		if err := (&controllerscompute.GlobalForwardingRuleReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("GlobalForwardingRule"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_global_forwarding_rule"],
-			TypeName: "google_compute_global_forwarding_rule",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("GlobalForwardingRule"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_global_forwarding_rule"],
+			TypeName:         "google_compute_global_forwarding_rule",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GlobalForwardingRule")
 			return err
 		}
@@ -1941,14 +2037,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "GlobalNetworkEndpoint",
 	}:
 		if err := (&controllerscompute.GlobalNetworkEndpointReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("GlobalNetworkEndpoint"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_global_network_endpoint"],
-			TypeName: "google_compute_global_network_endpoint",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("GlobalNetworkEndpoint"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_global_network_endpoint"],
+			TypeName:         "google_compute_global_network_endpoint",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GlobalNetworkEndpoint")
 			return err
 		}
@@ -1958,14 +2055,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "GlobalNetworkEndpointGroup",
 	}:
 		if err := (&controllerscompute.GlobalNetworkEndpointGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("GlobalNetworkEndpointGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_global_network_endpoint_group"],
-			TypeName: "google_compute_global_network_endpoint_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("GlobalNetworkEndpointGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_global_network_endpoint_group"],
+			TypeName:         "google_compute_global_network_endpoint_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GlobalNetworkEndpointGroup")
 			return err
 		}
@@ -1975,14 +2073,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "HaVPNGateway",
 	}:
 		if err := (&controllerscompute.HaVPNGatewayReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("HaVPNGateway"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_ha_vpn_gateway"],
-			TypeName: "google_compute_ha_vpn_gateway",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("HaVPNGateway"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_ha_vpn_gateway"],
+			TypeName:         "google_compute_ha_vpn_gateway",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "HaVPNGateway")
 			return err
 		}
@@ -1992,14 +2091,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "HealthCheck",
 	}:
 		if err := (&controllerscompute.HealthCheckReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("HealthCheck"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_health_check"],
-			TypeName: "google_compute_health_check",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("HealthCheck"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_health_check"],
+			TypeName:         "google_compute_health_check",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "HealthCheck")
 			return err
 		}
@@ -2009,14 +2109,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "HttpHealthCheck",
 	}:
 		if err := (&controllerscompute.HttpHealthCheckReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("HttpHealthCheck"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_http_health_check"],
-			TypeName: "google_compute_http_health_check",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("HttpHealthCheck"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_http_health_check"],
+			TypeName:         "google_compute_http_health_check",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "HttpHealthCheck")
 			return err
 		}
@@ -2026,14 +2127,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "HttpsHealthCheck",
 	}:
 		if err := (&controllerscompute.HttpsHealthCheckReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("HttpsHealthCheck"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_https_health_check"],
-			TypeName: "google_compute_https_health_check",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("HttpsHealthCheck"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_https_health_check"],
+			TypeName:         "google_compute_https_health_check",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "HttpsHealthCheck")
 			return err
 		}
@@ -2043,14 +2145,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Image",
 	}:
 		if err := (&controllerscompute.ImageReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Image"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_image"],
-			TypeName: "google_compute_image",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Image"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_image"],
+			TypeName:         "google_compute_image",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Image")
 			return err
 		}
@@ -2060,14 +2163,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ImageIamBinding",
 	}:
 		if err := (&controllerscompute.ImageIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ImageIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_image_iam_binding"],
-			TypeName: "google_compute_image_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ImageIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_image_iam_binding"],
+			TypeName:         "google_compute_image_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ImageIamBinding")
 			return err
 		}
@@ -2077,14 +2181,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ImageIamMember",
 	}:
 		if err := (&controllerscompute.ImageIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ImageIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_image_iam_member"],
-			TypeName: "google_compute_image_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ImageIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_image_iam_member"],
+			TypeName:         "google_compute_image_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ImageIamMember")
 			return err
 		}
@@ -2094,14 +2199,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ImageIamPolicy",
 	}:
 		if err := (&controllerscompute.ImageIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ImageIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_image_iam_policy"],
-			TypeName: "google_compute_image_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ImageIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_image_iam_policy"],
+			TypeName:         "google_compute_image_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ImageIamPolicy")
 			return err
 		}
@@ -2111,14 +2217,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllerscompute.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance"],
-			TypeName: "google_compute_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance"],
+			TypeName:         "google_compute_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -2128,14 +2235,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceFromTemplate",
 	}:
 		if err := (&controllerscompute.InstanceFromTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceFromTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_from_template"],
-			TypeName: "google_compute_instance_from_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceFromTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_from_template"],
+			TypeName:         "google_compute_instance_from_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceFromTemplate")
 			return err
 		}
@@ -2145,14 +2253,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceGroup",
 	}:
 		if err := (&controllerscompute.InstanceGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_group"],
-			TypeName: "google_compute_instance_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_group"],
+			TypeName:         "google_compute_instance_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceGroup")
 			return err
 		}
@@ -2162,14 +2271,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceGroupManager",
 	}:
 		if err := (&controllerscompute.InstanceGroupManagerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceGroupManager"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_group_manager"],
-			TypeName: "google_compute_instance_group_manager",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceGroupManager"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_group_manager"],
+			TypeName:         "google_compute_instance_group_manager",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceGroupManager")
 			return err
 		}
@@ -2179,14 +2289,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceGroupNamedPort",
 	}:
 		if err := (&controllerscompute.InstanceGroupNamedPortReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceGroupNamedPort"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_group_named_port"],
-			TypeName: "google_compute_instance_group_named_port",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceGroupNamedPort"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_group_named_port"],
+			TypeName:         "google_compute_instance_group_named_port",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceGroupNamedPort")
 			return err
 		}
@@ -2196,14 +2307,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamBinding",
 	}:
 		if err := (&controllerscompute.InstanceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_iam_binding"],
-			TypeName: "google_compute_instance_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_iam_binding"],
+			TypeName:         "google_compute_instance_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamBinding")
 			return err
 		}
@@ -2213,14 +2325,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamMember",
 	}:
 		if err := (&controllerscompute.InstanceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_iam_member"],
-			TypeName: "google_compute_instance_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_iam_member"],
+			TypeName:         "google_compute_instance_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamMember")
 			return err
 		}
@@ -2230,14 +2343,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamPolicy",
 	}:
 		if err := (&controllerscompute.InstanceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_iam_policy"],
-			TypeName: "google_compute_instance_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_iam_policy"],
+			TypeName:         "google_compute_instance_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamPolicy")
 			return err
 		}
@@ -2247,14 +2361,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceTemplate",
 	}:
 		if err := (&controllerscompute.InstanceTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_instance_template"],
-			TypeName: "google_compute_instance_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_instance_template"],
+			TypeName:         "google_compute_instance_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceTemplate")
 			return err
 		}
@@ -2264,14 +2379,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InterconnectAttachment",
 	}:
 		if err := (&controllerscompute.InterconnectAttachmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InterconnectAttachment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_interconnect_attachment"],
-			TypeName: "google_compute_interconnect_attachment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InterconnectAttachment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_interconnect_attachment"],
+			TypeName:         "google_compute_interconnect_attachment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InterconnectAttachment")
 			return err
 		}
@@ -2281,14 +2397,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagedSslCertificate",
 	}:
 		if err := (&controllerscompute.ManagedSslCertificateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagedSslCertificate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_managed_ssl_certificate"],
-			TypeName: "google_compute_managed_ssl_certificate",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagedSslCertificate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_managed_ssl_certificate"],
+			TypeName:         "google_compute_managed_ssl_certificate",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagedSslCertificate")
 			return err
 		}
@@ -2298,14 +2415,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Network",
 	}:
 		if err := (&controllerscompute.NetworkReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Network"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_network"],
-			TypeName: "google_compute_network",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Network"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_network"],
+			TypeName:         "google_compute_network",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Network")
 			return err
 		}
@@ -2315,14 +2433,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NetworkEndpoint",
 	}:
 		if err := (&controllerscompute.NetworkEndpointReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NetworkEndpoint"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_network_endpoint"],
-			TypeName: "google_compute_network_endpoint",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NetworkEndpoint"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_network_endpoint"],
+			TypeName:         "google_compute_network_endpoint",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NetworkEndpoint")
 			return err
 		}
@@ -2332,14 +2451,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NetworkEndpointGroup",
 	}:
 		if err := (&controllerscompute.NetworkEndpointGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NetworkEndpointGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_network_endpoint_group"],
-			TypeName: "google_compute_network_endpoint_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NetworkEndpointGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_network_endpoint_group"],
+			TypeName:         "google_compute_network_endpoint_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NetworkEndpointGroup")
 			return err
 		}
@@ -2349,14 +2469,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NetworkPeering",
 	}:
 		if err := (&controllerscompute.NetworkPeeringReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NetworkPeering"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_network_peering"],
-			TypeName: "google_compute_network_peering",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NetworkPeering"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_network_peering"],
+			TypeName:         "google_compute_network_peering",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NetworkPeering")
 			return err
 		}
@@ -2366,14 +2487,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NetworkPeeringRoutesConfig",
 	}:
 		if err := (&controllerscompute.NetworkPeeringRoutesConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NetworkPeeringRoutesConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_network_peering_routes_config"],
-			TypeName: "google_compute_network_peering_routes_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NetworkPeeringRoutesConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_network_peering_routes_config"],
+			TypeName:         "google_compute_network_peering_routes_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NetworkPeeringRoutesConfig")
 			return err
 		}
@@ -2383,14 +2505,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NodeGroup",
 	}:
 		if err := (&controllerscompute.NodeGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NodeGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_node_group"],
-			TypeName: "google_compute_node_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NodeGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_node_group"],
+			TypeName:         "google_compute_node_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NodeGroup")
 			return err
 		}
@@ -2400,14 +2523,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NodeTemplate",
 	}:
 		if err := (&controllerscompute.NodeTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NodeTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_node_template"],
-			TypeName: "google_compute_node_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NodeTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_node_template"],
+			TypeName:         "google_compute_node_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NodeTemplate")
 			return err
 		}
@@ -2417,14 +2541,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PacketMirroring",
 	}:
 		if err := (&controllerscompute.PacketMirroringReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PacketMirroring"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_packet_mirroring"],
-			TypeName: "google_compute_packet_mirroring",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PacketMirroring"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_packet_mirroring"],
+			TypeName:         "google_compute_packet_mirroring",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PacketMirroring")
 			return err
 		}
@@ -2434,14 +2559,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PerInstanceConfig",
 	}:
 		if err := (&controllerscompute.PerInstanceConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PerInstanceConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_per_instance_config"],
-			TypeName: "google_compute_per_instance_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PerInstanceConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_per_instance_config"],
+			TypeName:         "google_compute_per_instance_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PerInstanceConfig")
 			return err
 		}
@@ -2451,14 +2577,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ProjectDefaultNetworkTier",
 	}:
 		if err := (&controllerscompute.ProjectDefaultNetworkTierReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ProjectDefaultNetworkTier"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_project_default_network_tier"],
-			TypeName: "google_compute_project_default_network_tier",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ProjectDefaultNetworkTier"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_project_default_network_tier"],
+			TypeName:         "google_compute_project_default_network_tier",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ProjectDefaultNetworkTier")
 			return err
 		}
@@ -2468,14 +2595,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ProjectMetadata",
 	}:
 		if err := (&controllerscompute.ProjectMetadataReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ProjectMetadata"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_project_metadata"],
-			TypeName: "google_compute_project_metadata",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ProjectMetadata"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_project_metadata"],
+			TypeName:         "google_compute_project_metadata",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ProjectMetadata")
 			return err
 		}
@@ -2485,14 +2613,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ProjectMetadataItem",
 	}:
 		if err := (&controllerscompute.ProjectMetadataItemReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ProjectMetadataItem"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_project_metadata_item"],
-			TypeName: "google_compute_project_metadata_item",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ProjectMetadataItem"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_project_metadata_item"],
+			TypeName:         "google_compute_project_metadata_item",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ProjectMetadataItem")
 			return err
 		}
@@ -2502,14 +2631,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionAutoscaler",
 	}:
 		if err := (&controllerscompute.RegionAutoscalerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionAutoscaler"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_autoscaler"],
-			TypeName: "google_compute_region_autoscaler",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionAutoscaler"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_autoscaler"],
+			TypeName:         "google_compute_region_autoscaler",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionAutoscaler")
 			return err
 		}
@@ -2519,14 +2649,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionBackendService",
 	}:
 		if err := (&controllerscompute.RegionBackendServiceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionBackendService"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_backend_service"],
-			TypeName: "google_compute_region_backend_service",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionBackendService"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_backend_service"],
+			TypeName:         "google_compute_region_backend_service",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionBackendService")
 			return err
 		}
@@ -2536,14 +2667,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionDisk",
 	}:
 		if err := (&controllerscompute.RegionDiskReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionDisk"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_disk"],
-			TypeName: "google_compute_region_disk",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionDisk"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_disk"],
+			TypeName:         "google_compute_region_disk",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionDisk")
 			return err
 		}
@@ -2553,14 +2685,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionDiskIamBinding",
 	}:
 		if err := (&controllerscompute.RegionDiskIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionDiskIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_disk_iam_binding"],
-			TypeName: "google_compute_region_disk_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionDiskIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_disk_iam_binding"],
+			TypeName:         "google_compute_region_disk_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionDiskIamBinding")
 			return err
 		}
@@ -2570,14 +2703,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionDiskIamMember",
 	}:
 		if err := (&controllerscompute.RegionDiskIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionDiskIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_disk_iam_member"],
-			TypeName: "google_compute_region_disk_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionDiskIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_disk_iam_member"],
+			TypeName:         "google_compute_region_disk_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionDiskIamMember")
 			return err
 		}
@@ -2587,14 +2721,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionDiskIamPolicy",
 	}:
 		if err := (&controllerscompute.RegionDiskIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionDiskIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_disk_iam_policy"],
-			TypeName: "google_compute_region_disk_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionDiskIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_disk_iam_policy"],
+			TypeName:         "google_compute_region_disk_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionDiskIamPolicy")
 			return err
 		}
@@ -2604,14 +2739,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionDiskResourcePolicyAttachment",
 	}:
 		if err := (&controllerscompute.RegionDiskResourcePolicyAttachmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionDiskResourcePolicyAttachment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_disk_resource_policy_attachment"],
-			TypeName: "google_compute_region_disk_resource_policy_attachment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionDiskResourcePolicyAttachment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_disk_resource_policy_attachment"],
+			TypeName:         "google_compute_region_disk_resource_policy_attachment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionDiskResourcePolicyAttachment")
 			return err
 		}
@@ -2621,14 +2757,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionHealthCheck",
 	}:
 		if err := (&controllerscompute.RegionHealthCheckReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionHealthCheck"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_health_check"],
-			TypeName: "google_compute_region_health_check",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionHealthCheck"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_health_check"],
+			TypeName:         "google_compute_region_health_check",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionHealthCheck")
 			return err
 		}
@@ -2638,14 +2775,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionInstanceGroupManager",
 	}:
 		if err := (&controllerscompute.RegionInstanceGroupManagerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionInstanceGroupManager"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_instance_group_manager"],
-			TypeName: "google_compute_region_instance_group_manager",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionInstanceGroupManager"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_instance_group_manager"],
+			TypeName:         "google_compute_region_instance_group_manager",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionInstanceGroupManager")
 			return err
 		}
@@ -2655,14 +2793,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionNetworkEndpointGroup",
 	}:
 		if err := (&controllerscompute.RegionNetworkEndpointGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionNetworkEndpointGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_network_endpoint_group"],
-			TypeName: "google_compute_region_network_endpoint_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionNetworkEndpointGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_network_endpoint_group"],
+			TypeName:         "google_compute_region_network_endpoint_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionNetworkEndpointGroup")
 			return err
 		}
@@ -2672,14 +2811,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionPerInstanceConfig",
 	}:
 		if err := (&controllerscompute.RegionPerInstanceConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionPerInstanceConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_per_instance_config"],
-			TypeName: "google_compute_region_per_instance_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionPerInstanceConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_per_instance_config"],
+			TypeName:         "google_compute_region_per_instance_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionPerInstanceConfig")
 			return err
 		}
@@ -2689,14 +2829,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionSslCertificate",
 	}:
 		if err := (&controllerscompute.RegionSslCertificateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionSslCertificate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_ssl_certificate"],
-			TypeName: "google_compute_region_ssl_certificate",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionSslCertificate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_ssl_certificate"],
+			TypeName:         "google_compute_region_ssl_certificate",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionSslCertificate")
 			return err
 		}
@@ -2706,14 +2847,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionTargetHTTPProxy",
 	}:
 		if err := (&controllerscompute.RegionTargetHTTPProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionTargetHTTPProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_target_http_proxy"],
-			TypeName: "google_compute_region_target_http_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionTargetHTTPProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_target_http_proxy"],
+			TypeName:         "google_compute_region_target_http_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionTargetHTTPProxy")
 			return err
 		}
@@ -2723,14 +2865,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionTargetHTTPSProxy",
 	}:
 		if err := (&controllerscompute.RegionTargetHTTPSProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionTargetHTTPSProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_target_https_proxy"],
-			TypeName: "google_compute_region_target_https_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionTargetHTTPSProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_target_https_proxy"],
+			TypeName:         "google_compute_region_target_https_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionTargetHTTPSProxy")
 			return err
 		}
@@ -2740,14 +2883,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RegionURLMap",
 	}:
 		if err := (&controllerscompute.RegionURLMapReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RegionURLMap"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_region_url_map"],
-			TypeName: "google_compute_region_url_map",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RegionURLMap"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_region_url_map"],
+			TypeName:         "google_compute_region_url_map",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RegionURLMap")
 			return err
 		}
@@ -2757,14 +2901,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Reservation",
 	}:
 		if err := (&controllerscompute.ReservationReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Reservation"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_reservation"],
-			TypeName: "google_compute_reservation",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Reservation"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_reservation"],
+			TypeName:         "google_compute_reservation",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Reservation")
 			return err
 		}
@@ -2774,14 +2919,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ResourcePolicy",
 	}:
 		if err := (&controllerscompute.ResourcePolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ResourcePolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_resource_policy"],
-			TypeName: "google_compute_resource_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ResourcePolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_resource_policy"],
+			TypeName:         "google_compute_resource_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ResourcePolicy")
 			return err
 		}
@@ -2791,14 +2937,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Route",
 	}:
 		if err := (&controllerscompute.RouteReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Route"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_route"],
-			TypeName: "google_compute_route",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Route"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_route"],
+			TypeName:         "google_compute_route",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Route")
 			return err
 		}
@@ -2808,14 +2955,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Router",
 	}:
 		if err := (&controllerscompute.RouterReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Router"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_router"],
-			TypeName: "google_compute_router",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Router"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_router"],
+			TypeName:         "google_compute_router",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Router")
 			return err
 		}
@@ -2825,14 +2973,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RouterInterface",
 	}:
 		if err := (&controllerscompute.RouterInterfaceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RouterInterface"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_router_interface"],
-			TypeName: "google_compute_router_interface",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RouterInterface"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_router_interface"],
+			TypeName:         "google_compute_router_interface",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RouterInterface")
 			return err
 		}
@@ -2842,14 +2991,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RouterNAT",
 	}:
 		if err := (&controllerscompute.RouterNATReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RouterNAT"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_router_nat"],
-			TypeName: "google_compute_router_nat",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RouterNAT"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_router_nat"],
+			TypeName:         "google_compute_router_nat",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RouterNAT")
 			return err
 		}
@@ -2859,14 +3009,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RouterPeer",
 	}:
 		if err := (&controllerscompute.RouterPeerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RouterPeer"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_router_peer"],
-			TypeName: "google_compute_router_peer",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RouterPeer"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_router_peer"],
+			TypeName:         "google_compute_router_peer",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RouterPeer")
 			return err
 		}
@@ -2876,14 +3027,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SecurityPolicy",
 	}:
 		if err := (&controllerscompute.SecurityPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SecurityPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_security_policy"],
-			TypeName: "google_compute_security_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SecurityPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_security_policy"],
+			TypeName:         "google_compute_security_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SecurityPolicy")
 			return err
 		}
@@ -2893,14 +3045,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SharedVpcHostProject",
 	}:
 		if err := (&controllerscompute.SharedVpcHostProjectReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SharedVpcHostProject"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_shared_vpc_host_project"],
-			TypeName: "google_compute_shared_vpc_host_project",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SharedVpcHostProject"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_shared_vpc_host_project"],
+			TypeName:         "google_compute_shared_vpc_host_project",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SharedVpcHostProject")
 			return err
 		}
@@ -2910,14 +3063,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SharedVpcServiceProject",
 	}:
 		if err := (&controllerscompute.SharedVpcServiceProjectReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SharedVpcServiceProject"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_shared_vpc_service_project"],
-			TypeName: "google_compute_shared_vpc_service_project",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SharedVpcServiceProject"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_shared_vpc_service_project"],
+			TypeName:         "google_compute_shared_vpc_service_project",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SharedVpcServiceProject")
 			return err
 		}
@@ -2927,14 +3081,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Snapshot",
 	}:
 		if err := (&controllerscompute.SnapshotReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Snapshot"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_snapshot"],
-			TypeName: "google_compute_snapshot",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Snapshot"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_snapshot"],
+			TypeName:         "google_compute_snapshot",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Snapshot")
 			return err
 		}
@@ -2944,14 +3099,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SslCertificate",
 	}:
 		if err := (&controllerscompute.SslCertificateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SslCertificate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_ssl_certificate"],
-			TypeName: "google_compute_ssl_certificate",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SslCertificate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_ssl_certificate"],
+			TypeName:         "google_compute_ssl_certificate",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SslCertificate")
 			return err
 		}
@@ -2961,14 +3117,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SslPolicy",
 	}:
 		if err := (&controllerscompute.SslPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SslPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_ssl_policy"],
-			TypeName: "google_compute_ssl_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SslPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_ssl_policy"],
+			TypeName:         "google_compute_ssl_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SslPolicy")
 			return err
 		}
@@ -2978,14 +3135,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Subnetwork",
 	}:
 		if err := (&controllerscompute.SubnetworkReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Subnetwork"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_subnetwork"],
-			TypeName: "google_compute_subnetwork",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Subnetwork"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_subnetwork"],
+			TypeName:         "google_compute_subnetwork",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Subnetwork")
 			return err
 		}
@@ -2995,14 +3153,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SubnetworkIamBinding",
 	}:
 		if err := (&controllerscompute.SubnetworkIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SubnetworkIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_subnetwork_iam_binding"],
-			TypeName: "google_compute_subnetwork_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SubnetworkIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_subnetwork_iam_binding"],
+			TypeName:         "google_compute_subnetwork_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SubnetworkIamBinding")
 			return err
 		}
@@ -3012,14 +3171,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SubnetworkIamMember",
 	}:
 		if err := (&controllerscompute.SubnetworkIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SubnetworkIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_subnetwork_iam_member"],
-			TypeName: "google_compute_subnetwork_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SubnetworkIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_subnetwork_iam_member"],
+			TypeName:         "google_compute_subnetwork_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SubnetworkIamMember")
 			return err
 		}
@@ -3029,14 +3189,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SubnetworkIamPolicy",
 	}:
 		if err := (&controllerscompute.SubnetworkIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SubnetworkIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_subnetwork_iam_policy"],
-			TypeName: "google_compute_subnetwork_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SubnetworkIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_subnetwork_iam_policy"],
+			TypeName:         "google_compute_subnetwork_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SubnetworkIamPolicy")
 			return err
 		}
@@ -3046,14 +3207,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetGrpcProxy",
 	}:
 		if err := (&controllerscompute.TargetGrpcProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetGrpcProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_grpc_proxy"],
-			TypeName: "google_compute_target_grpc_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetGrpcProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_grpc_proxy"],
+			TypeName:         "google_compute_target_grpc_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetGrpcProxy")
 			return err
 		}
@@ -3063,14 +3225,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetHTTPProxy",
 	}:
 		if err := (&controllerscompute.TargetHTTPProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetHTTPProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_http_proxy"],
-			TypeName: "google_compute_target_http_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetHTTPProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_http_proxy"],
+			TypeName:         "google_compute_target_http_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetHTTPProxy")
 			return err
 		}
@@ -3080,14 +3243,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetHTTPSProxy",
 	}:
 		if err := (&controllerscompute.TargetHTTPSProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetHTTPSProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_https_proxy"],
-			TypeName: "google_compute_target_https_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetHTTPSProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_https_proxy"],
+			TypeName:         "google_compute_target_https_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetHTTPSProxy")
 			return err
 		}
@@ -3097,14 +3261,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetInstance",
 	}:
 		if err := (&controllerscompute.TargetInstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetInstance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_instance"],
-			TypeName: "google_compute_target_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetInstance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_instance"],
+			TypeName:         "google_compute_target_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetInstance")
 			return err
 		}
@@ -3114,14 +3279,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetPool",
 	}:
 		if err := (&controllerscompute.TargetPoolReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetPool"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_pool"],
-			TypeName: "google_compute_target_pool",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetPool"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_pool"],
+			TypeName:         "google_compute_target_pool",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetPool")
 			return err
 		}
@@ -3131,14 +3297,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetSslProxy",
 	}:
 		if err := (&controllerscompute.TargetSslProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetSslProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_ssl_proxy"],
-			TypeName: "google_compute_target_ssl_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetSslProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_ssl_proxy"],
+			TypeName:         "google_compute_target_ssl_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetSslProxy")
 			return err
 		}
@@ -3148,14 +3315,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TargetTcpProxy",
 	}:
 		if err := (&controllerscompute.TargetTcpProxyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TargetTcpProxy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_target_tcp_proxy"],
-			TypeName: "google_compute_target_tcp_proxy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TargetTcpProxy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_target_tcp_proxy"],
+			TypeName:         "google_compute_target_tcp_proxy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TargetTcpProxy")
 			return err
 		}
@@ -3165,14 +3333,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "UrlMap",
 	}:
 		if err := (&controllerscompute.UrlMapReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("UrlMap"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_url_map"],
-			TypeName: "google_compute_url_map",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("UrlMap"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_url_map"],
+			TypeName:         "google_compute_url_map",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "UrlMap")
 			return err
 		}
@@ -3182,14 +3351,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "VpnGateway",
 	}:
 		if err := (&controllerscompute.VpnGatewayReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("VpnGateway"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_vpn_gateway"],
-			TypeName: "google_compute_vpn_gateway",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("VpnGateway"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_vpn_gateway"],
+			TypeName:         "google_compute_vpn_gateway",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "VpnGateway")
 			return err
 		}
@@ -3199,14 +3369,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "VpnTunnel",
 	}:
 		if err := (&controllerscompute.VpnTunnelReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("VpnTunnel"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_compute_vpn_tunnel"],
-			TypeName: "google_compute_vpn_tunnel",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("VpnTunnel"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_compute_vpn_tunnel"],
+			TypeName:         "google_compute_vpn_tunnel",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "VpnTunnel")
 			return err
 		}
@@ -3216,14 +3387,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AnalysisNote",
 	}:
 		if err := (&controllerscontainer.AnalysisNoteReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AnalysisNote"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_container_analysis_note"],
-			TypeName: "google_container_analysis_note",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AnalysisNote"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_container_analysis_note"],
+			TypeName:         "google_container_analysis_note",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AnalysisNote")
 			return err
 		}
@@ -3233,14 +3405,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AnalysisOccurrence",
 	}:
 		if err := (&controllerscontainer.AnalysisOccurrenceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AnalysisOccurrence"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_container_analysis_occurrence"],
-			TypeName: "google_container_analysis_occurrence",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AnalysisOccurrence"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_container_analysis_occurrence"],
+			TypeName:         "google_container_analysis_occurrence",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AnalysisOccurrence")
 			return err
 		}
@@ -3250,14 +3423,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Cluster",
 	}:
 		if err := (&controllerscontainer.ClusterReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Cluster"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_container_cluster"],
-			TypeName: "google_container_cluster",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Cluster"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_container_cluster"],
+			TypeName:         "google_container_cluster",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			return err
 		}
@@ -3267,14 +3441,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NodePool",
 	}:
 		if err := (&controllerscontainer.NodePoolReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NodePool"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_container_node_pool"],
-			TypeName: "google_container_node_pool",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NodePool"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_container_node_pool"],
+			TypeName:         "google_container_node_pool",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NodePool")
 			return err
 		}
@@ -3284,14 +3459,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Registry",
 	}:
 		if err := (&controllerscontainer.RegistryReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Registry"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_container_registry"],
-			TypeName: "google_container_registry",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Registry"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_container_registry"],
+			TypeName:         "google_container_registry",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Registry")
 			return err
 		}
@@ -3301,14 +3477,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogEntry",
 	}:
 		if err := (&controllersdata.CatalogEntryReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogEntry"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_entry"],
-			TypeName: "google_data_catalog_entry",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogEntry"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_entry"],
+			TypeName:         "google_data_catalog_entry",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogEntry")
 			return err
 		}
@@ -3318,14 +3495,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogEntryGroup",
 	}:
 		if err := (&controllersdata.CatalogEntryGroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogEntryGroup"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_entry_group"],
-			TypeName: "google_data_catalog_entry_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogEntryGroup"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_entry_group"],
+			TypeName:         "google_data_catalog_entry_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogEntryGroup")
 			return err
 		}
@@ -3335,14 +3513,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogEntryGroupIamBinding",
 	}:
 		if err := (&controllersdata.CatalogEntryGroupIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogEntryGroupIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_entry_group_iam_binding"],
-			TypeName: "google_data_catalog_entry_group_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogEntryGroupIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_entry_group_iam_binding"],
+			TypeName:         "google_data_catalog_entry_group_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogEntryGroupIamBinding")
 			return err
 		}
@@ -3352,14 +3531,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogEntryGroupIamMember",
 	}:
 		if err := (&controllersdata.CatalogEntryGroupIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogEntryGroupIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_entry_group_iam_member"],
-			TypeName: "google_data_catalog_entry_group_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogEntryGroupIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_entry_group_iam_member"],
+			TypeName:         "google_data_catalog_entry_group_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogEntryGroupIamMember")
 			return err
 		}
@@ -3369,14 +3549,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogEntryGroupIamPolicy",
 	}:
 		if err := (&controllersdata.CatalogEntryGroupIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogEntryGroupIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_entry_group_iam_policy"],
-			TypeName: "google_data_catalog_entry_group_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogEntryGroupIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_entry_group_iam_policy"],
+			TypeName:         "google_data_catalog_entry_group_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogEntryGroupIamPolicy")
 			return err
 		}
@@ -3386,14 +3567,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogTag",
 	}:
 		if err := (&controllersdata.CatalogTagReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogTag"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_tag"],
-			TypeName: "google_data_catalog_tag",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogTag"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_tag"],
+			TypeName:         "google_data_catalog_tag",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogTag")
 			return err
 		}
@@ -3403,14 +3585,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogTagTemplate",
 	}:
 		if err := (&controllersdata.CatalogTagTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogTagTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_tag_template"],
-			TypeName: "google_data_catalog_tag_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogTagTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_tag_template"],
+			TypeName:         "google_data_catalog_tag_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogTagTemplate")
 			return err
 		}
@@ -3420,14 +3603,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogTagTemplateIamBinding",
 	}:
 		if err := (&controllersdata.CatalogTagTemplateIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogTagTemplateIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_tag_template_iam_binding"],
-			TypeName: "google_data_catalog_tag_template_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogTagTemplateIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_tag_template_iam_binding"],
+			TypeName:         "google_data_catalog_tag_template_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogTagTemplateIamBinding")
 			return err
 		}
@@ -3437,14 +3621,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogTagTemplateIamMember",
 	}:
 		if err := (&controllersdata.CatalogTagTemplateIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogTagTemplateIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_tag_template_iam_member"],
-			TypeName: "google_data_catalog_tag_template_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogTagTemplateIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_tag_template_iam_member"],
+			TypeName:         "google_data_catalog_tag_template_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogTagTemplateIamMember")
 			return err
 		}
@@ -3454,14 +3639,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CatalogTagTemplateIamPolicy",
 	}:
 		if err := (&controllersdata.CatalogTagTemplateIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CatalogTagTemplateIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_catalog_tag_template_iam_policy"],
-			TypeName: "google_data_catalog_tag_template_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CatalogTagTemplateIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_catalog_tag_template_iam_policy"],
+			TypeName:         "google_data_catalog_tag_template_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogTagTemplateIamPolicy")
 			return err
 		}
@@ -3471,14 +3657,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LossPreventionDeidentifyTemplate",
 	}:
 		if err := (&controllersdata.LossPreventionDeidentifyTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LossPreventionDeidentifyTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_loss_prevention_deidentify_template"],
-			TypeName: "google_data_loss_prevention_deidentify_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LossPreventionDeidentifyTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_loss_prevention_deidentify_template"],
+			TypeName:         "google_data_loss_prevention_deidentify_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LossPreventionDeidentifyTemplate")
 			return err
 		}
@@ -3488,14 +3675,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LossPreventionInspectTemplate",
 	}:
 		if err := (&controllersdata.LossPreventionInspectTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LossPreventionInspectTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_loss_prevention_inspect_template"],
-			TypeName: "google_data_loss_prevention_inspect_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LossPreventionInspectTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_loss_prevention_inspect_template"],
+			TypeName:         "google_data_loss_prevention_inspect_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LossPreventionInspectTemplate")
 			return err
 		}
@@ -3505,14 +3693,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LossPreventionJobTrigger",
 	}:
 		if err := (&controllersdata.LossPreventionJobTriggerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LossPreventionJobTrigger"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_loss_prevention_job_trigger"],
-			TypeName: "google_data_loss_prevention_job_trigger",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LossPreventionJobTrigger"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_loss_prevention_job_trigger"],
+			TypeName:         "google_data_loss_prevention_job_trigger",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LossPreventionJobTrigger")
 			return err
 		}
@@ -3522,14 +3711,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LossPreventionStoredInfoType",
 	}:
 		if err := (&controllersdata.LossPreventionStoredInfoTypeReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LossPreventionStoredInfoType"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_data_loss_prevention_stored_info_type"],
-			TypeName: "google_data_loss_prevention_stored_info_type",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LossPreventionStoredInfoType"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_data_loss_prevention_stored_info_type"],
+			TypeName:         "google_data_loss_prevention_stored_info_type",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LossPreventionStoredInfoType")
 			return err
 		}
@@ -3539,14 +3729,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Job",
 	}:
 		if err := (&controllersdataflow.JobReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Job"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataflow_job"],
-			TypeName: "google_dataflow_job",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Job"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataflow_job"],
+			TypeName:         "google_dataflow_job",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Job")
 			return err
 		}
@@ -3556,14 +3747,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AutoscalingPolicy",
 	}:
 		if err := (&controllersdataproc.AutoscalingPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AutoscalingPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_autoscaling_policy"],
-			TypeName: "google_dataproc_autoscaling_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AutoscalingPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_autoscaling_policy"],
+			TypeName:         "google_dataproc_autoscaling_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AutoscalingPolicy")
 			return err
 		}
@@ -3573,14 +3765,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Cluster",
 	}:
 		if err := (&controllersdataproc.ClusterReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Cluster"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_cluster"],
-			TypeName: "google_dataproc_cluster",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Cluster"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_cluster"],
+			TypeName:         "google_dataproc_cluster",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 			return err
 		}
@@ -3590,14 +3783,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ClusterIamBinding",
 	}:
 		if err := (&controllersdataproc.ClusterIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ClusterIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_cluster_iam_binding"],
-			TypeName: "google_dataproc_cluster_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ClusterIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_cluster_iam_binding"],
+			TypeName:         "google_dataproc_cluster_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ClusterIamBinding")
 			return err
 		}
@@ -3607,14 +3801,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ClusterIamMember",
 	}:
 		if err := (&controllersdataproc.ClusterIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ClusterIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_cluster_iam_member"],
-			TypeName: "google_dataproc_cluster_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ClusterIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_cluster_iam_member"],
+			TypeName:         "google_dataproc_cluster_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ClusterIamMember")
 			return err
 		}
@@ -3624,14 +3819,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ClusterIamPolicy",
 	}:
 		if err := (&controllersdataproc.ClusterIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ClusterIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_cluster_iam_policy"],
-			TypeName: "google_dataproc_cluster_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ClusterIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_cluster_iam_policy"],
+			TypeName:         "google_dataproc_cluster_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ClusterIamPolicy")
 			return err
 		}
@@ -3641,14 +3837,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Job",
 	}:
 		if err := (&controllersdataproc.JobReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Job"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_job"],
-			TypeName: "google_dataproc_job",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Job"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_job"],
+			TypeName:         "google_dataproc_job",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Job")
 			return err
 		}
@@ -3658,14 +3855,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "JobIamBinding",
 	}:
 		if err := (&controllersdataproc.JobIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("JobIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_job_iam_binding"],
-			TypeName: "google_dataproc_job_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("JobIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_job_iam_binding"],
+			TypeName:         "google_dataproc_job_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "JobIamBinding")
 			return err
 		}
@@ -3675,14 +3873,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "JobIamMember",
 	}:
 		if err := (&controllersdataproc.JobIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("JobIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_job_iam_member"],
-			TypeName: "google_dataproc_job_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("JobIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_job_iam_member"],
+			TypeName:         "google_dataproc_job_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "JobIamMember")
 			return err
 		}
@@ -3692,14 +3891,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "JobIamPolicy",
 	}:
 		if err := (&controllersdataproc.JobIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("JobIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_job_iam_policy"],
-			TypeName: "google_dataproc_job_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("JobIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_job_iam_policy"],
+			TypeName:         "google_dataproc_job_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "JobIamPolicy")
 			return err
 		}
@@ -3709,14 +3909,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WorkflowTemplate",
 	}:
 		if err := (&controllersdataproc.WorkflowTemplateReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WorkflowTemplate"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dataproc_workflow_template"],
-			TypeName: "google_dataproc_workflow_template",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WorkflowTemplate"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dataproc_workflow_template"],
+			TypeName:         "google_dataproc_workflow_template",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WorkflowTemplate")
 			return err
 		}
@@ -3726,14 +3927,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Index",
 	}:
 		if err := (&controllersdatastore.IndexReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Index"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_datastore_index"],
-			TypeName: "google_datastore_index",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Index"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_datastore_index"],
+			TypeName:         "google_datastore_index",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Index")
 			return err
 		}
@@ -3743,14 +3945,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerDeployment",
 	}:
 		if err := (&controllersdeployment.ManagerDeploymentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerDeployment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_deployment_manager_deployment"],
-			TypeName: "google_deployment_manager_deployment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerDeployment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_deployment_manager_deployment"],
+			TypeName:         "google_deployment_manager_deployment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerDeployment")
 			return err
 		}
@@ -3760,14 +3963,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Agent",
 	}:
 		if err := (&controllersdialogflow.AgentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Agent"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dialogflow_agent"],
-			TypeName: "google_dialogflow_agent",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Agent"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dialogflow_agent"],
+			TypeName:         "google_dialogflow_agent",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Agent")
 			return err
 		}
@@ -3777,14 +3981,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CxAgent",
 	}:
 		if err := (&controllersdialogflow.CxAgentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CxAgent"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dialogflow_cx_agent"],
-			TypeName: "google_dialogflow_cx_agent",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CxAgent"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dialogflow_cx_agent"],
+			TypeName:         "google_dialogflow_cx_agent",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CxAgent")
 			return err
 		}
@@ -3794,14 +3999,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "EntityType",
 	}:
 		if err := (&controllersdialogflow.EntityTypeReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("EntityType"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dialogflow_entity_type"],
-			TypeName: "google_dialogflow_entity_type",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("EntityType"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dialogflow_entity_type"],
+			TypeName:         "google_dialogflow_entity_type",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "EntityType")
 			return err
 		}
@@ -3811,14 +4017,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Fulfillment",
 	}:
 		if err := (&controllersdialogflow.FulfillmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Fulfillment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dialogflow_fulfillment"],
-			TypeName: "google_dialogflow_fulfillment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Fulfillment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dialogflow_fulfillment"],
+			TypeName:         "google_dialogflow_fulfillment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Fulfillment")
 			return err
 		}
@@ -3828,14 +4035,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Intent",
 	}:
 		if err := (&controllersdialogflow.IntentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Intent"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dialogflow_intent"],
-			TypeName: "google_dialogflow_intent",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Intent"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dialogflow_intent"],
+			TypeName:         "google_dialogflow_intent",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Intent")
 			return err
 		}
@@ -3845,14 +4053,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagedZone",
 	}:
 		if err := (&controllersdns.ManagedZoneReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagedZone"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dns_managed_zone"],
-			TypeName: "google_dns_managed_zone",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagedZone"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dns_managed_zone"],
+			TypeName:         "google_dns_managed_zone",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagedZone")
 			return err
 		}
@@ -3862,14 +4071,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Policy",
 	}:
 		if err := (&controllersdns.PolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Policy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dns_policy"],
-			TypeName: "google_dns_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Policy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dns_policy"],
+			TypeName:         "google_dns_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Policy")
 			return err
 		}
@@ -3879,14 +4089,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "RecordSet",
 	}:
 		if err := (&controllersdns.RecordSetReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("RecordSet"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_dns_record_set"],
-			TypeName: "google_dns_record_set",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("RecordSet"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_dns_record_set"],
+			TypeName:         "google_dns_record_set",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "RecordSet")
 			return err
 		}
@@ -3896,14 +4107,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Service",
 	}:
 		if err := (&controllersendpoints.ServiceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Service"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_endpoints_service"],
-			TypeName: "google_endpoints_service",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Service"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_endpoints_service"],
+			TypeName:         "google_endpoints_service",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Service")
 			return err
 		}
@@ -3913,14 +4125,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServiceIamBinding",
 	}:
 		if err := (&controllersendpoints.ServiceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServiceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_endpoints_service_iam_binding"],
-			TypeName: "google_endpoints_service_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServiceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_endpoints_service_iam_binding"],
+			TypeName:         "google_endpoints_service_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServiceIamBinding")
 			return err
 		}
@@ -3930,14 +4143,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServiceIamMember",
 	}:
 		if err := (&controllersendpoints.ServiceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServiceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_endpoints_service_iam_member"],
-			TypeName: "google_endpoints_service_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServiceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_endpoints_service_iam_member"],
+			TypeName:         "google_endpoints_service_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServiceIamMember")
 			return err
 		}
@@ -3947,14 +4161,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServiceIamPolicy",
 	}:
 		if err := (&controllersendpoints.ServiceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServiceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_endpoints_service_iam_policy"],
-			TypeName: "google_endpoints_service_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServiceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_endpoints_service_iam_policy"],
+			TypeName:         "google_endpoints_service_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServiceIamPolicy")
 			return err
 		}
@@ -3964,14 +4179,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Trigger",
 	}:
 		if err := (&controllerseventarc.TriggerReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Trigger"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_eventarc_trigger"],
-			TypeName: "google_eventarc_trigger",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Trigger"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_eventarc_trigger"],
+			TypeName:         "google_eventarc_trigger",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Trigger")
 			return err
 		}
@@ -3981,14 +4197,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersfilestore.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_filestore_instance"],
-			TypeName: "google_filestore_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_filestore_instance"],
+			TypeName:         "google_filestore_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -3998,14 +4215,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Document",
 	}:
 		if err := (&controllersfirestore.DocumentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Document"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_firestore_document"],
-			TypeName: "google_firestore_document",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Document"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_firestore_document"],
+			TypeName:         "google_firestore_document",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Document")
 			return err
 		}
@@ -4015,14 +4233,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Index",
 	}:
 		if err := (&controllersfirestore.IndexReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Index"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_firestore_index"],
-			TypeName: "google_firestore_index",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Index"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_firestore_index"],
+			TypeName:         "google_firestore_index",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Index")
 			return err
 		}
@@ -4032,14 +4251,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Folder",
 	}:
 		if err := (&controllersfolder.FolderReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Folder"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder"],
-			TypeName: "google_folder",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Folder"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder"],
+			TypeName:         "google_folder",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Folder")
 			return err
 		}
@@ -4049,14 +4269,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccessApprovalSettings",
 	}:
 		if err := (&controllersfolder.AccessApprovalSettingsReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccessApprovalSettings"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder_access_approval_settings"],
-			TypeName: "google_folder_access_approval_settings",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccessApprovalSettings"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder_access_approval_settings"],
+			TypeName:         "google_folder_access_approval_settings",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccessApprovalSettings")
 			return err
 		}
@@ -4066,14 +4287,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamAuditConfig",
 	}:
 		if err := (&controllersfolder.IamAuditConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamAuditConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder_iam_audit_config"],
-			TypeName: "google_folder_iam_audit_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamAuditConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder_iam_audit_config"],
+			TypeName:         "google_folder_iam_audit_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamAuditConfig")
 			return err
 		}
@@ -4083,14 +4305,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamBinding",
 	}:
 		if err := (&controllersfolder.IamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder_iam_binding"],
-			TypeName: "google_folder_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder_iam_binding"],
+			TypeName:         "google_folder_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamBinding")
 			return err
 		}
@@ -4100,14 +4323,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamMember",
 	}:
 		if err := (&controllersfolder.IamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder_iam_member"],
-			TypeName: "google_folder_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder_iam_member"],
+			TypeName:         "google_folder_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamMember")
 			return err
 		}
@@ -4117,14 +4341,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamPolicy",
 	}:
 		if err := (&controllersfolder.IamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder_iam_policy"],
-			TypeName: "google_folder_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder_iam_policy"],
+			TypeName:         "google_folder_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamPolicy")
 			return err
 		}
@@ -4134,14 +4359,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "OrganizationPolicy",
 	}:
 		if err := (&controllersfolder.OrganizationPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("OrganizationPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_folder_organization_policy"],
-			TypeName: "google_folder_organization_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("OrganizationPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_folder_organization_policy"],
+			TypeName:         "google_folder_organization_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "OrganizationPolicy")
 			return err
 		}
@@ -4151,14 +4377,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServicesGameServerCluster",
 	}:
 		if err := (&controllersgame.ServicesGameServerClusterReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServicesGameServerCluster"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_game_services_game_server_cluster"],
-			TypeName: "google_game_services_game_server_cluster",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServicesGameServerCluster"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_game_services_game_server_cluster"],
+			TypeName:         "google_game_services_game_server_cluster",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServicesGameServerCluster")
 			return err
 		}
@@ -4168,14 +4395,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServicesGameServerConfig",
 	}:
 		if err := (&controllersgame.ServicesGameServerConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServicesGameServerConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_game_services_game_server_config"],
-			TypeName: "google_game_services_game_server_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServicesGameServerConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_game_services_game_server_config"],
+			TypeName:         "google_game_services_game_server_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServicesGameServerConfig")
 			return err
 		}
@@ -4185,14 +4413,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServicesGameServerDeployment",
 	}:
 		if err := (&controllersgame.ServicesGameServerDeploymentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServicesGameServerDeployment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_game_services_game_server_deployment"],
-			TypeName: "google_game_services_game_server_deployment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServicesGameServerDeployment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_game_services_game_server_deployment"],
+			TypeName:         "google_game_services_game_server_deployment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServicesGameServerDeployment")
 			return err
 		}
@@ -4202,14 +4431,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServicesGameServerDeploymentRollout",
 	}:
 		if err := (&controllersgame.ServicesGameServerDeploymentRolloutReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServicesGameServerDeploymentRollout"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_game_services_game_server_deployment_rollout"],
-			TypeName: "google_game_services_game_server_deployment_rollout",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServicesGameServerDeploymentRollout"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_game_services_game_server_deployment_rollout"],
+			TypeName:         "google_game_services_game_server_deployment_rollout",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServicesGameServerDeploymentRollout")
 			return err
 		}
@@ -4219,14 +4449,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ServicesRealm",
 	}:
 		if err := (&controllersgame.ServicesRealmReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ServicesRealm"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_game_services_realm"],
-			TypeName: "google_game_services_realm",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ServicesRealm"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_game_services_realm"],
+			TypeName:         "google_game_services_realm",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ServicesRealm")
 			return err
 		}
@@ -4236,14 +4467,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConsentStore",
 	}:
 		if err := (&controllershealthcare.ConsentStoreReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConsentStore"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_consent_store"],
-			TypeName: "google_healthcare_consent_store",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConsentStore"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_consent_store"],
+			TypeName:         "google_healthcare_consent_store",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConsentStore")
 			return err
 		}
@@ -4253,14 +4485,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConsentStoreIamBinding",
 	}:
 		if err := (&controllershealthcare.ConsentStoreIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConsentStoreIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_consent_store_iam_binding"],
-			TypeName: "google_healthcare_consent_store_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConsentStoreIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_consent_store_iam_binding"],
+			TypeName:         "google_healthcare_consent_store_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConsentStoreIamBinding")
 			return err
 		}
@@ -4270,14 +4503,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConsentStoreIamMember",
 	}:
 		if err := (&controllershealthcare.ConsentStoreIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConsentStoreIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_consent_store_iam_member"],
-			TypeName: "google_healthcare_consent_store_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConsentStoreIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_consent_store_iam_member"],
+			TypeName:         "google_healthcare_consent_store_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConsentStoreIamMember")
 			return err
 		}
@@ -4287,14 +4521,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConsentStoreIamPolicy",
 	}:
 		if err := (&controllershealthcare.ConsentStoreIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConsentStoreIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_consent_store_iam_policy"],
-			TypeName: "google_healthcare_consent_store_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConsentStoreIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_consent_store_iam_policy"],
+			TypeName:         "google_healthcare_consent_store_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConsentStoreIamPolicy")
 			return err
 		}
@@ -4304,14 +4539,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Dataset",
 	}:
 		if err := (&controllershealthcare.DatasetReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Dataset"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dataset"],
-			TypeName: "google_healthcare_dataset",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Dataset"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dataset"],
+			TypeName:         "google_healthcare_dataset",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Dataset")
 			return err
 		}
@@ -4321,14 +4557,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetIamBinding",
 	}:
 		if err := (&controllershealthcare.DatasetIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dataset_iam_binding"],
-			TypeName: "google_healthcare_dataset_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dataset_iam_binding"],
+			TypeName:         "google_healthcare_dataset_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetIamBinding")
 			return err
 		}
@@ -4338,14 +4575,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetIamMember",
 	}:
 		if err := (&controllershealthcare.DatasetIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dataset_iam_member"],
-			TypeName: "google_healthcare_dataset_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dataset_iam_member"],
+			TypeName:         "google_healthcare_dataset_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetIamMember")
 			return err
 		}
@@ -4355,14 +4593,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatasetIamPolicy",
 	}:
 		if err := (&controllershealthcare.DatasetIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatasetIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dataset_iam_policy"],
-			TypeName: "google_healthcare_dataset_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatasetIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dataset_iam_policy"],
+			TypeName:         "google_healthcare_dataset_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatasetIamPolicy")
 			return err
 		}
@@ -4372,14 +4611,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DicomStore",
 	}:
 		if err := (&controllershealthcare.DicomStoreReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DicomStore"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dicom_store"],
-			TypeName: "google_healthcare_dicom_store",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DicomStore"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dicom_store"],
+			TypeName:         "google_healthcare_dicom_store",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DicomStore")
 			return err
 		}
@@ -4389,14 +4629,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DicomStoreIamBinding",
 	}:
 		if err := (&controllershealthcare.DicomStoreIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DicomStoreIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dicom_store_iam_binding"],
-			TypeName: "google_healthcare_dicom_store_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DicomStoreIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dicom_store_iam_binding"],
+			TypeName:         "google_healthcare_dicom_store_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DicomStoreIamBinding")
 			return err
 		}
@@ -4406,14 +4647,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DicomStoreIamMember",
 	}:
 		if err := (&controllershealthcare.DicomStoreIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DicomStoreIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dicom_store_iam_member"],
-			TypeName: "google_healthcare_dicom_store_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DicomStoreIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dicom_store_iam_member"],
+			TypeName:         "google_healthcare_dicom_store_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DicomStoreIamMember")
 			return err
 		}
@@ -4423,14 +4665,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DicomStoreIamPolicy",
 	}:
 		if err := (&controllershealthcare.DicomStoreIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DicomStoreIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_dicom_store_iam_policy"],
-			TypeName: "google_healthcare_dicom_store_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DicomStoreIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_dicom_store_iam_policy"],
+			TypeName:         "google_healthcare_dicom_store_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DicomStoreIamPolicy")
 			return err
 		}
@@ -4440,14 +4683,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FhirStore",
 	}:
 		if err := (&controllershealthcare.FhirStoreReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FhirStore"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_fhir_store"],
-			TypeName: "google_healthcare_fhir_store",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FhirStore"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_fhir_store"],
+			TypeName:         "google_healthcare_fhir_store",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FhirStore")
 			return err
 		}
@@ -4457,14 +4701,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FhirStoreIamBinding",
 	}:
 		if err := (&controllershealthcare.FhirStoreIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FhirStoreIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_fhir_store_iam_binding"],
-			TypeName: "google_healthcare_fhir_store_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FhirStoreIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_fhir_store_iam_binding"],
+			TypeName:         "google_healthcare_fhir_store_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FhirStoreIamBinding")
 			return err
 		}
@@ -4474,14 +4719,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FhirStoreIamMember",
 	}:
 		if err := (&controllershealthcare.FhirStoreIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FhirStoreIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_fhir_store_iam_member"],
-			TypeName: "google_healthcare_fhir_store_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FhirStoreIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_fhir_store_iam_member"],
+			TypeName:         "google_healthcare_fhir_store_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FhirStoreIamMember")
 			return err
 		}
@@ -4491,14 +4737,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FhirStoreIamPolicy",
 	}:
 		if err := (&controllershealthcare.FhirStoreIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FhirStoreIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_fhir_store_iam_policy"],
-			TypeName: "google_healthcare_fhir_store_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FhirStoreIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_fhir_store_iam_policy"],
+			TypeName:         "google_healthcare_fhir_store_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FhirStoreIamPolicy")
 			return err
 		}
@@ -4508,14 +4755,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Hl7V2Store",
 	}:
 		if err := (&controllershealthcare.Hl7V2StoreReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Hl7V2Store"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_hl7_v2_store"],
-			TypeName: "google_healthcare_hl7_v2_store",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Hl7V2Store"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_hl7_v2_store"],
+			TypeName:         "google_healthcare_hl7_v2_store",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Hl7V2Store")
 			return err
 		}
@@ -4525,14 +4773,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Hl7V2StoreIamBinding",
 	}:
 		if err := (&controllershealthcare.Hl7V2StoreIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Hl7V2StoreIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_hl7_v2_store_iam_binding"],
-			TypeName: "google_healthcare_hl7_v2_store_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Hl7V2StoreIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_hl7_v2_store_iam_binding"],
+			TypeName:         "google_healthcare_hl7_v2_store_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Hl7V2StoreIamBinding")
 			return err
 		}
@@ -4542,14 +4791,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Hl7V2StoreIamMember",
 	}:
 		if err := (&controllershealthcare.Hl7V2StoreIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Hl7V2StoreIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_hl7_v2_store_iam_member"],
-			TypeName: "google_healthcare_hl7_v2_store_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Hl7V2StoreIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_hl7_v2_store_iam_member"],
+			TypeName:         "google_healthcare_hl7_v2_store_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Hl7V2StoreIamMember")
 			return err
 		}
@@ -4559,14 +4809,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Hl7V2StoreIamPolicy",
 	}:
 		if err := (&controllershealthcare.Hl7V2StoreIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Hl7V2StoreIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_healthcare_hl7_v2_store_iam_policy"],
-			TypeName: "google_healthcare_hl7_v2_store_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Hl7V2StoreIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_healthcare_hl7_v2_store_iam_policy"],
+			TypeName:         "google_healthcare_hl7_v2_store_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Hl7V2StoreIamPolicy")
 			return err
 		}
@@ -4576,14 +4827,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppEngineServiceIamBinding",
 	}:
 		if err := (&controllersiap.AppEngineServiceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppEngineServiceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_app_engine_service_iam_binding"],
-			TypeName: "google_iap_app_engine_service_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppEngineServiceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_app_engine_service_iam_binding"],
+			TypeName:         "google_iap_app_engine_service_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppEngineServiceIamBinding")
 			return err
 		}
@@ -4593,14 +4845,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppEngineServiceIamMember",
 	}:
 		if err := (&controllersiap.AppEngineServiceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppEngineServiceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_app_engine_service_iam_member"],
-			TypeName: "google_iap_app_engine_service_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppEngineServiceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_app_engine_service_iam_member"],
+			TypeName:         "google_iap_app_engine_service_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppEngineServiceIamMember")
 			return err
 		}
@@ -4610,14 +4863,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppEngineServiceIamPolicy",
 	}:
 		if err := (&controllersiap.AppEngineServiceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppEngineServiceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_app_engine_service_iam_policy"],
-			TypeName: "google_iap_app_engine_service_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppEngineServiceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_app_engine_service_iam_policy"],
+			TypeName:         "google_iap_app_engine_service_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppEngineServiceIamPolicy")
 			return err
 		}
@@ -4627,14 +4881,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppEngineVersionIamBinding",
 	}:
 		if err := (&controllersiap.AppEngineVersionIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppEngineVersionIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_app_engine_version_iam_binding"],
-			TypeName: "google_iap_app_engine_version_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppEngineVersionIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_app_engine_version_iam_binding"],
+			TypeName:         "google_iap_app_engine_version_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppEngineVersionIamBinding")
 			return err
 		}
@@ -4644,14 +4899,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppEngineVersionIamMember",
 	}:
 		if err := (&controllersiap.AppEngineVersionIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppEngineVersionIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_app_engine_version_iam_member"],
-			TypeName: "google_iap_app_engine_version_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppEngineVersionIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_app_engine_version_iam_member"],
+			TypeName:         "google_iap_app_engine_version_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppEngineVersionIamMember")
 			return err
 		}
@@ -4661,14 +4917,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AppEngineVersionIamPolicy",
 	}:
 		if err := (&controllersiap.AppEngineVersionIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AppEngineVersionIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_app_engine_version_iam_policy"],
-			TypeName: "google_iap_app_engine_version_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AppEngineVersionIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_app_engine_version_iam_policy"],
+			TypeName:         "google_iap_app_engine_version_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AppEngineVersionIamPolicy")
 			return err
 		}
@@ -4678,14 +4935,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Brand",
 	}:
 		if err := (&controllersiap.BrandReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Brand"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_brand"],
-			TypeName: "google_iap_brand",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Brand"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_brand"],
+			TypeName:         "google_iap_brand",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Brand")
 			return err
 		}
@@ -4695,14 +4953,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Client",
 	}:
 		if err := (&controllersiap.ClientReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Client"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_client"],
-			TypeName: "google_iap_client",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Client"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_client"],
+			TypeName:         "google_iap_client",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Client")
 			return err
 		}
@@ -4712,14 +4971,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TunnelIamBinding",
 	}:
 		if err := (&controllersiap.TunnelIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TunnelIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_tunnel_iam_binding"],
-			TypeName: "google_iap_tunnel_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TunnelIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_tunnel_iam_binding"],
+			TypeName:         "google_iap_tunnel_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TunnelIamBinding")
 			return err
 		}
@@ -4729,14 +4989,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TunnelIamMember",
 	}:
 		if err := (&controllersiap.TunnelIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TunnelIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_tunnel_iam_member"],
-			TypeName: "google_iap_tunnel_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TunnelIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_tunnel_iam_member"],
+			TypeName:         "google_iap_tunnel_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TunnelIamMember")
 			return err
 		}
@@ -4746,14 +5007,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TunnelIamPolicy",
 	}:
 		if err := (&controllersiap.TunnelIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TunnelIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_tunnel_iam_policy"],
-			TypeName: "google_iap_tunnel_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TunnelIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_tunnel_iam_policy"],
+			TypeName:         "google_iap_tunnel_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TunnelIamPolicy")
 			return err
 		}
@@ -4763,14 +5025,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TunnelInstanceIamBinding",
 	}:
 		if err := (&controllersiap.TunnelInstanceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TunnelInstanceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_tunnel_instance_iam_binding"],
-			TypeName: "google_iap_tunnel_instance_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TunnelInstanceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_tunnel_instance_iam_binding"],
+			TypeName:         "google_iap_tunnel_instance_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TunnelInstanceIamBinding")
 			return err
 		}
@@ -4780,14 +5043,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TunnelInstanceIamMember",
 	}:
 		if err := (&controllersiap.TunnelInstanceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TunnelInstanceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_tunnel_instance_iam_member"],
-			TypeName: "google_iap_tunnel_instance_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TunnelInstanceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_tunnel_instance_iam_member"],
+			TypeName:         "google_iap_tunnel_instance_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TunnelInstanceIamMember")
 			return err
 		}
@@ -4797,14 +5061,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TunnelInstanceIamPolicy",
 	}:
 		if err := (&controllersiap.TunnelInstanceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TunnelInstanceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_tunnel_instance_iam_policy"],
-			TypeName: "google_iap_tunnel_instance_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TunnelInstanceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_tunnel_instance_iam_policy"],
+			TypeName:         "google_iap_tunnel_instance_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TunnelInstanceIamPolicy")
 			return err
 		}
@@ -4814,14 +5079,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebBackendServiceIamBinding",
 	}:
 		if err := (&controllersiap.WebBackendServiceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebBackendServiceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_backend_service_iam_binding"],
-			TypeName: "google_iap_web_backend_service_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebBackendServiceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_backend_service_iam_binding"],
+			TypeName:         "google_iap_web_backend_service_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebBackendServiceIamBinding")
 			return err
 		}
@@ -4831,14 +5097,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebBackendServiceIamMember",
 	}:
 		if err := (&controllersiap.WebBackendServiceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebBackendServiceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_backend_service_iam_member"],
-			TypeName: "google_iap_web_backend_service_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebBackendServiceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_backend_service_iam_member"],
+			TypeName:         "google_iap_web_backend_service_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebBackendServiceIamMember")
 			return err
 		}
@@ -4848,14 +5115,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebBackendServiceIamPolicy",
 	}:
 		if err := (&controllersiap.WebBackendServiceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebBackendServiceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_backend_service_iam_policy"],
-			TypeName: "google_iap_web_backend_service_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebBackendServiceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_backend_service_iam_policy"],
+			TypeName:         "google_iap_web_backend_service_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebBackendServiceIamPolicy")
 			return err
 		}
@@ -4865,14 +5133,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebIamBinding",
 	}:
 		if err := (&controllersiap.WebIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_iam_binding"],
-			TypeName: "google_iap_web_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_iam_binding"],
+			TypeName:         "google_iap_web_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebIamBinding")
 			return err
 		}
@@ -4882,14 +5151,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebIamMember",
 	}:
 		if err := (&controllersiap.WebIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_iam_member"],
-			TypeName: "google_iap_web_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_iam_member"],
+			TypeName:         "google_iap_web_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebIamMember")
 			return err
 		}
@@ -4899,14 +5169,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebIamPolicy",
 	}:
 		if err := (&controllersiap.WebIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_iam_policy"],
-			TypeName: "google_iap_web_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_iam_policy"],
+			TypeName:         "google_iap_web_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebIamPolicy")
 			return err
 		}
@@ -4916,14 +5187,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebTypeAppEngineIamBinding",
 	}:
 		if err := (&controllersiap.WebTypeAppEngineIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebTypeAppEngineIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_type_app_engine_iam_binding"],
-			TypeName: "google_iap_web_type_app_engine_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebTypeAppEngineIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_type_app_engine_iam_binding"],
+			TypeName:         "google_iap_web_type_app_engine_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebTypeAppEngineIamBinding")
 			return err
 		}
@@ -4933,14 +5205,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebTypeAppEngineIamMember",
 	}:
 		if err := (&controllersiap.WebTypeAppEngineIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebTypeAppEngineIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_type_app_engine_iam_member"],
-			TypeName: "google_iap_web_type_app_engine_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebTypeAppEngineIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_type_app_engine_iam_member"],
+			TypeName:         "google_iap_web_type_app_engine_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebTypeAppEngineIamMember")
 			return err
 		}
@@ -4950,14 +5223,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebTypeAppEngineIamPolicy",
 	}:
 		if err := (&controllersiap.WebTypeAppEngineIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebTypeAppEngineIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_type_app_engine_iam_policy"],
-			TypeName: "google_iap_web_type_app_engine_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebTypeAppEngineIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_type_app_engine_iam_policy"],
+			TypeName:         "google_iap_web_type_app_engine_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebTypeAppEngineIamPolicy")
 			return err
 		}
@@ -4967,14 +5241,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebTypeComputeIamBinding",
 	}:
 		if err := (&controllersiap.WebTypeComputeIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebTypeComputeIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_type_compute_iam_binding"],
-			TypeName: "google_iap_web_type_compute_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebTypeComputeIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_type_compute_iam_binding"],
+			TypeName:         "google_iap_web_type_compute_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebTypeComputeIamBinding")
 			return err
 		}
@@ -4984,14 +5259,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebTypeComputeIamMember",
 	}:
 		if err := (&controllersiap.WebTypeComputeIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebTypeComputeIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_type_compute_iam_member"],
-			TypeName: "google_iap_web_type_compute_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebTypeComputeIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_type_compute_iam_member"],
+			TypeName:         "google_iap_web_type_compute_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebTypeComputeIamMember")
 			return err
 		}
@@ -5001,14 +5277,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "WebTypeComputeIamPolicy",
 	}:
 		if err := (&controllersiap.WebTypeComputeIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("WebTypeComputeIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_iap_web_type_compute_iam_policy"],
-			TypeName: "google_iap_web_type_compute_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("WebTypeComputeIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_iap_web_type_compute_iam_policy"],
+			TypeName:         "google_iap_web_type_compute_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "WebTypeComputeIamPolicy")
 			return err
 		}
@@ -5018,14 +5295,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformDefaultSupportedIdpConfig",
 	}:
 		if err := (&controllersidentity.PlatformDefaultSupportedIdpConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformDefaultSupportedIdpConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_default_supported_idp_config"],
-			TypeName: "google_identity_platform_default_supported_idp_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformDefaultSupportedIdpConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_default_supported_idp_config"],
+			TypeName:         "google_identity_platform_default_supported_idp_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformDefaultSupportedIdpConfig")
 			return err
 		}
@@ -5035,14 +5313,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformInboundSamlConfig",
 	}:
 		if err := (&controllersidentity.PlatformInboundSamlConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformInboundSamlConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_inbound_saml_config"],
-			TypeName: "google_identity_platform_inbound_saml_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformInboundSamlConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_inbound_saml_config"],
+			TypeName:         "google_identity_platform_inbound_saml_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformInboundSamlConfig")
 			return err
 		}
@@ -5052,14 +5331,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformOauthIdpConfig",
 	}:
 		if err := (&controllersidentity.PlatformOauthIdpConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformOauthIdpConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_oauth_idp_config"],
-			TypeName: "google_identity_platform_oauth_idp_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformOauthIdpConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_oauth_idp_config"],
+			TypeName:         "google_identity_platform_oauth_idp_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformOauthIdpConfig")
 			return err
 		}
@@ -5069,14 +5349,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformTenant",
 	}:
 		if err := (&controllersidentity.PlatformTenantReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformTenant"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_tenant"],
-			TypeName: "google_identity_platform_tenant",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformTenant"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_tenant"],
+			TypeName:         "google_identity_platform_tenant",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformTenant")
 			return err
 		}
@@ -5086,14 +5367,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformTenantDefaultSupportedIdpConfig",
 	}:
 		if err := (&controllersidentity.PlatformTenantDefaultSupportedIdpConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformTenantDefaultSupportedIdpConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_tenant_default_supported_idp_config"],
-			TypeName: "google_identity_platform_tenant_default_supported_idp_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformTenantDefaultSupportedIdpConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_tenant_default_supported_idp_config"],
+			TypeName:         "google_identity_platform_tenant_default_supported_idp_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformTenantDefaultSupportedIdpConfig")
 			return err
 		}
@@ -5103,14 +5385,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformTenantInboundSamlConfig",
 	}:
 		if err := (&controllersidentity.PlatformTenantInboundSamlConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformTenantInboundSamlConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_tenant_inbound_saml_config"],
-			TypeName: "google_identity_platform_tenant_inbound_saml_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformTenantInboundSamlConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_tenant_inbound_saml_config"],
+			TypeName:         "google_identity_platform_tenant_inbound_saml_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformTenantInboundSamlConfig")
 			return err
 		}
@@ -5120,14 +5403,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "PlatformTenantOauthIdpConfig",
 	}:
 		if err := (&controllersidentity.PlatformTenantOauthIdpConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("PlatformTenantOauthIdpConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_identity_platform_tenant_oauth_idp_config"],
-			TypeName: "google_identity_platform_tenant_oauth_idp_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("PlatformTenantOauthIdpConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_identity_platform_tenant_oauth_idp_config"],
+			TypeName:         "google_identity_platform_tenant_oauth_idp_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "PlatformTenantOauthIdpConfig")
 			return err
 		}
@@ -5137,14 +5421,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CryptoKey",
 	}:
 		if err := (&controllerskms.CryptoKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CryptoKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_crypto_key"],
-			TypeName: "google_kms_crypto_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CryptoKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_crypto_key"],
+			TypeName:         "google_kms_crypto_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CryptoKey")
 			return err
 		}
@@ -5154,14 +5439,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CryptoKeyIamBinding",
 	}:
 		if err := (&controllerskms.CryptoKeyIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CryptoKeyIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_crypto_key_iam_binding"],
-			TypeName: "google_kms_crypto_key_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CryptoKeyIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_crypto_key_iam_binding"],
+			TypeName:         "google_kms_crypto_key_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CryptoKeyIamBinding")
 			return err
 		}
@@ -5171,14 +5457,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CryptoKeyIamMember",
 	}:
 		if err := (&controllerskms.CryptoKeyIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CryptoKeyIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_crypto_key_iam_member"],
-			TypeName: "google_kms_crypto_key_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CryptoKeyIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_crypto_key_iam_member"],
+			TypeName:         "google_kms_crypto_key_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CryptoKeyIamMember")
 			return err
 		}
@@ -5188,14 +5475,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CryptoKeyIamPolicy",
 	}:
 		if err := (&controllerskms.CryptoKeyIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CryptoKeyIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_crypto_key_iam_policy"],
-			TypeName: "google_kms_crypto_key_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CryptoKeyIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_crypto_key_iam_policy"],
+			TypeName:         "google_kms_crypto_key_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CryptoKeyIamPolicy")
 			return err
 		}
@@ -5205,14 +5493,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "KeyRing",
 	}:
 		if err := (&controllerskms.KeyRingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("KeyRing"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_key_ring"],
-			TypeName: "google_kms_key_ring",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("KeyRing"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_key_ring"],
+			TypeName:         "google_kms_key_ring",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "KeyRing")
 			return err
 		}
@@ -5222,14 +5511,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "KeyRingIamBinding",
 	}:
 		if err := (&controllerskms.KeyRingIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("KeyRingIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_key_ring_iam_binding"],
-			TypeName: "google_kms_key_ring_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("KeyRingIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_key_ring_iam_binding"],
+			TypeName:         "google_kms_key_ring_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "KeyRingIamBinding")
 			return err
 		}
@@ -5239,14 +5529,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "KeyRingIamMember",
 	}:
 		if err := (&controllerskms.KeyRingIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("KeyRingIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_key_ring_iam_member"],
-			TypeName: "google_kms_key_ring_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("KeyRingIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_key_ring_iam_member"],
+			TypeName:         "google_kms_key_ring_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "KeyRingIamMember")
 			return err
 		}
@@ -5256,14 +5547,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "KeyRingIamPolicy",
 	}:
 		if err := (&controllerskms.KeyRingIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("KeyRingIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_key_ring_iam_policy"],
-			TypeName: "google_kms_key_ring_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("KeyRingIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_key_ring_iam_policy"],
+			TypeName:         "google_kms_key_ring_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "KeyRingIamPolicy")
 			return err
 		}
@@ -5273,14 +5565,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "KeyRingImportJob",
 	}:
 		if err := (&controllerskms.KeyRingImportJobReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("KeyRingImportJob"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_key_ring_import_job"],
-			TypeName: "google_kms_key_ring_import_job",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("KeyRingImportJob"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_key_ring_import_job"],
+			TypeName:         "google_kms_key_ring_import_job",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "KeyRingImportJob")
 			return err
 		}
@@ -5290,14 +5583,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SecretCiphertext",
 	}:
 		if err := (&controllerskms.SecretCiphertextReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SecretCiphertext"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_kms_secret_ciphertext"],
-			TypeName: "google_kms_secret_ciphertext",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SecretCiphertext"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_kms_secret_ciphertext"],
+			TypeName:         "google_kms_secret_ciphertext",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SecretCiphertext")
 			return err
 		}
@@ -5307,14 +5601,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BillingAccountBucketConfig",
 	}:
 		if err := (&controllerslogging.BillingAccountBucketConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BillingAccountBucketConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_billing_account_bucket_config"],
-			TypeName: "google_logging_billing_account_bucket_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BillingAccountBucketConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_billing_account_bucket_config"],
+			TypeName:         "google_logging_billing_account_bucket_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BillingAccountBucketConfig")
 			return err
 		}
@@ -5324,14 +5619,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BillingAccountExclusion",
 	}:
 		if err := (&controllerslogging.BillingAccountExclusionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BillingAccountExclusion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_billing_account_exclusion"],
-			TypeName: "google_logging_billing_account_exclusion",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BillingAccountExclusion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_billing_account_exclusion"],
+			TypeName:         "google_logging_billing_account_exclusion",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BillingAccountExclusion")
 			return err
 		}
@@ -5341,14 +5637,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BillingAccountSink",
 	}:
 		if err := (&controllerslogging.BillingAccountSinkReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BillingAccountSink"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_billing_account_sink"],
-			TypeName: "google_logging_billing_account_sink",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BillingAccountSink"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_billing_account_sink"],
+			TypeName:         "google_logging_billing_account_sink",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BillingAccountSink")
 			return err
 		}
@@ -5358,14 +5655,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FolderBucketConfig",
 	}:
 		if err := (&controllerslogging.FolderBucketConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FolderBucketConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_folder_bucket_config"],
-			TypeName: "google_logging_folder_bucket_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FolderBucketConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_folder_bucket_config"],
+			TypeName:         "google_logging_folder_bucket_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FolderBucketConfig")
 			return err
 		}
@@ -5375,14 +5673,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FolderExclusion",
 	}:
 		if err := (&controllerslogging.FolderExclusionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FolderExclusion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_folder_exclusion"],
-			TypeName: "google_logging_folder_exclusion",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FolderExclusion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_folder_exclusion"],
+			TypeName:         "google_logging_folder_exclusion",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FolderExclusion")
 			return err
 		}
@@ -5392,14 +5691,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "FolderSink",
 	}:
 		if err := (&controllerslogging.FolderSinkReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("FolderSink"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_folder_sink"],
-			TypeName: "google_logging_folder_sink",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("FolderSink"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_folder_sink"],
+			TypeName:         "google_logging_folder_sink",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "FolderSink")
 			return err
 		}
@@ -5409,14 +5709,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Metric",
 	}:
 		if err := (&controllerslogging.MetricReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Metric"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_metric"],
-			TypeName: "google_logging_metric",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Metric"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_metric"],
+			TypeName:         "google_logging_metric",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Metric")
 			return err
 		}
@@ -5426,14 +5727,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "OrganizationBucketConfig",
 	}:
 		if err := (&controllerslogging.OrganizationBucketConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("OrganizationBucketConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_organization_bucket_config"],
-			TypeName: "google_logging_organization_bucket_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("OrganizationBucketConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_organization_bucket_config"],
+			TypeName:         "google_logging_organization_bucket_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "OrganizationBucketConfig")
 			return err
 		}
@@ -5443,14 +5745,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "OrganizationExclusion",
 	}:
 		if err := (&controllerslogging.OrganizationExclusionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("OrganizationExclusion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_organization_exclusion"],
-			TypeName: "google_logging_organization_exclusion",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("OrganizationExclusion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_organization_exclusion"],
+			TypeName:         "google_logging_organization_exclusion",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "OrganizationExclusion")
 			return err
 		}
@@ -5460,14 +5763,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "OrganizationSink",
 	}:
 		if err := (&controllerslogging.OrganizationSinkReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("OrganizationSink"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_organization_sink"],
-			TypeName: "google_logging_organization_sink",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("OrganizationSink"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_organization_sink"],
+			TypeName:         "google_logging_organization_sink",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "OrganizationSink")
 			return err
 		}
@@ -5477,14 +5781,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ProjectBucketConfig",
 	}:
 		if err := (&controllerslogging.ProjectBucketConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ProjectBucketConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_project_bucket_config"],
-			TypeName: "google_logging_project_bucket_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ProjectBucketConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_project_bucket_config"],
+			TypeName:         "google_logging_project_bucket_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ProjectBucketConfig")
 			return err
 		}
@@ -5494,14 +5799,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ProjectExclusion",
 	}:
 		if err := (&controllerslogging.ProjectExclusionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ProjectExclusion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_project_exclusion"],
-			TypeName: "google_logging_project_exclusion",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ProjectExclusion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_project_exclusion"],
+			TypeName:         "google_logging_project_exclusion",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ProjectExclusion")
 			return err
 		}
@@ -5511,14 +5817,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ProjectSink",
 	}:
 		if err := (&controllerslogging.ProjectSinkReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ProjectSink"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_logging_project_sink"],
-			TypeName: "google_logging_project_sink",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ProjectSink"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_logging_project_sink"],
+			TypeName:         "google_logging_project_sink",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ProjectSink")
 			return err
 		}
@@ -5528,14 +5835,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersmemcache.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_memcache_instance"],
-			TypeName: "google_memcache_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_memcache_instance"],
+			TypeName:         "google_memcache_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -5545,14 +5853,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "EngineModel",
 	}:
 		if err := (&controllersml.EngineModelReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("EngineModel"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_ml_engine_model"],
-			TypeName: "google_ml_engine_model",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("EngineModel"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_ml_engine_model"],
+			TypeName:         "google_ml_engine_model",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "EngineModel")
 			return err
 		}
@@ -5562,14 +5871,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AlertPolicy",
 	}:
 		if err := (&controllersmonitoring.AlertPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AlertPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_alert_policy"],
-			TypeName: "google_monitoring_alert_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AlertPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_alert_policy"],
+			TypeName:         "google_monitoring_alert_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AlertPolicy")
 			return err
 		}
@@ -5579,14 +5889,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "CustomService",
 	}:
 		if err := (&controllersmonitoring.CustomServiceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("CustomService"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_custom_service"],
-			TypeName: "google_monitoring_custom_service",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("CustomService"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_custom_service"],
+			TypeName:         "google_monitoring_custom_service",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CustomService")
 			return err
 		}
@@ -5596,14 +5907,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Dashboard",
 	}:
 		if err := (&controllersmonitoring.DashboardReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Dashboard"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_dashboard"],
-			TypeName: "google_monitoring_dashboard",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Dashboard"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_dashboard"],
+			TypeName:         "google_monitoring_dashboard",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Dashboard")
 			return err
 		}
@@ -5613,14 +5925,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Group",
 	}:
 		if err := (&controllersmonitoring.GroupReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Group"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_group"],
-			TypeName: "google_monitoring_group",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Group"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_group"],
+			TypeName:         "google_monitoring_group",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Group")
 			return err
 		}
@@ -5630,14 +5943,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "MetricDescriptor",
 	}:
 		if err := (&controllersmonitoring.MetricDescriptorReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("MetricDescriptor"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_metric_descriptor"],
-			TypeName: "google_monitoring_metric_descriptor",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("MetricDescriptor"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_metric_descriptor"],
+			TypeName:         "google_monitoring_metric_descriptor",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "MetricDescriptor")
 			return err
 		}
@@ -5647,14 +5961,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NotificationChannel",
 	}:
 		if err := (&controllersmonitoring.NotificationChannelReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NotificationChannel"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_notification_channel"],
-			TypeName: "google_monitoring_notification_channel",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NotificationChannel"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_notification_channel"],
+			TypeName:         "google_monitoring_notification_channel",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NotificationChannel")
 			return err
 		}
@@ -5664,14 +5979,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Slo",
 	}:
 		if err := (&controllersmonitoring.SloReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Slo"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_slo"],
-			TypeName: "google_monitoring_slo",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Slo"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_slo"],
+			TypeName:         "google_monitoring_slo",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Slo")
 			return err
 		}
@@ -5681,14 +5997,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "UptimeCheckConfig",
 	}:
 		if err := (&controllersmonitoring.UptimeCheckConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("UptimeCheckConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_monitoring_uptime_check_config"],
-			TypeName: "google_monitoring_uptime_check_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("UptimeCheckConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_monitoring_uptime_check_config"],
+			TypeName:         "google_monitoring_uptime_check_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "UptimeCheckConfig")
 			return err
 		}
@@ -5698,14 +6015,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagementConnectivityTest",
 	}:
 		if err := (&controllersnetwork.ManagementConnectivityTestReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagementConnectivityTest"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_network_management_connectivity_test"],
-			TypeName: "google_network_management_connectivity_test",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagementConnectivityTest"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_network_management_connectivity_test"],
+			TypeName:         "google_network_management_connectivity_test",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagementConnectivityTest")
 			return err
 		}
@@ -5715,14 +6033,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Environment",
 	}:
 		if err := (&controllersnotebooks.EnvironmentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Environment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_notebooks_environment"],
-			TypeName: "google_notebooks_environment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Environment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_notebooks_environment"],
+			TypeName:         "google_notebooks_environment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
 			return err
 		}
@@ -5732,14 +6051,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersnotebooks.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_notebooks_instance"],
-			TypeName: "google_notebooks_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_notebooks_instance"],
+			TypeName:         "google_notebooks_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -5749,14 +6069,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamBinding",
 	}:
 		if err := (&controllersnotebooks.InstanceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_notebooks_instance_iam_binding"],
-			TypeName: "google_notebooks_instance_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_notebooks_instance_iam_binding"],
+			TypeName:         "google_notebooks_instance_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamBinding")
 			return err
 		}
@@ -5766,14 +6087,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamMember",
 	}:
 		if err := (&controllersnotebooks.InstanceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_notebooks_instance_iam_member"],
-			TypeName: "google_notebooks_instance_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_notebooks_instance_iam_member"],
+			TypeName:         "google_notebooks_instance_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamMember")
 			return err
 		}
@@ -5783,14 +6105,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamPolicy",
 	}:
 		if err := (&controllersnotebooks.InstanceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_notebooks_instance_iam_policy"],
-			TypeName: "google_notebooks_instance_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_notebooks_instance_iam_policy"],
+			TypeName:         "google_notebooks_instance_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamPolicy")
 			return err
 		}
@@ -5800,14 +6123,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Location",
 	}:
 		if err := (&controllersnotebooks.LocationReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Location"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_notebooks_location"],
-			TypeName: "google_notebooks_location",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Location"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_notebooks_location"],
+			TypeName:         "google_notebooks_location",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Location")
 			return err
 		}
@@ -5817,14 +6141,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccessApprovalSettings",
 	}:
 		if err := (&controllersorganization.AccessApprovalSettingsReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccessApprovalSettings"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_access_approval_settings"],
-			TypeName: "google_organization_access_approval_settings",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccessApprovalSettings"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_access_approval_settings"],
+			TypeName:         "google_organization_access_approval_settings",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccessApprovalSettings")
 			return err
 		}
@@ -5834,14 +6159,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamAuditConfig",
 	}:
 		if err := (&controllersorganization.IamAuditConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamAuditConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_iam_audit_config"],
-			TypeName: "google_organization_iam_audit_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamAuditConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_iam_audit_config"],
+			TypeName:         "google_organization_iam_audit_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamAuditConfig")
 			return err
 		}
@@ -5851,14 +6177,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamBinding",
 	}:
 		if err := (&controllersorganization.IamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_iam_binding"],
-			TypeName: "google_organization_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_iam_binding"],
+			TypeName:         "google_organization_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamBinding")
 			return err
 		}
@@ -5868,14 +6195,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamCustomRole",
 	}:
 		if err := (&controllersorganization.IamCustomRoleReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamCustomRole"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_iam_custom_role"],
-			TypeName: "google_organization_iam_custom_role",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamCustomRole"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_iam_custom_role"],
+			TypeName:         "google_organization_iam_custom_role",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamCustomRole")
 			return err
 		}
@@ -5885,14 +6213,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamMember",
 	}:
 		if err := (&controllersorganization.IamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_iam_member"],
-			TypeName: "google_organization_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_iam_member"],
+			TypeName:         "google_organization_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamMember")
 			return err
 		}
@@ -5902,14 +6231,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamPolicy",
 	}:
 		if err := (&controllersorganization.IamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_iam_policy"],
-			TypeName: "google_organization_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_iam_policy"],
+			TypeName:         "google_organization_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamPolicy")
 			return err
 		}
@@ -5919,14 +6249,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Policy",
 	}:
 		if err := (&controllersorganization.PolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Policy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_organization_policy"],
-			TypeName: "google_organization_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Policy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_organization_policy"],
+			TypeName:         "google_organization_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Policy")
 			return err
 		}
@@ -5936,14 +6267,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConfigPatchDeployment",
 	}:
 		if err := (&controllersos.ConfigPatchDeploymentReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigPatchDeployment"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_os_config_patch_deployment"],
-			TypeName: "google_os_config_patch_deployment",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConfigPatchDeployment"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_os_config_patch_deployment"],
+			TypeName:         "google_os_config_patch_deployment",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConfigPatchDeployment")
 			return err
 		}
@@ -5953,14 +6285,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LoginSSHPublicKey",
 	}:
 		if err := (&controllersos.LoginSSHPublicKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LoginSSHPublicKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_os_login_ssh_public_key"],
-			TypeName: "google_os_login_ssh_public_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LoginSSHPublicKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_os_login_ssh_public_key"],
+			TypeName:         "google_os_login_ssh_public_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LoginSSHPublicKey")
 			return err
 		}
@@ -5970,14 +6303,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Project",
 	}:
 		if err := (&controllersproject.ProjectReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Project"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project"],
-			TypeName: "google_project",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Project"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project"],
+			TypeName:         "google_project",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Project")
 			return err
 		}
@@ -5987,14 +6321,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccessApprovalSettings",
 	}:
 		if err := (&controllersproject.AccessApprovalSettingsReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccessApprovalSettings"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_access_approval_settings"],
-			TypeName: "google_project_access_approval_settings",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccessApprovalSettings"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_access_approval_settings"],
+			TypeName:         "google_project_access_approval_settings",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccessApprovalSettings")
 			return err
 		}
@@ -6004,14 +6339,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DefaultServiceAccounts",
 	}:
 		if err := (&controllersproject.DefaultServiceAccountsReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DefaultServiceAccounts"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_default_service_accounts"],
-			TypeName: "google_project_default_service_accounts",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DefaultServiceAccounts"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_default_service_accounts"],
+			TypeName:         "google_project_default_service_accounts",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DefaultServiceAccounts")
 			return err
 		}
@@ -6021,14 +6357,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamAuditConfig",
 	}:
 		if err := (&controllersproject.IamAuditConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamAuditConfig"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_iam_audit_config"],
-			TypeName: "google_project_iam_audit_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamAuditConfig"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_iam_audit_config"],
+			TypeName:         "google_project_iam_audit_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamAuditConfig")
 			return err
 		}
@@ -6038,14 +6375,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamBinding",
 	}:
 		if err := (&controllersproject.IamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_iam_binding"],
-			TypeName: "google_project_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_iam_binding"],
+			TypeName:         "google_project_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamBinding")
 			return err
 		}
@@ -6055,14 +6393,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamCustomRole",
 	}:
 		if err := (&controllersproject.IamCustomRoleReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamCustomRole"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_iam_custom_role"],
-			TypeName: "google_project_iam_custom_role",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamCustomRole"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_iam_custom_role"],
+			TypeName:         "google_project_iam_custom_role",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamCustomRole")
 			return err
 		}
@@ -6072,14 +6411,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamMember",
 	}:
 		if err := (&controllersproject.IamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_iam_member"],
-			TypeName: "google_project_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_iam_member"],
+			TypeName:         "google_project_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamMember")
 			return err
 		}
@@ -6089,14 +6429,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamPolicy",
 	}:
 		if err := (&controllersproject.IamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_iam_policy"],
-			TypeName: "google_project_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_iam_policy"],
+			TypeName:         "google_project_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamPolicy")
 			return err
 		}
@@ -6106,14 +6447,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "OrganizationPolicy",
 	}:
 		if err := (&controllersproject.OrganizationPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("OrganizationPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_organization_policy"],
-			TypeName: "google_project_organization_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("OrganizationPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_organization_policy"],
+			TypeName:         "google_project_organization_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "OrganizationPolicy")
 			return err
 		}
@@ -6123,14 +6465,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Service",
 	}:
 		if err := (&controllersproject.ServiceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Service"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_service"],
-			TypeName: "google_project_service",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Service"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_service"],
+			TypeName:         "google_project_service",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Service")
 			return err
 		}
@@ -6140,14 +6483,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "UsageExportBucket",
 	}:
 		if err := (&controllersproject.UsageExportBucketReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("UsageExportBucket"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_project_usage_export_bucket"],
-			TypeName: "google_project_usage_export_bucket",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("UsageExportBucket"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_project_usage_export_bucket"],
+			TypeName:         "google_project_usage_export_bucket",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "UsageExportBucket")
 			return err
 		}
@@ -6157,14 +6501,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LiteSubscription",
 	}:
 		if err := (&controllerspubsub.LiteSubscriptionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LiteSubscription"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_lite_subscription"],
-			TypeName: "google_pubsub_lite_subscription",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LiteSubscription"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_lite_subscription"],
+			TypeName:         "google_pubsub_lite_subscription",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LiteSubscription")
 			return err
 		}
@@ -6174,14 +6519,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "LiteTopic",
 	}:
 		if err := (&controllerspubsub.LiteTopicReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("LiteTopic"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_lite_topic"],
-			TypeName: "google_pubsub_lite_topic",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("LiteTopic"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_lite_topic"],
+			TypeName:         "google_pubsub_lite_topic",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "LiteTopic")
 			return err
 		}
@@ -6191,14 +6537,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Schema",
 	}:
 		if err := (&controllerspubsub.SchemaReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Schema"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_schema"],
-			TypeName: "google_pubsub_schema",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Schema"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_schema"],
+			TypeName:         "google_pubsub_schema",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Schema")
 			return err
 		}
@@ -6208,14 +6555,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Subscription",
 	}:
 		if err := (&controllerspubsub.SubscriptionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Subscription"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_subscription"],
-			TypeName: "google_pubsub_subscription",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Subscription"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_subscription"],
+			TypeName:         "google_pubsub_subscription",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Subscription")
 			return err
 		}
@@ -6225,14 +6573,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SubscriptionIamBinding",
 	}:
 		if err := (&controllerspubsub.SubscriptionIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SubscriptionIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_subscription_iam_binding"],
-			TypeName: "google_pubsub_subscription_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SubscriptionIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_subscription_iam_binding"],
+			TypeName:         "google_pubsub_subscription_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SubscriptionIamBinding")
 			return err
 		}
@@ -6242,14 +6591,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SubscriptionIamMember",
 	}:
 		if err := (&controllerspubsub.SubscriptionIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SubscriptionIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_subscription_iam_member"],
-			TypeName: "google_pubsub_subscription_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SubscriptionIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_subscription_iam_member"],
+			TypeName:         "google_pubsub_subscription_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SubscriptionIamMember")
 			return err
 		}
@@ -6259,14 +6609,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SubscriptionIamPolicy",
 	}:
 		if err := (&controllerspubsub.SubscriptionIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SubscriptionIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_subscription_iam_policy"],
-			TypeName: "google_pubsub_subscription_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SubscriptionIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_subscription_iam_policy"],
+			TypeName:         "google_pubsub_subscription_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SubscriptionIamPolicy")
 			return err
 		}
@@ -6276,14 +6627,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Topic",
 	}:
 		if err := (&controllerspubsub.TopicReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Topic"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_topic"],
-			TypeName: "google_pubsub_topic",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Topic"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_topic"],
+			TypeName:         "google_pubsub_topic",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Topic")
 			return err
 		}
@@ -6293,14 +6645,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TopicIamBinding",
 	}:
 		if err := (&controllerspubsub.TopicIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TopicIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_topic_iam_binding"],
-			TypeName: "google_pubsub_topic_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TopicIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_topic_iam_binding"],
+			TypeName:         "google_pubsub_topic_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TopicIamBinding")
 			return err
 		}
@@ -6310,14 +6663,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TopicIamMember",
 	}:
 		if err := (&controllerspubsub.TopicIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TopicIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_topic_iam_member"],
-			TypeName: "google_pubsub_topic_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TopicIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_topic_iam_member"],
+			TypeName:         "google_pubsub_topic_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TopicIamMember")
 			return err
 		}
@@ -6327,14 +6681,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TopicIamPolicy",
 	}:
 		if err := (&controllerspubsub.TopicIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TopicIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_pubsub_topic_iam_policy"],
-			TypeName: "google_pubsub_topic_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TopicIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_pubsub_topic_iam_policy"],
+			TypeName:         "google_pubsub_topic_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TopicIamPolicy")
 			return err
 		}
@@ -6344,14 +6699,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersredis.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_redis_instance"],
-			TypeName: "google_redis_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_redis_instance"],
+			TypeName:         "google_redis_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -6361,14 +6717,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerLien",
 	}:
 		if err := (&controllersresource.ManagerLienReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerLien"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_resource_manager_lien"],
-			TypeName: "google_resource_manager_lien",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerLien"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_resource_manager_lien"],
+			TypeName:         "google_resource_manager_lien",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerLien")
 			return err
 		}
@@ -6378,14 +6735,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Config",
 	}:
 		if err := (&controllersruntimeconfig.ConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Config"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_runtimeconfig_config"],
-			TypeName: "google_runtimeconfig_config",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Config"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_runtimeconfig_config"],
+			TypeName:         "google_runtimeconfig_config",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Config")
 			return err
 		}
@@ -6395,14 +6753,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConfigIamBinding",
 	}:
 		if err := (&controllersruntimeconfig.ConfigIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_runtimeconfig_config_iam_binding"],
-			TypeName: "google_runtimeconfig_config_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConfigIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_runtimeconfig_config_iam_binding"],
+			TypeName:         "google_runtimeconfig_config_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConfigIamBinding")
 			return err
 		}
@@ -6412,14 +6771,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConfigIamMember",
 	}:
 		if err := (&controllersruntimeconfig.ConfigIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_runtimeconfig_config_iam_member"],
-			TypeName: "google_runtimeconfig_config_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConfigIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_runtimeconfig_config_iam_member"],
+			TypeName:         "google_runtimeconfig_config_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConfigIamMember")
 			return err
 		}
@@ -6429,14 +6789,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ConfigIamPolicy",
 	}:
 		if err := (&controllersruntimeconfig.ConfigIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_runtimeconfig_config_iam_policy"],
-			TypeName: "google_runtimeconfig_config_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ConfigIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_runtimeconfig_config_iam_policy"],
+			TypeName:         "google_runtimeconfig_config_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ConfigIamPolicy")
 			return err
 		}
@@ -6446,14 +6807,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Variable",
 	}:
 		if err := (&controllersruntimeconfig.VariableReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Variable"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_runtimeconfig_variable"],
-			TypeName: "google_runtimeconfig_variable",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Variable"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_runtimeconfig_variable"],
+			TypeName:         "google_runtimeconfig_variable",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Variable")
 			return err
 		}
@@ -6463,14 +6825,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Source",
 	}:
 		if err := (&controllersscc.SourceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Source"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_scc_source"],
-			TypeName: "google_scc_source",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Source"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_scc_source"],
+			TypeName:         "google_scc_source",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Source")
 			return err
 		}
@@ -6480,14 +6843,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerSecret",
 	}:
 		if err := (&controllerssecret.ManagerSecretReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerSecret"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_secret_manager_secret"],
-			TypeName: "google_secret_manager_secret",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerSecret"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_secret_manager_secret"],
+			TypeName:         "google_secret_manager_secret",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerSecret")
 			return err
 		}
@@ -6497,14 +6861,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerSecretIamBinding",
 	}:
 		if err := (&controllerssecret.ManagerSecretIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerSecretIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_secret_manager_secret_iam_binding"],
-			TypeName: "google_secret_manager_secret_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerSecretIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_secret_manager_secret_iam_binding"],
+			TypeName:         "google_secret_manager_secret_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerSecretIamBinding")
 			return err
 		}
@@ -6514,14 +6879,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerSecretIamMember",
 	}:
 		if err := (&controllerssecret.ManagerSecretIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerSecretIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_secret_manager_secret_iam_member"],
-			TypeName: "google_secret_manager_secret_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerSecretIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_secret_manager_secret_iam_member"],
+			TypeName:         "google_secret_manager_secret_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerSecretIamMember")
 			return err
 		}
@@ -6531,14 +6897,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerSecretIamPolicy",
 	}:
 		if err := (&controllerssecret.ManagerSecretIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerSecretIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_secret_manager_secret_iam_policy"],
-			TypeName: "google_secret_manager_secret_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerSecretIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_secret_manager_secret_iam_policy"],
+			TypeName:         "google_secret_manager_secret_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerSecretIamPolicy")
 			return err
 		}
@@ -6548,14 +6915,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ManagerSecretVersion",
 	}:
 		if err := (&controllerssecret.ManagerSecretVersionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ManagerSecretVersion"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_secret_manager_secret_version"],
-			TypeName: "google_secret_manager_secret_version",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagerSecretVersion"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_secret_manager_secret_version"],
+			TypeName:         "google_secret_manager_secret_version",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerSecretVersion")
 			return err
 		}
@@ -6565,14 +6933,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Account",
 	}:
 		if err := (&controllersservice.AccountReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Account"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_service_account"],
-			TypeName: "google_service_account",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Account"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_service_account"],
+			TypeName:         "google_service_account",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Account")
 			return err
 		}
@@ -6582,14 +6951,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccountIamBinding",
 	}:
 		if err := (&controllersservice.AccountIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccountIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_service_account_iam_binding"],
-			TypeName: "google_service_account_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccountIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_service_account_iam_binding"],
+			TypeName:         "google_service_account_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccountIamBinding")
 			return err
 		}
@@ -6599,14 +6969,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccountIamMember",
 	}:
 		if err := (&controllersservice.AccountIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccountIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_service_account_iam_member"],
-			TypeName: "google_service_account_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccountIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_service_account_iam_member"],
+			TypeName:         "google_service_account_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccountIamMember")
 			return err
 		}
@@ -6616,14 +6987,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccountIamPolicy",
 	}:
 		if err := (&controllersservice.AccountIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccountIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_service_account_iam_policy"],
-			TypeName: "google_service_account_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccountIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_service_account_iam_policy"],
+			TypeName:         "google_service_account_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccountIamPolicy")
 			return err
 		}
@@ -6633,14 +7005,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccountKey",
 	}:
 		if err := (&controllersservice.AccountKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccountKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_service_account_key"],
-			TypeName: "google_service_account_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccountKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_service_account_key"],
+			TypeName:         "google_service_account_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccountKey")
 			return err
 		}
@@ -6650,14 +7023,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "NetworkingConnection",
 	}:
 		if err := (&controllersservice.NetworkingConnectionReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("NetworkingConnection"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_service_networking_connection"],
-			TypeName: "google_service_networking_connection",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("NetworkingConnection"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_service_networking_connection"],
+			TypeName:         "google_service_networking_connection",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "NetworkingConnection")
 			return err
 		}
@@ -6667,14 +7041,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SourcerepoRepository",
 	}:
 		if err := (&controllerssourcereporepository.SourcerepoRepositoryReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SourcerepoRepository"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sourcerepo_repository"],
-			TypeName: "google_sourcerepo_repository",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SourcerepoRepository"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sourcerepo_repository"],
+			TypeName:         "google_sourcerepo_repository",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SourcerepoRepository")
 			return err
 		}
@@ -6684,14 +7059,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamBinding",
 	}:
 		if err := (&controllerssourcereporepository.IamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sourcerepo_repository_iam_binding"],
-			TypeName: "google_sourcerepo_repository_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sourcerepo_repository_iam_binding"],
+			TypeName:         "google_sourcerepo_repository_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamBinding")
 			return err
 		}
@@ -6701,14 +7077,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamMember",
 	}:
 		if err := (&controllerssourcereporepository.IamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sourcerepo_repository_iam_member"],
-			TypeName: "google_sourcerepo_repository_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sourcerepo_repository_iam_member"],
+			TypeName:         "google_sourcerepo_repository_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamMember")
 			return err
 		}
@@ -6718,14 +7095,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "IamPolicy",
 	}:
 		if err := (&controllerssourcereporepository.IamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("IamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sourcerepo_repository_iam_policy"],
-			TypeName: "google_sourcerepo_repository_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("IamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sourcerepo_repository_iam_policy"],
+			TypeName:         "google_sourcerepo_repository_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "IamPolicy")
 			return err
 		}
@@ -6735,14 +7113,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Database",
 	}:
 		if err := (&controllersspanner.DatabaseReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Database"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_database"],
-			TypeName: "google_spanner_database",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Database"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_database"],
+			TypeName:         "google_spanner_database",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Database")
 			return err
 		}
@@ -6752,14 +7131,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatabaseIamBinding",
 	}:
 		if err := (&controllersspanner.DatabaseIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatabaseIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_database_iam_binding"],
-			TypeName: "google_spanner_database_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatabaseIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_database_iam_binding"],
+			TypeName:         "google_spanner_database_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseIamBinding")
 			return err
 		}
@@ -6769,14 +7149,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatabaseIamMember",
 	}:
 		if err := (&controllersspanner.DatabaseIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatabaseIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_database_iam_member"],
-			TypeName: "google_spanner_database_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatabaseIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_database_iam_member"],
+			TypeName:         "google_spanner_database_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseIamMember")
 			return err
 		}
@@ -6786,14 +7167,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatabaseIamPolicy",
 	}:
 		if err := (&controllersspanner.DatabaseIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatabaseIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_database_iam_policy"],
-			TypeName: "google_spanner_database_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatabaseIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_database_iam_policy"],
+			TypeName:         "google_spanner_database_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseIamPolicy")
 			return err
 		}
@@ -6803,14 +7185,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Instance",
 	}:
 		if err := (&controllersspanner.InstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Instance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_instance"],
-			TypeName: "google_spanner_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Instance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_instance"],
+			TypeName:         "google_spanner_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Instance")
 			return err
 		}
@@ -6820,14 +7203,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamBinding",
 	}:
 		if err := (&controllersspanner.InstanceIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_instance_iam_binding"],
-			TypeName: "google_spanner_instance_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_instance_iam_binding"],
+			TypeName:         "google_spanner_instance_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamBinding")
 			return err
 		}
@@ -6837,14 +7221,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamMember",
 	}:
 		if err := (&controllersspanner.InstanceIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_instance_iam_member"],
-			TypeName: "google_spanner_instance_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_instance_iam_member"],
+			TypeName:         "google_spanner_instance_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamMember")
 			return err
 		}
@@ -6854,14 +7239,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "InstanceIamPolicy",
 	}:
 		if err := (&controllersspanner.InstanceIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_spanner_instance_iam_policy"],
-			TypeName: "google_spanner_instance_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("InstanceIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_spanner_instance_iam_policy"],
+			TypeName:         "google_spanner_instance_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "InstanceIamPolicy")
 			return err
 		}
@@ -6871,14 +7257,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Database",
 	}:
 		if err := (&controllerssql.DatabaseReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Database"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sql_database"],
-			TypeName: "google_sql_database",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Database"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sql_database"],
+			TypeName:         "google_sql_database",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Database")
 			return err
 		}
@@ -6888,14 +7275,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DatabaseInstance",
 	}:
 		if err := (&controllerssql.DatabaseInstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DatabaseInstance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sql_database_instance"],
-			TypeName: "google_sql_database_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DatabaseInstance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sql_database_instance"],
+			TypeName:         "google_sql_database_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DatabaseInstance")
 			return err
 		}
@@ -6905,14 +7293,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SourceRepresentationInstance",
 	}:
 		if err := (&controllerssql.SourceRepresentationInstanceReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SourceRepresentationInstance"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sql_source_representation_instance"],
-			TypeName: "google_sql_source_representation_instance",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SourceRepresentationInstance"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sql_source_representation_instance"],
+			TypeName:         "google_sql_source_representation_instance",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SourceRepresentationInstance")
 			return err
 		}
@@ -6922,14 +7311,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "SslCert",
 	}:
 		if err := (&controllerssql.SslCertReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("SslCert"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sql_ssl_cert"],
-			TypeName: "google_sql_ssl_cert",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("SslCert"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sql_ssl_cert"],
+			TypeName:         "google_sql_ssl_cert",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SslCert")
 			return err
 		}
@@ -6939,14 +7329,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "User",
 	}:
 		if err := (&controllerssql.UserReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("User"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_sql_user"],
-			TypeName: "google_sql_user",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("User"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_sql_user"],
+			TypeName:         "google_sql_user",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "User")
 			return err
 		}
@@ -6956,14 +7347,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Bucket",
 	}:
 		if err := (&controllersstorage.BucketReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Bucket"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket"],
-			TypeName: "google_storage_bucket",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Bucket"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket"],
+			TypeName:         "google_storage_bucket",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Bucket")
 			return err
 		}
@@ -6973,14 +7365,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BucketAccessControl",
 	}:
 		if err := (&controllersstorage.BucketAccessControlReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BucketAccessControl"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket_access_control"],
-			TypeName: "google_storage_bucket_access_control",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BucketAccessControl"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket_access_control"],
+			TypeName:         "google_storage_bucket_access_control",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BucketAccessControl")
 			return err
 		}
@@ -6990,14 +7383,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BucketACL",
 	}:
 		if err := (&controllersstorage.BucketACLReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BucketACL"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket_acl"],
-			TypeName: "google_storage_bucket_acl",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BucketACL"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket_acl"],
+			TypeName:         "google_storage_bucket_acl",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BucketACL")
 			return err
 		}
@@ -7007,14 +7401,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BucketIamBinding",
 	}:
 		if err := (&controllersstorage.BucketIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BucketIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket_iam_binding"],
-			TypeName: "google_storage_bucket_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BucketIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket_iam_binding"],
+			TypeName:         "google_storage_bucket_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BucketIamBinding")
 			return err
 		}
@@ -7024,14 +7419,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BucketIamMember",
 	}:
 		if err := (&controllersstorage.BucketIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BucketIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket_iam_member"],
-			TypeName: "google_storage_bucket_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BucketIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket_iam_member"],
+			TypeName:         "google_storage_bucket_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BucketIamMember")
 			return err
 		}
@@ -7041,14 +7437,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BucketIamPolicy",
 	}:
 		if err := (&controllersstorage.BucketIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BucketIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket_iam_policy"],
-			TypeName: "google_storage_bucket_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BucketIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket_iam_policy"],
+			TypeName:         "google_storage_bucket_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BucketIamPolicy")
 			return err
 		}
@@ -7058,14 +7455,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "BucketObject",
 	}:
 		if err := (&controllersstorage.BucketObjectReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("BucketObject"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_bucket_object"],
-			TypeName: "google_storage_bucket_object",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("BucketObject"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_bucket_object"],
+			TypeName:         "google_storage_bucket_object",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BucketObject")
 			return err
 		}
@@ -7075,14 +7473,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DefaultObjectAccessControl",
 	}:
 		if err := (&controllersstorage.DefaultObjectAccessControlReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DefaultObjectAccessControl"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_default_object_access_control"],
-			TypeName: "google_storage_default_object_access_control",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DefaultObjectAccessControl"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_default_object_access_control"],
+			TypeName:         "google_storage_default_object_access_control",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DefaultObjectAccessControl")
 			return err
 		}
@@ -7092,14 +7491,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "DefaultObjectACL",
 	}:
 		if err := (&controllersstorage.DefaultObjectACLReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("DefaultObjectACL"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_default_object_acl"],
-			TypeName: "google_storage_default_object_acl",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("DefaultObjectACL"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_default_object_acl"],
+			TypeName:         "google_storage_default_object_acl",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "DefaultObjectACL")
 			return err
 		}
@@ -7109,14 +7509,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "HmacKey",
 	}:
 		if err := (&controllersstorage.HmacKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("HmacKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_hmac_key"],
-			TypeName: "google_storage_hmac_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("HmacKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_hmac_key"],
+			TypeName:         "google_storage_hmac_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "HmacKey")
 			return err
 		}
@@ -7126,14 +7527,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Notification",
 	}:
 		if err := (&controllersstorage.NotificationReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Notification"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_notification"],
-			TypeName: "google_storage_notification",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Notification"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_notification"],
+			TypeName:         "google_storage_notification",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Notification")
 			return err
 		}
@@ -7143,14 +7545,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ObjectAccessControl",
 	}:
 		if err := (&controllersstorage.ObjectAccessControlReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ObjectAccessControl"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_object_access_control"],
-			TypeName: "google_storage_object_access_control",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ObjectAccessControl"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_object_access_control"],
+			TypeName:         "google_storage_object_access_control",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ObjectAccessControl")
 			return err
 		}
@@ -7160,14 +7563,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "ObjectACL",
 	}:
 		if err := (&controllersstorage.ObjectACLReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ObjectACL"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_object_acl"],
-			TypeName: "google_storage_object_acl",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("ObjectACL"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_object_acl"],
+			TypeName:         "google_storage_object_acl",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ObjectACL")
 			return err
 		}
@@ -7177,14 +7581,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TransferJob",
 	}:
 		if err := (&controllersstorage.TransferJobReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TransferJob"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_storage_transfer_job"],
-			TypeName: "google_storage_transfer_job",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TransferJob"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_storage_transfer_job"],
+			TypeName:         "google_storage_transfer_job",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TransferJob")
 			return err
 		}
@@ -7194,14 +7599,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagBinding",
 	}:
 		if err := (&controllerstags.TagBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_binding"],
-			TypeName: "google_tags_tag_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_binding"],
+			TypeName:         "google_tags_tag_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagBinding")
 			return err
 		}
@@ -7211,14 +7617,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagKey",
 	}:
 		if err := (&controllerstags.TagKeyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagKey"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_key"],
-			TypeName: "google_tags_tag_key",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagKey"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_key"],
+			TypeName:         "google_tags_tag_key",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagKey")
 			return err
 		}
@@ -7228,14 +7635,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagKeyIamBinding",
 	}:
 		if err := (&controllerstags.TagKeyIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagKeyIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_key_iam_binding"],
-			TypeName: "google_tags_tag_key_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagKeyIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_key_iam_binding"],
+			TypeName:         "google_tags_tag_key_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagKeyIamBinding")
 			return err
 		}
@@ -7245,14 +7653,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagKeyIamMember",
 	}:
 		if err := (&controllerstags.TagKeyIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagKeyIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_key_iam_member"],
-			TypeName: "google_tags_tag_key_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagKeyIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_key_iam_member"],
+			TypeName:         "google_tags_tag_key_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagKeyIamMember")
 			return err
 		}
@@ -7262,14 +7671,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagKeyIamPolicy",
 	}:
 		if err := (&controllerstags.TagKeyIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagKeyIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_key_iam_policy"],
-			TypeName: "google_tags_tag_key_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagKeyIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_key_iam_policy"],
+			TypeName:         "google_tags_tag_key_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagKeyIamPolicy")
 			return err
 		}
@@ -7279,14 +7689,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagValue",
 	}:
 		if err := (&controllerstags.TagValueReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagValue"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_value"],
-			TypeName: "google_tags_tag_value",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagValue"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_value"],
+			TypeName:         "google_tags_tag_value",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagValue")
 			return err
 		}
@@ -7296,14 +7707,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagValueIamBinding",
 	}:
 		if err := (&controllerstags.TagValueIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagValueIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_value_iam_binding"],
-			TypeName: "google_tags_tag_value_iam_binding",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagValueIamBinding"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_value_iam_binding"],
+			TypeName:         "google_tags_tag_value_iam_binding",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagValueIamBinding")
 			return err
 		}
@@ -7313,14 +7725,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagValueIamMember",
 	}:
 		if err := (&controllerstags.TagValueIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagValueIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_value_iam_member"],
-			TypeName: "google_tags_tag_value_iam_member",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagValueIamMember"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_value_iam_member"],
+			TypeName:         "google_tags_tag_value_iam_member",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagValueIamMember")
 			return err
 		}
@@ -7330,14 +7743,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "TagValueIamPolicy",
 	}:
 		if err := (&controllerstags.TagValueIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("TagValueIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tags_tag_value_iam_policy"],
-			TypeName: "google_tags_tag_value_iam_policy",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("TagValueIamPolicy"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tags_tag_value_iam_policy"],
+			TypeName:         "google_tags_tag_value_iam_policy",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "TagValueIamPolicy")
 			return err
 		}
@@ -7347,14 +7761,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Node",
 	}:
 		if err := (&controllerstpu.NodeReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Node"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_tpu_node"],
-			TypeName: "google_tpu_node",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Node"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_tpu_node"],
+			TypeName:         "google_tpu_node",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Node")
 			return err
 		}
@@ -7364,14 +7779,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AiDataset",
 	}:
 		if err := (&controllersvertex.AiDatasetReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AiDataset"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_vertex_ai_dataset"],
-			TypeName: "google_vertex_ai_dataset",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AiDataset"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_vertex_ai_dataset"],
+			TypeName:         "google_vertex_ai_dataset",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AiDataset")
 			return err
 		}
@@ -7381,14 +7797,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "AccessConnector",
 	}:
 		if err := (&controllersvpc.AccessConnectorReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("AccessConnector"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_vpc_access_connector"],
-			TypeName: "google_vpc_access_connector",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("AccessConnector"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_vpc_access_connector"],
+			TypeName:         "google_vpc_access_connector",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "AccessConnector")
 			return err
 		}
@@ -7398,14 +7815,15 @@ func SetupManager(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 		Kind:    "Workflow",
 	}:
 		if err := (&controllersworkflows.WorkflowReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Workflow"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: google.Provider(),
-			Resource: google.Provider().ResourcesMap["google_workflows_workflow"],
-			TypeName: "google_workflows_workflow",
-		}).SetupWithManager(mgr); err != nil {
+			Client:           mgr.GetClient(),
+			Log:              ctrl.Log.WithName("controllers").WithName("Workflow"),
+			Scheme:           mgr.GetScheme(),
+			Gvk:              gvk,
+			Provider:         google.Provider(),
+			Resource:         google.Provider().ResourcesMap["google_workflows_workflow"],
+			TypeName:         "google_workflows_workflow",
+			WatchOnlyDefault: watchOnlyDefault,
+		}).SetupWithManager(ctx, mgr, auditor); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Workflow")
 			return err
 		}

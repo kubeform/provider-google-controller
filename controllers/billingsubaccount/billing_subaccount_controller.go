@@ -23,11 +23,13 @@ import (
 
 	"github.com/go-logr/logr"
 	tfschema "github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	auditlib "go.bytebuilders.dev/audit/lib"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	meta_util "kmodules.xyz/client-go/meta"
 	billingsubaccountv1alpha1 "kubeform.dev/provider-google-api/apis/billingsubaccount/v1alpha1"
 	"kubeform.dev/provider-google-controller/controllers"
@@ -43,10 +45,11 @@ type BillingSubaccountReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	Gvk      schema.GroupVersionKind // GVK of the Resource
-	Provider *tfschema.Provider      // returns a *schema.Provider from the provider package
-	Resource *tfschema.Resource      // returns *schema.Resource
-	TypeName string                  // resource type
+	Gvk              schema.GroupVersionKind // GVK of the Resource
+	Provider         *tfschema.Provider      // returns a *schema.Provider from the provider package
+	Resource         *tfschema.Resource      // returns *schema.Resource
+	TypeName         string                  // resource type
+	WatchOnlyDefault bool
 }
 
 // +kubebuilder:rbac:groups=billingsubaccount.google.kubeform.com,resources=billingsubaccounts,verbs=get;list;watch;create;update;patch;delete
@@ -55,6 +58,10 @@ type BillingSubaccountReconciler struct {
 func (r *BillingSubaccountReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("billingsubaccount", req.NamespacedName)
 
+	if r.WatchOnlyDefault && req.Namespace != v1.NamespaceDefault {
+		log.Info("Only default namespace is supported for Kubeform Community, Please upgrade to Kubeform Enterprise to use any namespace.")
+		return ctrl.Result{}, nil
+	}
 	var unstructuredObj unstructured.Unstructured
 	unstructuredObj.SetGroupVersionKind(r.Gvk)
 
@@ -74,7 +81,14 @@ func (r *BillingSubaccountReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, err
 }
 
-func (r *BillingSubaccountReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *BillingSubaccountReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, auditor *auditlib.EventPublisher) error {
+	if auditor != nil {
+		if err := auditor.SetupWithManager(ctx, mgr, &billingsubaccountv1alpha1.BillingSubaccount{}); err != nil {
+			klog.Error(err, "unable to set up auditor", billingsubaccountv1alpha1.BillingSubaccount{}.APIVersion, billingsubaccountv1alpha1.BillingSubaccount{}.Kind)
+			return err
+		}
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&billingsubaccountv1alpha1.BillingSubaccount{}).
 		WithEventFilter(predicate.Funcs{

@@ -25,7 +25,8 @@ require (
 	k8s.io/client-go v0.21.1
 	k8s.io/klog/v2 v2.8.0
 	kmodules.xyz/client-go v0.0.0-20210617233340-13d22e91512b
-	kubeform.dev/provider-google-api v0.0.0-20210701134425-66cf5ff8b389
+	kubeform.dev/apimachinery v0.0.0-20210629153539-7bcd34a30eb5
+	kubeform.dev/provider-google-api v0.0.0-20210702182917-465f62bc18e0
 	sigs.k8s.io/cli-utils v0.25.0
 	sigs.k8s.io/controller-runtime v0.9.0
 )
@@ -34,9 +35,11 @@ replace github.com/json-iterator/go => github.com/gomodules/json-iterator v1.1.1
 
 replace bitbucket.org/ww/goautoneg => gomodules.xyz/goautoneg v0.0.0-20120707110453-a547fc61f48d
 
-replace cloud.google.com/go => cloud.google.com/go v0.54.0
+replace cloud.google.com/go => cloud.google.com/go v0.84.0
 
 replace cloud.google.com/go/bigquery => cloud.google.com/go/bigquery v1.4.0
+
+replace cloud.google.com/go/bigtable => cloud.google.com/go/bigtable v1.10.1
 
 replace cloud.google.com/go/datastore => cloud.google.com/go/datastore v1.1.0
 
@@ -110,9 +113,9 @@ replace go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b6
 
 replace google.golang.org/api => google.golang.org/api v0.48.0
 
-replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20210630183607-d20f26d13c79
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.27.1
+replace google.golang.org/grpc => google.golang.org/grpc v1.38.0
 
 replace helm.sh/helm/v3 => github.com/kubepack/helm/v3 v3.1.0-rc.1.0.20210503022716-7e2d4913a125
 

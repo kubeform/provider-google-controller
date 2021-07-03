@@ -1331,8 +1331,8 @@ kmodules.xyz/resource-metadata v0.5.7 h1:5xjq5pEp5hZK+jdkY/4wGk/FMtTyvQ9LlErh7lQ
 kmodules.xyz/resource-metadata v0.5.7/go.mod h1:Jdi7zBXRwwFTOR0CxwKxqJhsDVIilhrgNipPjnKLyrs=
 kubeform.dev/apimachinery v0.0.0-20210629153539-7bcd34a30eb5 h1:kpCzsugm64OMYV9ywBIOXbGN7z5ifK+rnGln+f3Gct4=
 kubeform.dev/apimachinery v0.0.0-20210629153539-7bcd34a30eb5/go.mod h1:kfiYdu87pCcrydTGaLXs4QMFx1fLNP5Yov2KxgrkCm0=
-kubeform.dev/provider-google-api v0.1.0 h1:zaDXF6rLp3FBtrDrj3hNI15FRbmqfg3Ry1G+f4S4nJo=
-kubeform.dev/provider-google-api v0.1.0/go.mod h1:5/ajXcwYAUTE7M8SLP/ti5pFbuEcMEAK1nAxNCkFyb0=
+kubeform.dev/provider-google-api v0.1.1-0.20210703202831-bb251fba6ca2 h1:yN5pDLJtU2g/7jrTntVJs737jGZUIMnEIBz446vXj3c=
+kubeform.dev/provider-google-api v0.1.1-0.20210703202831-bb251fba6ca2/go.mod h1:5/ajXcwYAUTE7M8SLP/ti5pFbuEcMEAK1nAxNCkFyb0=
 mvdan.cc/gofumpt v0.1.1/go.mod h1:yXG1r1WqZVKWbVRtBWKWX9+CxGYfA51nSomhM0woR48=
 mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed/go.mod h1:Xkxe497xwlCKkIaQYRfC7CSLworTXY9RMqwhhCm+8Nc=
 mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b/go.mod h1:2odslEg/xrtNQqCYg2/jCoyKnw3vv5biOc3JnIcYfL4=

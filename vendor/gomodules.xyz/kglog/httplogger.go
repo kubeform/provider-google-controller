@@ -1,4 +1,4 @@
-package logs
+package kglog
 
 import (
 	"bytes"

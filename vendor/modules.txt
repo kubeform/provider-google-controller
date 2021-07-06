@@ -488,7 +488,7 @@ gomodules.xyz/jsonpatch/v2
 # gomodules.xyz/jsonpath v0.0.1
 gomodules.xyz/jsonpath
 gomodules.xyz/jsonpath/third_party/forked/golang/template
-# gomodules.xyz/kglog v0.0.5-0.20210706110212-2b1c6a8b04ef
+# gomodules.xyz/kglog v0.0.5
 ## explicit
 gomodules.xyz/kglog
 # gomodules.xyz/pointer v0.0.0-20201105071923-daf60fa55209

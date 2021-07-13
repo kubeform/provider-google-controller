@@ -17,6 +17,8 @@ limitations under the License.
 package framework
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 
 	core "k8s.io/api/core/v1"
@@ -24,18 +26,30 @@ import (
 	"kmodules.xyz/constants/google"
 )
 
-func (i *Invocation) GoogleProviderRef(name string) *core.Secret {
+func (i *Invocation) GoogleProviderRef(name string) (*core.Secret, error) {
+	sa := google.ServiceAccountFromEnv()
+	if sa == "" {
+		return nil, fmt.Errorf("GOOGLE_SERVICE_ACCOUNT_JSON_KEY and GOOGLE_APPLICATION_CREDENTIALS are empty")
+	}
+
+	val := map[string]string{
+		"credentials": sa,
+		"region":      "us-central1",
+		"project":     os.Getenv(google.GOOGLE_PROJECT_ID),
+	}
+
+	data, err := json.Marshal(val)
+	if err != nil {
+		return nil, err
+	}
+
 	return &core.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: i.Namespace(),
 		},
 		StringData: map[string]string{
-			"provider": `{
-				"credentials": "` + google.ServiceAccountFromEnv() + `",
-				"region": "us-central1",
-				"project": "` + os.Getenv(google.GOOGLE_PROJECT_ID) + `"
-			}`,
+			"provider": string(data),
 		},
-	}
+	}, nil
 }

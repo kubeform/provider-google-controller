@@ -50,7 +50,8 @@ var _ = Describe("Test", func() {
 			BeforeEach(func() {
 				bucketName = f.GetRandomName("")
 				secretName = f.GetRandomName("secret")
-				providerRef = f.GoogleProviderRef(secretName)
+				providerRef, err = f.GoogleProviderRef(secretName)
+				Expect(err).NotTo(HaveOccurred())
 				bucket = f.Bucket(bucketName, secretName)
 			})
 

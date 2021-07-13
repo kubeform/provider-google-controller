@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -66,28 +67,28 @@ func (f *Framework) CreateBucket(obj *v1alpha1.Bucket) error {
 	return err
 }
 
-func (f *Framework) UpdateBucket(obj *v1alpha1.Bucket) (error, string) {
+func (f *Framework) UpdateBucket(obj *v1alpha1.Bucket) (error, *v1alpha1.Bucket) {
 	obj, err := f.kfClient.StorageV1alpha1().Buckets(obj.Namespace).Get(context.TODO(), obj.Name, metav1.GetOptions{})
 	if err != nil {
-		return err, ""
+		return err, obj
 	}
 	updatedName := *obj.Spec.Resource.Name + "-update"
 	obj.Spec.Resource.Name = &updatedName
 
-	_, err = f.kfClient.StorageV1alpha1().Buckets(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
-	return err, updatedName
+	obj, err = f.kfClient.StorageV1alpha1().Buckets(obj.Namespace).Update(context.TODO(), obj, metav1.UpdateOptions{})
+	return err, obj
 }
 
-func (f *Framework) EventuallyUpdatedBucketRunning(obj *v1alpha1.Bucket, upName string) GomegaAsyncAssertion {
+func (f *Framework) EventuallyUpdatedBucketRunning(obj *v1alpha1.Bucket, updatedName string) GomegaAsyncAssertion {
 	return Eventually(
 		func() bool {
 			obj, err := f.kfClient.StorageV1alpha1().Buckets(obj.Namespace).Get(context.TODO(), obj.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
-			return *obj.Spec.State.Name == upName && obj.Status.Phase == status.CurrentStatus
+			return *obj.Spec.State.Name == updatedName && obj.Status.Phase == status.CurrentStatus
 		},
-		time.Minute*5,
-		time.Second*10,
+		time.Minute*10,
+		time.Second*30,
 	)
 }
 
@@ -116,6 +117,7 @@ func (f *Framework) EventuallyBucketDeleted(meta metav1.ObjectMeta) GomegaAsyncA
 	return Eventually(
 		func() bool {
 			_, err := f.kfClient.StorageV1alpha1().Buckets(meta.Namespace).Get(context.TODO(), meta.Name, metav1.GetOptions{})
+			fmt.Println(err)
 			return errors.IsNotFound(err)
 		},
 		time.Minute*15,

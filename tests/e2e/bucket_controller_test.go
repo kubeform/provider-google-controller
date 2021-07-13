@@ -92,15 +92,11 @@ var _ = Describe("Test", func() {
 				f.EventuallyBucketRunning(bucket.ObjectMeta).Should(BeTrue())
 
 				By("Updating Bucket")
-				err, updatedName := f.UpdateBucket(bucket)
+				err, bucket = f.UpdateBucket(bucket)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Wait for Updated Bucket Running")
-				f.EventuallyUpdatedBucketRunning(bucket, updatedName).Should(BeTrue())
-
-				By("Get Updated Bucket")
-				bucket, err = f.GetUpdatedBucket(updatedName, bucket.Namespace)
-				Expect(err).NotTo(HaveOccurred())
+				f.EventuallyUpdatedBucketRunning(bucket, *bucket.Spec.Resource.Name).Should(BeTrue())
 			})
 		})
 	})

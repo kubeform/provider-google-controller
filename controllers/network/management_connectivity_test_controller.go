@@ -39,8 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// ManagementConnectivitytestReconciler reconciles a ManagementConnectivitytest object
-type ManagementConnectivitytestReconciler struct {
+// ManagementConnectivityTestReconciler reconciles a ManagementConnectivityTest object
+type ManagementConnectivityTestReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
@@ -55,7 +55,7 @@ type ManagementConnectivitytestReconciler struct {
 // +kubebuilder:rbac:groups=network.google.kubeform.com,resources=managementconnectivitytests,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=network.google.kubeform.com,resources=managementconnectivitytests/status,verbs=get;update;patch
 
-func (r *ManagementConnectivitytestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ManagementConnectivityTestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("managementconnectivitytest", req.NamespacedName)
 
 	if r.WatchOnlyDefault && req.Namespace != v1.NamespaceDefault {
@@ -66,7 +66,7 @@ func (r *ManagementConnectivitytestReconciler) Reconcile(ctx context.Context, re
 	unstructuredObj.SetGroupVersionKind(r.Gvk)
 
 	if err := r.Get(ctx, req.NamespacedName, &unstructuredObj); err != nil {
-		log.Error(err, "unable to fetch ManagementConnectivitytest")
+		log.Error(err, "unable to fetch ManagementConnectivityTest")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them on deleted requests.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -81,16 +81,16 @@ func (r *ManagementConnectivitytestReconciler) Reconcile(ctx context.Context, re
 	return ctrl.Result{}, err
 }
 
-func (r *ManagementConnectivitytestReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, auditor *auditlib.EventPublisher) error {
+func (r *ManagementConnectivityTestReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, auditor *auditlib.EventPublisher) error {
 	if auditor != nil {
-		if err := auditor.SetupWithManager(ctx, mgr, &networkv1alpha1.ManagementConnectivitytest{}); err != nil {
-			klog.Error(err, "unable to set up auditor", networkv1alpha1.ManagementConnectivitytest{}.APIVersion, networkv1alpha1.ManagementConnectivitytest{}.Kind)
+		if err := auditor.SetupWithManager(ctx, mgr, &networkv1alpha1.ManagementConnectivityTest{}); err != nil {
+			klog.Error(err, "unable to set up auditor", networkv1alpha1.ManagementConnectivityTest{}.APIVersion, networkv1alpha1.ManagementConnectivityTest{}.Kind)
 			return err
 		}
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&networkv1alpha1.ManagementConnectivitytest{}).
+		For(&networkv1alpha1.ManagementConnectivityTest{}).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				return !meta_util.MustAlreadyReconciled(e.Object)

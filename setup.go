@@ -6015,11 +6015,11 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 	case schema.GroupVersionKind{
 		Group:   "network.google.kubeform.com",
 		Version: "v1alpha1",
-		Kind:    "ManagementConnectivitytest",
+		Kind:    "ManagementConnectivityTest",
 	}:
-		if err := (&controllersnetwork.ManagementConnectivitytestReconciler{
+		if err := (&controllersnetwork.ManagementConnectivityTestReconciler{
 			Client:           mgr.GetClient(),
-			Log:              ctrl.Log.WithName("controllers").WithName("ManagementConnectivitytest"),
+			Log:              ctrl.Log.WithName("controllers").WithName("ManagementConnectivityTest"),
 			Scheme:           mgr.GetScheme(),
 			Gvk:              gvk,
 			Provider:         _provider,
@@ -6027,7 +6027,7 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			TypeName:         "google_network_management_connectivity_test",
 			WatchOnlyDefault: watchOnlyDefault,
 		}).SetupWithManager(ctx, mgr, auditor); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ManagementConnectivitytest")
+			setupLog.Error(err, "unable to create controller", "controller", "ManagementConnectivityTest")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -10678,10 +10678,10 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	case schema.GroupVersionKind{
 		Group:   "network.google.kubeform.com",
 		Version: "v1alpha1",
-		Kind:    "ManagementConnectivitytest",
+		Kind:    "ManagementConnectivityTest",
 	}:
-		if err := (&networkv1alpha1.ManagementConnectivitytest{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ManagementConnectivitytest")
+		if err := (&networkv1alpha1.ManagementConnectivityTest{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ManagementConnectivityTest")
 			return err
 		}
 	case schema.GroupVersionKind{

@@ -1238,7 +1238,7 @@ kmodules.xyz/resource-metadata/pkg/graph
 ## explicit
 kubeform.dev/apimachinery/api/v1alpha1
 kubeform.dev/apimachinery/pkg/util
-# kubeform.dev/provider-google-api v0.3.1-0.20210824194209-8a083d94a003
+# kubeform.dev/provider-google-api v0.3.1-0.20210824200826-c70f756b289f
 ## explicit
 kubeform.dev/provider-google-api/api/provider
 kubeform.dev/provider-google-api/apis/accesscontext

@@ -298,6 +298,28 @@ func (r *Trigger) Describe() dcl.ServiceTypeVersion {
 	}
 }
 
+func (r *Trigger) ID() (string, error) {
+	if err := extractTriggerFields(r); err != nil {
+		return "", err
+	}
+	nr := r.urlNormalized()
+	params := map[string]interface{}{
+		"name":             dcl.ValueOrEmptyString(nr.Name),
+		"uid":              dcl.ValueOrEmptyString(nr.Uid),
+		"createTime":       dcl.ValueOrEmptyString(nr.CreateTime),
+		"updateTime":       dcl.ValueOrEmptyString(nr.UpdateTime),
+		"matchingCriteria": dcl.ValueOrEmptyString(nr.MatchingCriteria),
+		"serviceAccount":   dcl.ValueOrEmptyString(nr.ServiceAccount),
+		"destination":      dcl.ValueOrEmptyString(nr.Destination),
+		"transport":        dcl.ValueOrEmptyString(nr.Transport),
+		"labels":           dcl.ValueOrEmptyString(nr.Labels),
+		"etag":             dcl.ValueOrEmptyString(nr.Etag),
+		"project":          dcl.ValueOrEmptyString(nr.Project),
+		"location":         dcl.ValueOrEmptyString(nr.Location),
+	}
+	return dcl.Nprintf("projects/{{project}}/locations/{{location}}/triggers/{{name}}", params), nil
+}
+
 const TriggerMaxPage = -1
 
 type TriggerList struct {
@@ -307,9 +329,7 @@ type TriggerList struct {
 
 	pageSize int32
 
-	project string
-
-	location string
+	resource *Trigger
 }
 
 func (l *TriggerList) HasNext() bool {
@@ -323,7 +343,7 @@ func (l *TriggerList) Next(ctx context.Context, c *Client) error {
 	if !l.HasNext() {
 		return fmt.Errorf("no next page")
 	}
-	items, token, err := c.listTrigger(ctx, l.project, l.location, l.nextToken, l.pageSize)
+	items, token, err := c.listTrigger(ctx, l.resource, l.nextToken, l.pageSize)
 	if err != nil {
 		return err
 	}
@@ -333,6 +353,7 @@ func (l *TriggerList) Next(ctx context.Context, c *Client) error {
 }
 
 func (c *Client) ListTrigger(ctx context.Context, project, location string) (*TriggerList, error) {
+	ctx = dcl.ContextWithRequestID(ctx)
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
 
@@ -344,7 +365,12 @@ func (c *Client) ListTriggerWithMaxResults(ctx context.Context, project, locatio
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
 
-	items, token, err := c.listTrigger(ctx, project, location, "", pageSize)
+	// Create a resource object so that we can use proper url normalization methods.
+	r := &Trigger{
+		Project:  &project,
+		Location: &location,
+	}
+	items, token, err := c.listTrigger(ctx, r, "", pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -352,16 +378,19 @@ func (c *Client) ListTriggerWithMaxResults(ctx context.Context, project, locatio
 		Items:     items,
 		nextToken: token,
 		pageSize:  pageSize,
-
-		project: project,
-
-		location: location,
+		resource:  r,
 	}, nil
 }
 
 func (c *Client) GetTrigger(ctx context.Context, r *Trigger) (*Trigger, error) {
+	ctx = dcl.ContextWithRequestID(ctx)
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
+
+	// This is *purposefully* supressing errors.
+	// This function is used with url-normalized values + not URL normalized values.
+	// URL Normalized values will throw unintentional errors, since those values are not of the proper parent form.
+	extractTriggerFields(r)
 
 	b, err := c.getTriggerRaw(ctx, r)
 	if err != nil {
@@ -381,25 +410,26 @@ func (c *Client) GetTrigger(ctx context.Context, r *Trigger) (*Trigger, error) {
 	result.Location = r.Location
 	result.Name = r.Name
 
-	c.Config.Logger.Infof("Retrieved raw result state: %v", result)
-	c.Config.Logger.Infof("Canonicalizing with specified state: %v", r)
+	c.Config.Logger.InfoWithContextf(ctx, "Retrieved raw result state: %v", result)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalizing with specified state: %v", r)
 	result, err = canonicalizeTriggerNewState(c, result, r)
 	if err != nil {
 		return nil, err
 	}
-	c.Config.Logger.Infof("Created result state: %v", result)
+	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
 }
 
 func (c *Client) DeleteTrigger(ctx context.Context, r *Trigger) error {
+	ctx = dcl.ContextWithRequestID(ctx)
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
 
 	if r == nil {
 		return fmt.Errorf("Trigger resource is nil")
 	}
-	c.Config.Logger.Info("Deleting Trigger...")
+	c.Config.Logger.InfoWithContext(ctx, "Deleting Trigger...")
 	deleteOp := deleteTriggerOperation{}
 	return deleteOp.do(ctx, r, c)
 }
@@ -429,7 +459,7 @@ func (c *Client) DeleteAllTrigger(ctx context.Context, project, location string,
 }
 
 func (c *Client) ApplyTrigger(ctx context.Context, rawDesired *Trigger, opts ...dcl.ApplyOption) (*Trigger, error) {
-
+	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *Trigger
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
 		newState, err := applyTriggerHelper(c, ctx, rawDesired, opts...)
@@ -448,8 +478,8 @@ func (c *Client) ApplyTrigger(ctx context.Context, rawDesired *Trigger, opts ...
 }
 
 func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opts ...dcl.ApplyOption) (*Trigger, error) {
-	c.Config.Logger.Info("Beginning ApplyTrigger...")
-	c.Config.Logger.Infof("User specified desired state: %v", rawDesired)
+	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyTrigger...")
+	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
 
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
@@ -459,13 +489,16 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 		return nil, err
 	}
 
+	if err := extractTriggerFields(rawDesired); err != nil {
+		return nil, err
+	}
+
 	initial, desired, fieldDiffs, err := c.triggerDiffsForRawDesired(ctx, rawDesired, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a diff: %w", err)
 	}
 
-	opStrings := dcl.DeduplicateOperations(fieldDiffs)
-	diffs, err := convertFieldDiffToTriggerOp(opStrings, fieldDiffs, opts)
+	diffs, err := convertFieldDiffsToTriggerDiffs(c.Config, fieldDiffs, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +507,6 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 
 	// 2.3: Lifecycle Directive Check
 	var create bool
-	var recreate bool
 	lp := dcl.FetchLifecycleParams(opts)
 	if initial == nil {
 		if dcl.HasLifecycleParam(lp, dcl.BlockCreation) {
@@ -488,13 +520,9 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 	} else {
 		for _, d := range diffs {
 			if d.RequiresRecreate {
-				if dcl.HasLifecycleParam(lp, dcl.BlockDestruction) || dcl.HasLifecycleParam(lp, dcl.BlockCreation) {
-					return nil, dcl.ApplyInfeasibleError{
-						Message: fmt.Sprintf("Infeasible update: (%v) would require recreation.", d),
-					}
+				return nil, dcl.ApplyInfeasibleError{
+					Message: fmt.Sprintf("infeasible update: (%v) would require recreation", d),
 				}
-				c.Config.Logger.Infof("Diff requires recreate: %+v\n", d)
-				recreate = true
 			}
 			if dcl.HasLifecycleParam(lp, dcl.BlockModification) {
 				return nil, dcl.ApplyInfeasibleError{Message: fmt.Sprintf("Modification blocked, diff (%v) unresolvable.", d)}
@@ -506,40 +534,29 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 	var ops []triggerApiOperation
 	if create {
 		ops = append(ops, &createTriggerOperation{})
-	} else if recreate {
-
-		ops = append(ops, &deleteTriggerOperation{})
-
-		ops = append(ops, &createTriggerOperation{})
-		// We should re-canonicalize based on a nil existing resource.
-		desired, err = canonicalizeTriggerDesiredState(rawDesired, nil)
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		for _, d := range diffs {
 			ops = append(ops, d.UpdateOp)
 		}
 	}
-	c.Config.Logger.Infof("Created plan: %#v", ops)
+	c.Config.Logger.InfoWithContextf(ctx, "Created plan: %#v", ops)
 
 	// 2.5 Request Actuation
 	for _, op := range ops {
-		c.Config.Logger.Infof("Performing operation %#v", op)
+		c.Config.Logger.InfoWithContextf(ctx, "Performing operation %T %+v", op, op)
 		if err := op.do(ctx, desired, c); err != nil {
-			c.Config.Logger.Infof("Failed operation %#v: %v", op, err)
+			c.Config.Logger.InfoWithContextf(ctx, "Failed operation %T %+v: %v", op, op, err)
 			return nil, err
 		}
-		c.Config.Logger.Infof("Finished operation %#v", op)
+		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
 
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
-	c.Config.Logger.Info("Retrieving raw new state...")
+	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetTrigger(ctx, desired.urlNormalized())
 	if err != nil {
 		return nil, err
 	}
-
 	// Get additional values from the first response.
 	// These values should be merged into the newState above.
 	if len(ops) > 0 {
@@ -547,7 +564,7 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 		if o, ok := lastOp.(*createTriggerOperation); ok {
 			if r, hasR := o.FirstResponse(); hasR {
 
-				c.Config.Logger.Info("Retrieving raw new state from operation...")
+				c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state from operation...")
 
 				fullResp, err := unmarshalMapTrigger(r, c)
 				if err != nil {
@@ -562,36 +579,36 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 		}
 	}
 
-	c.Config.Logger.Infof("Canonicalizing with raw desired state: %v", rawDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalizing with raw desired state: %v", rawDesired)
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeTriggerNewState(c, rawNew, rawDesired)
 	if err != nil {
 		return nil, err
 	}
 
-	c.Config.Logger.Infof("Created canonical new state: %v", newState)
+	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
 	// 3.3 Comparison of the new state and raw desired state.
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeTriggerDesiredState(rawDesired, newState)
 	if err != nil {
 		return nil, err
 	}
-	c.Config.Logger.Infof("Diffing using canonicalized desired state: %v", newDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffTrigger(c, newDesired, newState)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(newDiffs) == 0 {
-		c.Config.Logger.Info("No diffs found. Apply was successful.")
+		c.Config.Logger.InfoWithContext(ctx, "No diffs found. Apply was successful.")
 	} else {
-		c.Config.Logger.Infof("Found diffs: %v", newDiffs)
+		c.Config.Logger.InfoWithContextf(ctx, "Found diffs: %v", newDiffs)
 		diffMessages := make([]string, len(newDiffs))
 		for i, d := range newDiffs {
 			diffMessages[i] = fmt.Sprintf("%v", d)
 		}
 		return newState, dcl.DiffAfterApplyError{Diffs: diffMessages}
 	}
-	c.Config.Logger.Info("Done Apply.")
+	c.Config.Logger.InfoWithContext(ctx, "Done Apply.")
 	return newState, nil
 }

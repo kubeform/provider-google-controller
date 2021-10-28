@@ -47,15 +47,15 @@ type ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnum string
 // ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnumRef returns a *ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnumRef(s string) *ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnum(s)
 	return &v
 }
 
 func (v ClusterClusterConfigGceClusterConfigPrivateIPv6GoogleAccessEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"PRIVATE_IPV6_GOOGLE_ACCESS_UNSPECIFIED", "INHERIT_FROM_SUBNETWORK", "OUTBOUND", "BIDIRECTIONAL"} {
 		if string(v) == s {
 			return nil
@@ -74,15 +74,15 @@ type ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTy
 // ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTypeEnumRef returns a *ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTypeEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTypeEnumRef(s string) *ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTypeEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTypeEnum(s)
 	return &v
 }
 
 func (v ClusterClusterConfigGceClusterConfigReservationAffinityConsumeReservationTypeEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"TYPE_UNSPECIFIED", "NO_RESERVATION", "ANY_RESERVATION", "SPECIFIC_RESERVATION"} {
 		if string(v) == s {
 			return nil
@@ -101,15 +101,15 @@ type ClusterInstanceGroupConfigPreemptibilityEnum string
 // ClusterInstanceGroupConfigPreemptibilityEnumRef returns a *ClusterInstanceGroupConfigPreemptibilityEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterInstanceGroupConfigPreemptibilityEnumRef(s string) *ClusterInstanceGroupConfigPreemptibilityEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterInstanceGroupConfigPreemptibilityEnum(s)
 	return &v
 }
 
 func (v ClusterInstanceGroupConfigPreemptibilityEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"PREEMPTIBILITY_UNSPECIFIED", "NON_PREEMPTIBLE", "PREEMPTIBLE"} {
 		if string(v) == s {
 			return nil
@@ -128,15 +128,15 @@ type ClusterClusterConfigSoftwareConfigOptionalComponentsEnum string
 // ClusterClusterConfigSoftwareConfigOptionalComponentsEnumRef returns a *ClusterClusterConfigSoftwareConfigOptionalComponentsEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterClusterConfigSoftwareConfigOptionalComponentsEnumRef(s string) *ClusterClusterConfigSoftwareConfigOptionalComponentsEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterClusterConfigSoftwareConfigOptionalComponentsEnum(s)
 	return &v
 }
 
 func (v ClusterClusterConfigSoftwareConfigOptionalComponentsEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"COMPONENT_UNSPECIFIED", "ANACONDA", "DOCKER", "DRUID", "FLINK", "HBASE", "HIVE_WEBHCAT", "JUPYTER", "KERBEROS", "PRESTO", "RANGER", "SOLR", "ZEPPELIN", "ZOOKEEPER"} {
 		if string(v) == s {
 			return nil
@@ -155,15 +155,15 @@ type ClusterStatusStateEnum string
 // ClusterStatusStateEnumRef returns a *ClusterStatusStateEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterStatusStateEnumRef(s string) *ClusterStatusStateEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterStatusStateEnum(s)
 	return &v
 }
 
 func (v ClusterStatusStateEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"UNKNOWN", "CREATING", "RUNNING", "ERROR", "DELETING", "UPDATING", "STOPPING", "STOPPED", "STARTING"} {
 		if string(v) == s {
 			return nil
@@ -182,15 +182,15 @@ type ClusterStatusSubstateEnum string
 // ClusterStatusSubstateEnumRef returns a *ClusterStatusSubstateEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterStatusSubstateEnumRef(s string) *ClusterStatusSubstateEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterStatusSubstateEnum(s)
 	return &v
 }
 
 func (v ClusterStatusSubstateEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"UNSPECIFIED", "UNHEALTHY", "STALE_STATUS"} {
 		if string(v) == s {
 			return nil
@@ -209,15 +209,15 @@ type ClusterStatusHistoryStateEnum string
 // ClusterStatusHistoryStateEnumRef returns a *ClusterStatusHistoryStateEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterStatusHistoryStateEnumRef(s string) *ClusterStatusHistoryStateEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterStatusHistoryStateEnum(s)
 	return &v
 }
 
 func (v ClusterStatusHistoryStateEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"UNKNOWN", "CREATING", "RUNNING", "ERROR", "DELETING", "UPDATING", "STOPPING", "STOPPED", "STARTING"} {
 		if string(v) == s {
 			return nil
@@ -236,15 +236,15 @@ type ClusterStatusHistorySubstateEnum string
 // ClusterStatusHistorySubstateEnumRef returns a *ClusterStatusHistorySubstateEnum with the value of string s
 // If the empty string is provided, nil is returned.
 func ClusterStatusHistorySubstateEnumRef(s string) *ClusterStatusHistorySubstateEnum {
-	if s == "" {
-		return nil
-	}
-
 	v := ClusterStatusHistorySubstateEnum(s)
 	return &v
 }
 
 func (v ClusterStatusHistorySubstateEnum) Validate() error {
+	if string(v) == "" {
+		// Empty enum is okay.
+		return nil
+	}
 	for _, s := range []string{"UNSPECIFIED", "UNHEALTHY", "STALE_STATUS"} {
 		if string(v) == s {
 			return nil
@@ -1336,6 +1336,25 @@ func (r *Cluster) Describe() dcl.ServiceTypeVersion {
 	}
 }
 
+func (r *Cluster) ID() (string, error) {
+	if err := extractClusterFields(r); err != nil {
+		return "", err
+	}
+	nr := r.urlNormalized()
+	params := map[string]interface{}{
+		"project":       dcl.ValueOrEmptyString(nr.Project),
+		"name":          dcl.ValueOrEmptyString(nr.Name),
+		"config":        dcl.ValueOrEmptyString(nr.Config),
+		"labels":        dcl.ValueOrEmptyString(nr.Labels),
+		"status":        dcl.ValueOrEmptyString(nr.Status),
+		"statusHistory": dcl.ValueOrEmptyString(nr.StatusHistory),
+		"clusterUuid":   dcl.ValueOrEmptyString(nr.ClusterUuid),
+		"metrics":       dcl.ValueOrEmptyString(nr.Metrics),
+		"location":      dcl.ValueOrEmptyString(nr.Location),
+	}
+	return dcl.Nprintf("projects/{{project}}/regions/{{location}}/clusters/{{name}}", params), nil
+}
+
 const ClusterMaxPage = -1
 
 type ClusterList struct {
@@ -1345,9 +1364,7 @@ type ClusterList struct {
 
 	pageSize int32
 
-	project string
-
-	location string
+	resource *Cluster
 }
 
 func (l *ClusterList) HasNext() bool {
@@ -1361,7 +1378,7 @@ func (l *ClusterList) Next(ctx context.Context, c *Client) error {
 	if !l.HasNext() {
 		return fmt.Errorf("no next page")
 	}
-	items, token, err := c.listCluster(ctx, l.project, l.location, l.nextToken, l.pageSize)
+	items, token, err := c.listCluster(ctx, l.resource, l.nextToken, l.pageSize)
 	if err != nil {
 		return err
 	}
@@ -1371,6 +1388,7 @@ func (l *ClusterList) Next(ctx context.Context, c *Client) error {
 }
 
 func (c *Client) ListCluster(ctx context.Context, project, location string) (*ClusterList, error) {
+	ctx = dcl.ContextWithRequestID(ctx)
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
 
@@ -1382,7 +1400,12 @@ func (c *Client) ListClusterWithMaxResults(ctx context.Context, project, locatio
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
 
-	items, token, err := c.listCluster(ctx, project, location, "", pageSize)
+	// Create a resource object so that we can use proper url normalization methods.
+	r := &Cluster{
+		Project:  &project,
+		Location: &location,
+	}
+	items, token, err := c.listCluster(ctx, r, "", pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -1390,16 +1413,19 @@ func (c *Client) ListClusterWithMaxResults(ctx context.Context, project, locatio
 		Items:     items,
 		nextToken: token,
 		pageSize:  pageSize,
-
-		project: project,
-
-		location: location,
+		resource:  r,
 	}, nil
 }
 
 func (c *Client) GetCluster(ctx context.Context, r *Cluster) (*Cluster, error) {
+	ctx = dcl.ContextWithRequestID(ctx)
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
+
+	// This is *purposefully* supressing errors.
+	// This function is used with url-normalized values + not URL normalized values.
+	// URL Normalized values will throw unintentional errors, since those values are not of the proper parent form.
+	extractClusterFields(r)
 
 	b, err := c.getClusterRaw(ctx, r)
 	if err != nil {
@@ -1419,25 +1445,26 @@ func (c *Client) GetCluster(ctx context.Context, r *Cluster) (*Cluster, error) {
 	result.Location = r.Location
 	result.Name = r.Name
 
-	c.Config.Logger.Infof("Retrieved raw result state: %v", result)
-	c.Config.Logger.Infof("Canonicalizing with specified state: %v", r)
+	c.Config.Logger.InfoWithContextf(ctx, "Retrieved raw result state: %v", result)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalizing with specified state: %v", r)
 	result, err = canonicalizeClusterNewState(c, result, r)
 	if err != nil {
 		return nil, err
 	}
-	c.Config.Logger.Infof("Created result state: %v", result)
+	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
 }
 
 func (c *Client) DeleteCluster(ctx context.Context, r *Cluster) error {
+	ctx = dcl.ContextWithRequestID(ctx)
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
 
 	if r == nil {
 		return fmt.Errorf("Cluster resource is nil")
 	}
-	c.Config.Logger.Info("Deleting Cluster...")
+	c.Config.Logger.InfoWithContext(ctx, "Deleting Cluster...")
 	deleteOp := deleteClusterOperation{}
 	return deleteOp.do(ctx, r, c)
 }
@@ -1467,7 +1494,7 @@ func (c *Client) DeleteAllCluster(ctx context.Context, project, location string,
 }
 
 func (c *Client) ApplyCluster(ctx context.Context, rawDesired *Cluster, opts ...dcl.ApplyOption) (*Cluster, error) {
-
+	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *Cluster
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
 		newState, err := applyClusterHelper(c, ctx, rawDesired, opts...)
@@ -1486,8 +1513,8 @@ func (c *Client) ApplyCluster(ctx context.Context, rawDesired *Cluster, opts ...
 }
 
 func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opts ...dcl.ApplyOption) (*Cluster, error) {
-	c.Config.Logger.Info("Beginning ApplyCluster...")
-	c.Config.Logger.Infof("User specified desired state: %v", rawDesired)
+	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyCluster...")
+	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
 
 	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
 	defer cancel()
@@ -1497,13 +1524,16 @@ func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opt
 		return nil, err
 	}
 
+	if err := extractClusterFields(rawDesired); err != nil {
+		return nil, err
+	}
+
 	initial, desired, fieldDiffs, err := c.clusterDiffsForRawDesired(ctx, rawDesired, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a diff: %w", err)
 	}
 
-	opStrings := dcl.DeduplicateOperations(fieldDiffs)
-	diffs, err := convertFieldDiffToClusterOp(opStrings, fieldDiffs, opts)
+	diffs, err := convertFieldDiffsToClusterDiffs(c.Config, fieldDiffs, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -1512,7 +1542,6 @@ func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opt
 
 	// 2.3: Lifecycle Directive Check
 	var create bool
-	var recreate bool
 	lp := dcl.FetchLifecycleParams(opts)
 	if initial == nil {
 		if dcl.HasLifecycleParam(lp, dcl.BlockCreation) {
@@ -1526,13 +1555,9 @@ func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opt
 	} else {
 		for _, d := range diffs {
 			if d.RequiresRecreate {
-				if dcl.HasLifecycleParam(lp, dcl.BlockDestruction) || dcl.HasLifecycleParam(lp, dcl.BlockCreation) {
-					return nil, dcl.ApplyInfeasibleError{
-						Message: fmt.Sprintf("Infeasible update: (%v) would require recreation.", d),
-					}
+				return nil, dcl.ApplyInfeasibleError{
+					Message: fmt.Sprintf("infeasible update: (%v) would require recreation", d),
 				}
-				c.Config.Logger.Infof("Diff requires recreate: %+v\n", d)
-				recreate = true
 			}
 			if dcl.HasLifecycleParam(lp, dcl.BlockModification) {
 				return nil, dcl.ApplyInfeasibleError{Message: fmt.Sprintf("Modification blocked, diff (%v) unresolvable.", d)}
@@ -1544,40 +1569,29 @@ func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opt
 	var ops []clusterApiOperation
 	if create {
 		ops = append(ops, &createClusterOperation{})
-	} else if recreate {
-
-		ops = append(ops, &deleteClusterOperation{})
-
-		ops = append(ops, &createClusterOperation{})
-		// We should re-canonicalize based on a nil existing resource.
-		desired, err = canonicalizeClusterDesiredState(rawDesired, nil)
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		for _, d := range diffs {
 			ops = append(ops, d.UpdateOp)
 		}
 	}
-	c.Config.Logger.Infof("Created plan: %#v", ops)
+	c.Config.Logger.InfoWithContextf(ctx, "Created plan: %#v", ops)
 
 	// 2.5 Request Actuation
 	for _, op := range ops {
-		c.Config.Logger.Infof("Performing operation %#v", op)
+		c.Config.Logger.InfoWithContextf(ctx, "Performing operation %T %+v", op, op)
 		if err := op.do(ctx, desired, c); err != nil {
-			c.Config.Logger.Infof("Failed operation %#v: %v", op, err)
+			c.Config.Logger.InfoWithContextf(ctx, "Failed operation %T %+v: %v", op, op, err)
 			return nil, err
 		}
-		c.Config.Logger.Infof("Finished operation %#v", op)
+		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
 
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
-	c.Config.Logger.Info("Retrieving raw new state...")
+	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetCluster(ctx, desired.urlNormalized())
 	if err != nil {
 		return nil, err
 	}
-
 	// Get additional values from the first response.
 	// These values should be merged into the newState above.
 	if len(ops) > 0 {
@@ -1585,7 +1599,7 @@ func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opt
 		if o, ok := lastOp.(*createClusterOperation); ok {
 			if r, hasR := o.FirstResponse(); hasR {
 
-				c.Config.Logger.Info("Retrieving raw new state from operation...")
+				c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state from operation...")
 
 				fullResp, err := unmarshalMapCluster(r, c)
 				if err != nil {
@@ -1600,39 +1614,40 @@ func applyClusterHelper(c *Client, ctx context.Context, rawDesired *Cluster, opt
 		}
 	}
 
-	c.Config.Logger.Infof("Canonicalizing with raw desired state: %v", rawDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalizing with raw desired state: %v", rawDesired)
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeClusterNewState(c, rawNew, rawDesired)
 	if err != nil {
 		return nil, err
 	}
 
-	c.Config.Logger.Infof("Created canonical new state: %v", newState)
+	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
 	// 3.3 Comparison of the new state and raw desired state.
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeClusterDesiredState(rawDesired, newState)
 	if err != nil {
 		return nil, err
 	}
-	c.Config.Logger.Infof("Diffing using canonicalized desired state: %v", newDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffCluster(c, newDesired, newState)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(newDiffs) == 0 {
-		c.Config.Logger.Info("No diffs found. Apply was successful.")
+		c.Config.Logger.InfoWithContext(ctx, "No diffs found. Apply was successful.")
 	} else {
-		c.Config.Logger.Infof("Found diffs: %v", newDiffs)
+		c.Config.Logger.InfoWithContextf(ctx, "Found diffs: %v", newDiffs)
 		diffMessages := make([]string, len(newDiffs))
 		for i, d := range newDiffs {
 			diffMessages[i] = fmt.Sprintf("%v", d)
 		}
 		return newState, dcl.DiffAfterApplyError{Diffs: diffMessages}
 	}
-	c.Config.Logger.Info("Done Apply.")
+	c.Config.Logger.InfoWithContext(ctx, "Done Apply.")
 	return newState, nil
 }
+
 func (r *Cluster) GetPolicy(basePath string) (string, string, *bytes.Buffer, error) {
 	u := r.getPolicyURL(basePath)
 	body := &bytes.Buffer{}

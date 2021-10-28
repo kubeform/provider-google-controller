@@ -69,6 +69,7 @@ type Config struct {
 	Scopes                             []string
 	BatchingConfig                     *batchingConfig
 	UserProjectOverride                bool
+	RequestReason                      string
 	RequestTimeout                     time.Duration
 	// PollInterval is passed to resource.StateChangeConf in common_operation.go
 	// It controls the interval at which we poll for successful operations
@@ -109,9 +110,11 @@ type Config struct {
 	DialogflowBasePath           string
 	DialogflowCXBasePath         string
 	DNSBasePath                  string
+	EssentialContactsBasePath    string
 	FilestoreBasePath            string
 	FirestoreBasePath            string
 	GameServicesBasePath         string
+	GKEHubBasePath               string
 	HealthcareBasePath           string
 	IapBasePath                  string
 	IdentityPlatformBasePath     string
@@ -121,9 +124,11 @@ type Config struct {
 	MLEngineBasePath             string
 	MonitoringBasePath           string
 	NetworkManagementBasePath    string
+	NetworkServicesBasePath      string
 	NotebooksBasePath            string
 	OSConfigBasePath             string
 	OSLoginBasePath              string
+	PrivatecaBasePath            string
 	PubsubBasePath               string
 	PubsubLiteBasePath           string
 	RedisBasePath                string
@@ -163,8 +168,11 @@ type Config struct {
 
 	// start DCLBasePaths
 	// dataprocBasePath is implemented in mm
-	EventarcBasePath string
-	GkeHubBasePath   string
+	AssuredWorkloadsBasePath     string
+	CloudResourceManagerBasePath string
+	EventarcBasePath             string
+	GkeHubBasePath               string
+	OrgPolicyBasePath            string
 }
 
 const AccessApprovalBasePathKey = "AccessApproval"
@@ -196,9 +204,11 @@ const DeploymentManagerBasePathKey = "DeploymentManager"
 const DialogflowBasePathKey = "Dialogflow"
 const DialogflowCXBasePathKey = "DialogflowCX"
 const DNSBasePathKey = "DNS"
+const EssentialContactsBasePathKey = "EssentialContacts"
 const FilestoreBasePathKey = "Filestore"
 const FirestoreBasePathKey = "Firestore"
 const GameServicesBasePathKey = "GameServices"
+const GKEHubBasePathKey = "GKEHub"
 const HealthcareBasePathKey = "Healthcare"
 const IapBasePathKey = "Iap"
 const IdentityPlatformBasePathKey = "IdentityPlatform"
@@ -208,9 +218,11 @@ const MemcacheBasePathKey = "Memcache"
 const MLEngineBasePathKey = "MLEngine"
 const MonitoringBasePathKey = "Monitoring"
 const NetworkManagementBasePathKey = "NetworkManagement"
+const NetworkServicesBasePathKey = "NetworkServices"
 const NotebooksBasePathKey = "Notebooks"
 const OSConfigBasePathKey = "OSConfig"
 const OSLoginBasePathKey = "OSLogin"
+const PrivatecaBasePathKey = "Privateca"
 const PubsubBasePathKey = "Pubsub"
 const PubsubLiteBasePathKey = "PubsubLite"
 const RedisBasePathKey = "Redis"
@@ -273,11 +285,13 @@ var DefaultBasePaths = map[string]string{
 	DatastoreBasePathKey:            "https://datastore.googleapis.com/v1/",
 	DeploymentManagerBasePathKey:    "https://www.googleapis.com/deploymentmanager/v2/",
 	DialogflowBasePathKey:           "https://dialogflow.googleapis.com/v2/",
-	DialogflowCXBasePathKey:         "https://{{location}}-dialogflow.googleapis.com/v3/",
+	DialogflowCXBasePathKey:         "https://dialogflow.googleapis.com/v3/",
 	DNSBasePathKey:                  "https://dns.googleapis.com/dns/v1/",
+	EssentialContactsBasePathKey:    "https://essentialcontacts.googleapis.com/v1/",
 	FilestoreBasePathKey:            "https://file.googleapis.com/v1/",
 	FirestoreBasePathKey:            "https://firestore.googleapis.com/v1/",
 	GameServicesBasePathKey:         "https://gameservices.googleapis.com/v1/",
+	GKEHubBasePathKey:               "https://gkehub.googleapis.com/v1/",
 	HealthcareBasePathKey:           "https://healthcare.googleapis.com/v1/",
 	IapBasePathKey:                  "https://iap.googleapis.com/v1/",
 	IdentityPlatformBasePathKey:     "https://identitytoolkit.googleapis.com/v2/",
@@ -287,9 +301,11 @@ var DefaultBasePaths = map[string]string{
 	MLEngineBasePathKey:             "https://ml.googleapis.com/v1/",
 	MonitoringBasePathKey:           "https://monitoring.googleapis.com/",
 	NetworkManagementBasePathKey:    "https://networkmanagement.googleapis.com/v1/",
+	NetworkServicesBasePathKey:      "https://networkservices.googleapis.com/v1/",
 	NotebooksBasePathKey:            "https://notebooks.googleapis.com/v1/",
 	OSConfigBasePathKey:             "https://osconfig.googleapis.com/v1/",
 	OSLoginBasePathKey:              "https://oslogin.googleapis.com/v1/",
+	PrivatecaBasePathKey:            "https://privateca.googleapis.com/v1/",
 	PubsubBasePathKey:               "https://pubsub.googleapis.com/v1/",
 	PubsubLiteBasePathKey:           "https://{{region}}-pubsublite.googleapis.com/v1/admin/",
 	RedisBasePathKey:                "https://redis.googleapis.com/v1/",
@@ -354,6 +370,7 @@ func (c *Config) LoadAndValidate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	// Userinfo is fetched before request logging is enabled to reduce additional noise.
 	err = c.logGoogleIdentities()
 	if err != nil {
@@ -372,6 +389,15 @@ func (c *Config) LoadAndValidate(ctx context.Context) error {
 	// 4. Header Transport - outer wrapper to inject additional headers we want to apply
 	// before making requests
 	headerTransport := newTransportWithHeaders(retryTransport)
+	if c.RequestReason != "" {
+		headerTransport.Set("X-Goog-Request-Reason", c.RequestReason)
+	}
+
+	// Ensure $userProject is set for all HTTP requests using the client if specified by the provider config
+	// See https://cloud.google.com/apis/docs/system-parameters
+	if c.UserProjectOverride && c.BillingProject != "" {
+		headerTransport.Set("X-Goog-User-Project", c.BillingProject)
+	}
 
 	// Set final transport value.
 	client.Transport = headerTransport
@@ -490,29 +516,27 @@ func (c *Config) getTokenSource(clientScopes []string, initialCredentialsOnly bo
 // of those "projects" as well. You can find out if this is required by looking at
 // the basePath value in the client library file.
 func (c *Config) NewComputeClient(userAgent string) *compute.Service {
-	computeClientBasePath := c.ComputeBasePath + "projects/"
-	log.Printf("[INFO] Instantiating GCE client for path %s", computeClientBasePath)
+	log.Printf("[INFO] Instantiating GCE client for path %s", c.ComputeBasePath)
 	clientCompute, err := compute.NewService(c.context, option.WithHTTPClient(c.client))
 	if err != nil {
 		log.Printf("[WARN] Error creating client compute: %s", err)
 		return nil
 	}
 	clientCompute.UserAgent = userAgent
-	clientCompute.BasePath = computeClientBasePath
+	clientCompute.BasePath = c.ComputeBasePath
 
 	return clientCompute
 }
 
 func (c *Config) NewComputeBetaClient(userAgent string) *computeBeta.Service {
-	computeBetaClientBasePath := c.ComputeBetaBasePath + "projects/"
-	log.Printf("[INFO] Instantiating GCE Beta client for path %s", computeBetaClientBasePath)
+	log.Printf("[INFO] Instantiating GCE Beta client for path %s", c.ComputeBetaBasePath)
 	clientComputeBeta, err := computeBeta.NewService(c.context, option.WithHTTPClient(c.client))
 	if err != nil {
 		log.Printf("[WARN] Error creating client compute beta: %s", err)
 		return nil
 	}
 	clientComputeBeta.UserAgent = userAgent
-	clientComputeBeta.BasePath = computeBetaClientBasePath
+	clientComputeBeta.BasePath = c.ComputeBetaBasePath
 
 	return clientComputeBeta
 }
@@ -596,6 +620,30 @@ func (c *Config) NewStorageClient(userAgent string) *storage.Service {
 	storageClientBasePath := c.StorageBasePath
 	log.Printf("[INFO] Instantiating Google Storage client for path %s", storageClientBasePath)
 	clientStorage, err := storage.NewService(c.context, option.WithHTTPClient(c.client))
+	if err != nil {
+		log.Printf("[WARN] Error creating client storage: %s", err)
+		return nil
+	}
+	clientStorage.UserAgent = userAgent
+	clientStorage.BasePath = storageClientBasePath
+
+	return clientStorage
+}
+
+// For object uploads, we need to override the specific timeout because they are long, synchronous operations.
+func (c *Config) NewStorageClientWithTimeoutOverride(userAgent string, timeout time.Duration) *storage.Service {
+	storageClientBasePath := c.StorageBasePath
+	log.Printf("[INFO] Instantiating Google Storage client for path %s", storageClientBasePath)
+	// Copy the existing HTTP client (which has no unexported fields [as of Oct 2021 at least], so this is safe).
+	// We have to do this because otherwise we will accidentally change the timeout for all other
+	// synchronous operations, which would not be desirable.
+	httpClient := &http.Client{
+		Transport:     c.client.Transport,
+		CheckRedirect: c.client.CheckRedirect,
+		Jar:           c.client.Jar,
+		Timeout:       timeout,
+	}
+	clientStorage, err := storage.NewService(c.context, option.WithHTTPClient(httpClient))
 	if err != nil {
 		log.Printf("[WARN] Error creating client storage: %s", err)
 		return nil
@@ -946,8 +994,10 @@ func (c *Config) NewCloudIdentityClient(userAgent string) *cloudidentity.Service
 
 func (c *Config) BigTableClientFactory(userAgent string) *BigtableClientFactory {
 	bigtableClientFactory := &BigtableClientFactory{
-		UserAgent:   userAgent,
-		TokenSource: c.tokenSource,
+		UserAgent:           userAgent,
+		TokenSource:         c.tokenSource,
+		BillingProject:      c.BillingProject,
+		UserProjectOverride: c.UserProjectOverride,
 	}
 
 	return bigtableClientFactory
@@ -1107,9 +1157,11 @@ func ConfigureBasePaths(c *Config) {
 	c.DialogflowBasePath = DefaultBasePaths[DialogflowBasePathKey]
 	c.DialogflowCXBasePath = DefaultBasePaths[DialogflowCXBasePathKey]
 	c.DNSBasePath = DefaultBasePaths[DNSBasePathKey]
+	c.EssentialContactsBasePath = DefaultBasePaths[EssentialContactsBasePathKey]
 	c.FilestoreBasePath = DefaultBasePaths[FilestoreBasePathKey]
 	c.FirestoreBasePath = DefaultBasePaths[FirestoreBasePathKey]
 	c.GameServicesBasePath = DefaultBasePaths[GameServicesBasePathKey]
+	c.GKEHubBasePath = DefaultBasePaths[GKEHubBasePathKey]
 	c.HealthcareBasePath = DefaultBasePaths[HealthcareBasePathKey]
 	c.IapBasePath = DefaultBasePaths[IapBasePathKey]
 	c.IdentityPlatformBasePath = DefaultBasePaths[IdentityPlatformBasePathKey]
@@ -1119,9 +1171,11 @@ func ConfigureBasePaths(c *Config) {
 	c.MLEngineBasePath = DefaultBasePaths[MLEngineBasePathKey]
 	c.MonitoringBasePath = DefaultBasePaths[MonitoringBasePathKey]
 	c.NetworkManagementBasePath = DefaultBasePaths[NetworkManagementBasePathKey]
+	c.NetworkServicesBasePath = DefaultBasePaths[NetworkServicesBasePathKey]
 	c.NotebooksBasePath = DefaultBasePaths[NotebooksBasePathKey]
 	c.OSConfigBasePath = DefaultBasePaths[OSConfigBasePathKey]
 	c.OSLoginBasePath = DefaultBasePaths[OSLoginBasePathKey]
+	c.PrivatecaBasePath = DefaultBasePaths[PrivatecaBasePathKey]
 	c.PubsubBasePath = DefaultBasePaths[PubsubBasePathKey]
 	c.PubsubLiteBasePath = DefaultBasePaths[PubsubLiteBasePathKey]
 	c.RedisBasePath = DefaultBasePaths[RedisBasePathKey]

@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //
-//     ***     AUTO GENERATED CODE    ***    AUTO GENERATED CODE     ***
+//     ***     AUTO GENERATED CODE    ***    Type: MMv1     ***
 //
 // ----------------------------------------------------------------------------
 //
@@ -71,9 +71,9 @@ func resourceRedisInstance() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(10 * time.Minute),
-			Update: schema.DefaultTimeout(10 * time.Minute),
-			Delete: schema.DefaultTimeout(10 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		CustomizeDiff: customdiff.All(
@@ -163,11 +163,8 @@ https://cloud.google.com/memorystore/docs/redis/reference/rest/v1/projects.locat
 				Computed: true,
 				Optional: true,
 				Description: `The version of Redis software. If not provided, latest supported
-version will be used. Currently, the supported values are:
-
-- REDIS_5_0 for Redis 5.0 compatibility
-- REDIS_4_0 for Redis 4.0 compatibility
-- REDIS_3_2 for Redis 3.2 compatibility`,
+version will be used. Please check the API documentation linked 
+at the top for the latest valid values.`,
 			},
 			"region": {
 				Type:        schema.TypeString,

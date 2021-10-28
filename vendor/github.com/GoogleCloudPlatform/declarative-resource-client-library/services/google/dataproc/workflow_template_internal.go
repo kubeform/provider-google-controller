@@ -305,41 +305,49 @@ func (r *WorkflowTemplateParametersValidationValues) validate() error {
 	}
 	return nil
 }
-
-func workflowTemplateGetURL(userBasePath string, r *WorkflowTemplate) (string, error) {
-	params := map[string]interface{}{
-		"project":  dcl.ValueOrEmptyString(r.Project),
-		"location": dcl.ValueOrEmptyString(r.Location),
-		"name":     dcl.ValueOrEmptyString(r.Name),
-	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates/{{name}}", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
+func (r *WorkflowTemplate) basePath() string {
+	params := map[string]interface{}{}
+	return dcl.Nprintf("https://dataproc.googleapis.com/v1/", params)
 }
 
-func workflowTemplateListURL(userBasePath, project, location string) (string, error) {
+func (r *WorkflowTemplate) getURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  project,
-		"location": location,
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
-
+	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates/{{name}}", nr.basePath(), userBasePath, params), nil
 }
 
-func workflowTemplateCreateURL(userBasePath, project, location string) (string, error) {
+func (r *WorkflowTemplate) listURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  project,
-		"location": location,
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
+	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates", nr.basePath(), userBasePath, params), nil
 
 }
 
-func workflowTemplateDeleteURL(userBasePath string, r *WorkflowTemplate) (string, error) {
+func (r *WorkflowTemplate) createURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  dcl.ValueOrEmptyString(r.Project),
-		"location": dcl.ValueOrEmptyString(r.Location),
-		"name":     dcl.ValueOrEmptyString(r.Name),
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates/{{name}}", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
+	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates", nr.basePath(), userBasePath, params), nil
+
+}
+
+func (r *WorkflowTemplate) deleteURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
+	params := map[string]interface{}{
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
+	}
+	return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates/{{name}}", nr.basePath(), userBasePath, params), nil
 }
 
 // workflowTemplateApiOperation represents a mutable operation in the underlying REST
@@ -348,89 +356,8 @@ type workflowTemplateApiOperation interface {
 	do(context.Context, *WorkflowTemplate, *Client) error
 }
 
-// newUpdateWorkflowTemplateUpdateWorkflowTemplateRequest creates a request for an
-// WorkflowTemplate resource's UpdateWorkflowTemplate update type by filling in the update
-// fields based on the intended state of the resource.
-func newUpdateWorkflowTemplateUpdateWorkflowTemplateRequest(ctx context.Context, f *WorkflowTemplate, c *Client) (map[string]interface{}, error) {
-	req := map[string]interface{}{}
-
-	if v := f.Version; !dcl.IsEmptyValueIndirect(v) {
-		req["version"] = v
-	}
-	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
-		req["labels"] = v
-	}
-	if v, err := expandWorkflowTemplatePlacement(c, f.Placement); err != nil {
-		return nil, fmt.Errorf("error expanding Placement into placement: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
-		req["placement"] = v
-	}
-	if v, err := expandWorkflowTemplateJobsSlice(c, f.Jobs); err != nil {
-		return nil, fmt.Errorf("error expanding Jobs into jobs: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
-		req["jobs"] = v
-	}
-	if v, err := expandWorkflowTemplateParametersSlice(c, f.Parameters); err != nil {
-		return nil, fmt.Errorf("error expanding Parameters into parameters: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
-		req["parameters"] = v
-	}
-	if v := f.DagTimeout; !dcl.IsEmptyValueIndirect(v) {
-		req["dagTimeout"] = v
-	}
-	return req, nil
-}
-
-// marshalUpdateWorkflowTemplateUpdateWorkflowTemplateRequest converts the update into
-// the final JSON request body.
-func marshalUpdateWorkflowTemplateUpdateWorkflowTemplateRequest(c *Client, m map[string]interface{}) ([]byte, error) {
-
-	return json.Marshal(m)
-}
-
-type updateWorkflowTemplateUpdateWorkflowTemplateOperation struct {
-	// If the update operation has the REQUIRES_APPLY_OPTIONS trait, this will be populated.
-	// Usually it will be nil - this is to prevent us from accidentally depending on apply
-	// options, which should usually be unnecessary.
-	ApplyOptions []dcl.ApplyOption
-	Diffs        []*dcl.FieldDiff
-}
-
-// do creates a request and sends it to the appropriate URL. In most operations,
-// do will transcribe a subset of the resource into a request object and send a
-// PUT request to a single URL.
-
-func (op *updateWorkflowTemplateUpdateWorkflowTemplateOperation) do(ctx context.Context, r *WorkflowTemplate, c *Client) error {
-	_, err := c.GetWorkflowTemplate(ctx, r.urlNormalized())
-	if err != nil {
-		return err
-	}
-
-	u, err := r.updateURL(c.Config.BasePath, "UpdateWorkflowTemplate")
-	if err != nil {
-		return err
-	}
-
-	req, err := newUpdateWorkflowTemplateUpdateWorkflowTemplateRequest(ctx, r, c)
-	if err != nil {
-		return err
-	}
-
-	c.Config.Logger.Infof("Created update: %#v", req)
-	body, err := marshalUpdateWorkflowTemplateUpdateWorkflowTemplateRequest(c, req)
-	if err != nil {
-		return err
-	}
-	_, err = dcl.SendRequest(ctx, c.Config, "PUT", u, bytes.NewBuffer(body), c.Config.RetryProvider)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Client) listWorkflowTemplateRaw(ctx context.Context, project, location, pageToken string, pageSize int32) ([]byte, error) {
-	u, err := workflowTemplateListURL(c.Config.BasePath, project, location)
+func (c *Client) listWorkflowTemplateRaw(ctx context.Context, r *WorkflowTemplate, pageToken string, pageSize int32) ([]byte, error) {
+	u, err := r.urlNormalized().listURL(c.Config.BasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -461,8 +388,8 @@ type listWorkflowTemplateOperation struct {
 	Token     string                   `json:"nextPageToken"`
 }
 
-func (c *Client) listWorkflowTemplate(ctx context.Context, project, location, pageToken string, pageSize int32) ([]*WorkflowTemplate, string, error) {
-	b, err := c.listWorkflowTemplateRaw(ctx, project, location, pageToken, pageSize)
+func (c *Client) listWorkflowTemplate(ctx context.Context, r *WorkflowTemplate, pageToken string, pageSize int32) ([]*WorkflowTemplate, string, error) {
+	b, err := c.listWorkflowTemplateRaw(ctx, r, pageToken, pageSize)
 	if err != nil {
 		return nil, "", err
 	}
@@ -478,8 +405,8 @@ func (c *Client) listWorkflowTemplate(ctx context.Context, project, location, pa
 		if err != nil {
 			return nil, m.Token, err
 		}
-		res.Project = &project
-		res.Location = &location
+		res.Project = r.Project
+		res.Location = r.Location
 		l = append(l, res)
 	}
 
@@ -507,19 +434,17 @@ func (c *Client) deleteAllWorkflowTemplate(ctx context.Context, f func(*Workflow
 type deleteWorkflowTemplateOperation struct{}
 
 func (op *deleteWorkflowTemplateOperation) do(ctx context.Context, r *WorkflowTemplate, c *Client) error {
-
-	_, err := c.GetWorkflowTemplate(ctx, r.urlNormalized())
-
+	r, err := c.GetWorkflowTemplate(ctx, r)
 	if err != nil {
 		if dcl.IsNotFound(err) {
-			c.Config.Logger.Infof("WorkflowTemplate not found, returning. Original error: %v", err)
+			c.Config.Logger.InfoWithContextf(ctx, "WorkflowTemplate not found, returning. Original error: %v", err)
 			return nil
 		}
-		c.Config.Logger.Warningf("GetWorkflowTemplate checking for existence. error: %v", err)
+		c.Config.Logger.WarningWithContextf(ctx, "GetWorkflowTemplate checking for existence. error: %v", err)
 		return err
 	}
 
-	u, err := workflowTemplateDeleteURL(c.Config.BasePath, r.urlNormalized())
+	u, err := r.deleteURL(c.Config.BasePath)
 	if err != nil {
 		return err
 	}
@@ -535,7 +460,7 @@ func (op *deleteWorkflowTemplateOperation) do(ctx context.Context, r *WorkflowTe
 	// this is the reason we are adding retry to handle that case.
 	maxRetry := 10
 	for i := 1; i <= maxRetry; i++ {
-		_, err = c.GetWorkflowTemplate(ctx, r.urlNormalized())
+		_, err = c.GetWorkflowTemplate(ctx, r)
 		if !dcl.IsNotFound(err) {
 			if i == maxRetry {
 				return dcl.NotDeletedError{ExistingResource: r}
@@ -560,11 +485,8 @@ func (op *createWorkflowTemplateOperation) FirstResponse() (map[string]interface
 }
 
 func (op *createWorkflowTemplateOperation) do(ctx context.Context, r *WorkflowTemplate, c *Client) error {
-	c.Config.Logger.Infof("Attempting to create %v", r)
-
-	project, location := r.createFields()
-	u, err := workflowTemplateCreateURL(c.Config.BasePath, project, location)
-
+	c.Config.Logger.InfoWithContextf(ctx, "Attempting to create %v", r)
+	u, err := r.createURL(c.Config.BasePath)
 	if err != nil {
 		return err
 	}
@@ -595,8 +517,8 @@ func (op *createWorkflowTemplateOperation) do(ctx context.Context, r *WorkflowTe
 	}
 	op.response = o
 
-	if _, err := c.GetWorkflowTemplate(ctx, r.urlNormalized()); err != nil {
-		c.Config.Logger.Warningf("get returned error: %v", err)
+	if _, err := c.GetWorkflowTemplate(ctx, r); err != nil {
+		c.Config.Logger.WarningWithContextf(ctx, "get returned error: %v", err)
 		return err
 	}
 
@@ -605,7 +527,7 @@ func (op *createWorkflowTemplateOperation) do(ctx context.Context, r *WorkflowTe
 
 func (c *Client) getWorkflowTemplateRaw(ctx context.Context, r *WorkflowTemplate) ([]byte, error) {
 
-	u, err := workflowTemplateGetURL(c.Config.BasePath, r.urlNormalized())
+	u, err := r.getURL(c.Config.BasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -623,12 +545,12 @@ func (c *Client) getWorkflowTemplateRaw(ctx context.Context, r *WorkflowTemplate
 }
 
 func (c *Client) workflowTemplateDiffsForRawDesired(ctx context.Context, rawDesired *WorkflowTemplate, opts ...dcl.ApplyOption) (initial, desired *WorkflowTemplate, diffs []*dcl.FieldDiff, err error) {
-	c.Config.Logger.Info("Fetching initial state...")
+	c.Config.Logger.InfoWithContext(ctx, "Fetching initial state...")
 	// First, let us see if the user provided a state hint.  If they did, we will start fetching based on that.
 	var fetchState *WorkflowTemplate
 	if sh := dcl.FetchStateHint(opts); sh != nil {
 		if r, ok := sh.(*WorkflowTemplate); !ok {
-			c.Config.Logger.Warningf("Initial state hint was of the wrong type; expected WorkflowTemplate, got %T", sh)
+			c.Config.Logger.WarningWithContextf(ctx, "Initial state hint was of the wrong type; expected WorkflowTemplate, got %T", sh)
 		} else {
 			fetchState = r
 		}
@@ -638,34 +560,33 @@ func (c *Client) workflowTemplateDiffsForRawDesired(ctx context.Context, rawDesi
 	}
 
 	// 1.2: Retrieval of raw initial state from API
-	rawInitial, err := c.GetWorkflowTemplate(ctx, fetchState.urlNormalized())
+	rawInitial, err := c.GetWorkflowTemplate(ctx, fetchState)
 	if rawInitial == nil {
 		if !dcl.IsNotFound(err) {
-			c.Config.Logger.Warningf("Failed to retrieve whether a WorkflowTemplate resource already exists: %s", err)
+			c.Config.Logger.WarningWithContextf(ctx, "Failed to retrieve whether a WorkflowTemplate resource already exists: %s", err)
 			return nil, nil, nil, fmt.Errorf("failed to retrieve WorkflowTemplate resource: %v", err)
 		}
-		c.Config.Logger.Info("Found that WorkflowTemplate resource did not exist.")
+		c.Config.Logger.InfoWithContext(ctx, "Found that WorkflowTemplate resource did not exist.")
 		// Perform canonicalization to pick up defaults.
 		desired, err = canonicalizeWorkflowTemplateDesiredState(rawDesired, rawInitial)
 		return nil, desired, nil, err
 	}
-
-	c.Config.Logger.Infof("Found initial state for WorkflowTemplate: %v", rawInitial)
-	c.Config.Logger.Infof("Initial desired state for WorkflowTemplate: %v", rawDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for WorkflowTemplate: %v", rawInitial)
+	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for WorkflowTemplate: %v", rawDesired)
 
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeWorkflowTemplateInitialState(rawInitial, rawDesired)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c.Config.Logger.Infof("Canonicalized initial state for WorkflowTemplate: %v", initial)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalized initial state for WorkflowTemplate: %v", initial)
 
 	// 1.4: Canonicalize raw desired state into desired state.
 	desired, err = canonicalizeWorkflowTemplateDesiredState(rawDesired, rawInitial, opts...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c.Config.Logger.Infof("Canonicalized desired state for WorkflowTemplate: %v", desired)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalized desired state for WorkflowTemplate: %v", desired)
 
 	// 2.1: Comparison of initial and desired state.
 	diffs, err = diffWorkflowTemplate(c, desired, initial, opts...)
@@ -693,79 +614,82 @@ func canonicalizeWorkflowTemplateDesiredState(rawDesired, rawInitial *WorkflowTe
 
 		return rawDesired, nil
 	}
-
+	canonicalDesired := &WorkflowTemplate{}
 	if dcl.NameToSelfLink(rawDesired.Name, rawInitial.Name) {
-		rawDesired.Name = rawInitial.Name
-	}
-	if dcl.IsZeroValue(rawDesired.Version) {
-		rawDesired.Version = rawInitial.Version
+		canonicalDesired.Name = rawInitial.Name
+	} else {
+		canonicalDesired.Name = rawDesired.Name
 	}
 	if dcl.IsZeroValue(rawDesired.Labels) {
-		rawDesired.Labels = rawInitial.Labels
+		canonicalDesired.Labels = rawInitial.Labels
+	} else {
+		canonicalDesired.Labels = rawDesired.Labels
 	}
-	rawDesired.Placement = canonicalizeWorkflowTemplatePlacement(rawDesired.Placement, rawInitial.Placement, opts...)
-	if dcl.IsZeroValue(rawDesired.Jobs) {
-		rawDesired.Jobs = rawInitial.Jobs
-	}
-	if dcl.IsZeroValue(rawDesired.Parameters) {
-		rawDesired.Parameters = rawInitial.Parameters
-	}
+	canonicalDesired.Placement = canonicalizeWorkflowTemplatePlacement(rawDesired.Placement, rawInitial.Placement, opts...)
+	canonicalDesired.Jobs = canonicalizeWorkflowTemplateJobsSlice(rawDesired.Jobs, rawInitial.Jobs, opts...)
+	canonicalDesired.Parameters = canonicalizeWorkflowTemplateParametersSlice(rawDesired.Parameters, rawInitial.Parameters, opts...)
 	if dcl.StringCanonicalize(rawDesired.DagTimeout, rawInitial.DagTimeout) {
-		rawDesired.DagTimeout = rawInitial.DagTimeout
+		canonicalDesired.DagTimeout = rawInitial.DagTimeout
+	} else {
+		canonicalDesired.DagTimeout = rawDesired.DagTimeout
 	}
 	if dcl.NameToSelfLink(rawDesired.Project, rawInitial.Project) {
-		rawDesired.Project = rawInitial.Project
+		canonicalDesired.Project = rawInitial.Project
+	} else {
+		canonicalDesired.Project = rawDesired.Project
 	}
 	if dcl.NameToSelfLink(rawDesired.Location, rawInitial.Location) {
-		rawDesired.Location = rawInitial.Location
+		canonicalDesired.Location = rawInitial.Location
+	} else {
+		canonicalDesired.Location = rawDesired.Location
 	}
 
-	return rawDesired, nil
+	return canonicalDesired, nil
 }
 
 func canonicalizeWorkflowTemplateNewState(c *Client, rawNew, rawDesired *WorkflowTemplate) (*WorkflowTemplate, error) {
 
 	rawNew.Name = rawDesired.Name
 
-	if dcl.IsEmptyValueIndirect(rawNew.Version) && dcl.IsEmptyValueIndirect(rawDesired.Version) {
+	if dcl.IsNotReturnedByServer(rawNew.Version) && dcl.IsNotReturnedByServer(rawDesired.Version) {
 		rawNew.Version = rawDesired.Version
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.CreateTime) && dcl.IsEmptyValueIndirect(rawDesired.CreateTime) {
+	if dcl.IsNotReturnedByServer(rawNew.CreateTime) && dcl.IsNotReturnedByServer(rawDesired.CreateTime) {
 		rawNew.CreateTime = rawDesired.CreateTime
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.UpdateTime) && dcl.IsEmptyValueIndirect(rawDesired.UpdateTime) {
+	if dcl.IsNotReturnedByServer(rawNew.UpdateTime) && dcl.IsNotReturnedByServer(rawDesired.UpdateTime) {
 		rawNew.UpdateTime = rawDesired.UpdateTime
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Labels) && dcl.IsEmptyValueIndirect(rawDesired.Labels) {
+	if dcl.IsNotReturnedByServer(rawNew.Labels) && dcl.IsNotReturnedByServer(rawDesired.Labels) {
 		rawNew.Labels = rawDesired.Labels
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Placement) && dcl.IsEmptyValueIndirect(rawDesired.Placement) {
+	if dcl.IsNotReturnedByServer(rawNew.Placement) && dcl.IsNotReturnedByServer(rawDesired.Placement) {
 		rawNew.Placement = rawDesired.Placement
 	} else {
 		rawNew.Placement = canonicalizeNewWorkflowTemplatePlacement(c, rawDesired.Placement, rawNew.Placement)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Jobs) && dcl.IsEmptyValueIndirect(rawDesired.Jobs) {
+	if dcl.IsNotReturnedByServer(rawNew.Jobs) && dcl.IsNotReturnedByServer(rawDesired.Jobs) {
 		rawNew.Jobs = rawDesired.Jobs
 	} else {
 		rawNew.Jobs = canonicalizeNewWorkflowTemplateJobsSlice(c, rawDesired.Jobs, rawNew.Jobs)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Parameters) && dcl.IsEmptyValueIndirect(rawDesired.Parameters) {
+	if dcl.IsNotReturnedByServer(rawNew.Parameters) && dcl.IsNotReturnedByServer(rawDesired.Parameters) {
 		rawNew.Parameters = rawDesired.Parameters
 	} else {
 		rawNew.Parameters = canonicalizeNewWorkflowTemplateParametersSlice(c, rawDesired.Parameters, rawNew.Parameters)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.DagTimeout) && dcl.IsEmptyValueIndirect(rawDesired.DagTimeout) {
+	if dcl.IsNotReturnedByServer(rawNew.DagTimeout) && dcl.IsNotReturnedByServer(rawDesired.DagTimeout) {
 		rawNew.DagTimeout = rawDesired.DagTimeout
 	} else {
 		if dcl.StringCanonicalize(rawDesired.DagTimeout, rawNew.DagTimeout) {
@@ -792,15 +716,54 @@ func canonicalizeWorkflowTemplatePlacement(des, initial *WorkflowTemplatePlaceme
 		return des
 	}
 
-	des.ManagedCluster = canonicalizeWorkflowTemplatePlacementManagedCluster(des.ManagedCluster, initial.ManagedCluster, opts...)
-	des.ClusterSelector = canonicalizeWorkflowTemplatePlacementClusterSelector(des.ClusterSelector, initial.ClusterSelector, opts...)
+	cDes := &WorkflowTemplatePlacement{}
 
-	return des
+	cDes.ManagedCluster = canonicalizeWorkflowTemplatePlacementManagedCluster(des.ManagedCluster, initial.ManagedCluster, opts...)
+	cDes.ClusterSelector = canonicalizeWorkflowTemplatePlacementClusterSelector(des.ClusterSelector, initial.ClusterSelector, opts...)
+
+	return cDes
+}
+
+func canonicalizeWorkflowTemplatePlacementSlice(des, initial []WorkflowTemplatePlacement, opts ...dcl.ApplyOption) []WorkflowTemplatePlacement {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplatePlacement, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplatePlacement(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplatePlacement, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplatePlacement(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplatePlacement(c *Client, des, nw *WorkflowTemplatePlacement) *WorkflowTemplatePlacement {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplatePlacement while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	nw.ManagedCluster = canonicalizeNewWorkflowTemplatePlacementManagedCluster(c, des.ManagedCluster, nw.ManagedCluster)
@@ -864,29 +827,69 @@ func canonicalizeWorkflowTemplatePlacementManagedCluster(des, initial *WorkflowT
 		return des
 	}
 
+	cDes := &WorkflowTemplatePlacementManagedCluster{}
+
 	if dcl.StringCanonicalize(des.ClusterName, initial.ClusterName) || dcl.IsZeroValue(des.ClusterName) {
-		des.ClusterName = initial.ClusterName
+		cDes.ClusterName = initial.ClusterName
+	} else {
+		cDes.ClusterName = des.ClusterName
 	}
-	des.Config = canonicalizeClusterClusterConfig(des.Config, initial.Config, opts...)
+	cDes.Config = canonicalizeClusterClusterConfig(des.Config, initial.Config, opts...)
 	if dcl.IsZeroValue(des.Labels) {
 		des.Labels = initial.Labels
+	} else {
+		cDes.Labels = des.Labels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplatePlacementManagedClusterSlice(des, initial []WorkflowTemplatePlacementManagedCluster, opts ...dcl.ApplyOption) []WorkflowTemplatePlacementManagedCluster {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplatePlacementManagedCluster, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplatePlacementManagedCluster(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplatePlacementManagedCluster, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplatePlacementManagedCluster(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplatePlacementManagedCluster(c *Client, des, nw *WorkflowTemplatePlacementManagedCluster) *WorkflowTemplatePlacementManagedCluster {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplatePlacementManagedCluster while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.ClusterName, nw.ClusterName) {
 		nw.ClusterName = des.ClusterName
 	}
 	nw.Config = canonicalizeNewClusterClusterConfig(c, des.Config, nw.Config)
-	if dcl.IsZeroValue(nw.Labels) {
-		nw.Labels = des.Labels
-	}
 
 	return nw
 }
@@ -946,26 +949,66 @@ func canonicalizeWorkflowTemplatePlacementClusterSelector(des, initial *Workflow
 		return des
 	}
 
+	cDes := &WorkflowTemplatePlacementClusterSelector{}
+
 	if dcl.StringCanonicalize(des.Zone, initial.Zone) || dcl.IsZeroValue(des.Zone) {
-		des.Zone = initial.Zone
+		cDes.Zone = initial.Zone
+	} else {
+		cDes.Zone = des.Zone
 	}
 	if dcl.IsZeroValue(des.ClusterLabels) {
 		des.ClusterLabels = initial.ClusterLabels
+	} else {
+		cDes.ClusterLabels = des.ClusterLabels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplatePlacementClusterSelectorSlice(des, initial []WorkflowTemplatePlacementClusterSelector, opts ...dcl.ApplyOption) []WorkflowTemplatePlacementClusterSelector {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplatePlacementClusterSelector, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplatePlacementClusterSelector(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplatePlacementClusterSelector, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplatePlacementClusterSelector(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplatePlacementClusterSelector(c *Client, des, nw *WorkflowTemplatePlacementClusterSelector) *WorkflowTemplatePlacementClusterSelector {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplatePlacementClusterSelector while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.Zone, nw.Zone) {
 		nw.Zone = des.Zone
-	}
-	if dcl.IsZeroValue(nw.ClusterLabels) {
-		nw.ClusterLabels = des.ClusterLabels
 	}
 
 	return nw
@@ -1026,31 +1069,76 @@ func canonicalizeWorkflowTemplateJobs(des, initial *WorkflowTemplateJobs, opts .
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobs{}
+
 	if dcl.StringCanonicalize(des.StepId, initial.StepId) || dcl.IsZeroValue(des.StepId) {
-		des.StepId = initial.StepId
+		cDes.StepId = initial.StepId
+	} else {
+		cDes.StepId = des.StepId
 	}
-	des.HadoopJob = canonicalizeWorkflowTemplateJobsHadoopJob(des.HadoopJob, initial.HadoopJob, opts...)
-	des.SparkJob = canonicalizeWorkflowTemplateJobsSparkJob(des.SparkJob, initial.SparkJob, opts...)
-	des.PysparkJob = canonicalizeWorkflowTemplateJobsPysparkJob(des.PysparkJob, initial.PysparkJob, opts...)
-	des.HiveJob = canonicalizeWorkflowTemplateJobsHiveJob(des.HiveJob, initial.HiveJob, opts...)
-	des.PigJob = canonicalizeWorkflowTemplateJobsPigJob(des.PigJob, initial.PigJob, opts...)
-	des.SparkRJob = canonicalizeWorkflowTemplateJobsSparkRJob(des.SparkRJob, initial.SparkRJob, opts...)
-	des.SparkSqlJob = canonicalizeWorkflowTemplateJobsSparkSqlJob(des.SparkSqlJob, initial.SparkSqlJob, opts...)
-	des.PrestoJob = canonicalizeWorkflowTemplateJobsPrestoJob(des.PrestoJob, initial.PrestoJob, opts...)
+	cDes.HadoopJob = canonicalizeWorkflowTemplateJobsHadoopJob(des.HadoopJob, initial.HadoopJob, opts...)
+	cDes.SparkJob = canonicalizeWorkflowTemplateJobsSparkJob(des.SparkJob, initial.SparkJob, opts...)
+	cDes.PysparkJob = canonicalizeWorkflowTemplateJobsPysparkJob(des.PysparkJob, initial.PysparkJob, opts...)
+	cDes.HiveJob = canonicalizeWorkflowTemplateJobsHiveJob(des.HiveJob, initial.HiveJob, opts...)
+	cDes.PigJob = canonicalizeWorkflowTemplateJobsPigJob(des.PigJob, initial.PigJob, opts...)
+	cDes.SparkRJob = canonicalizeWorkflowTemplateJobsSparkRJob(des.SparkRJob, initial.SparkRJob, opts...)
+	cDes.SparkSqlJob = canonicalizeWorkflowTemplateJobsSparkSqlJob(des.SparkSqlJob, initial.SparkSqlJob, opts...)
+	cDes.PrestoJob = canonicalizeWorkflowTemplateJobsPrestoJob(des.PrestoJob, initial.PrestoJob, opts...)
 	if dcl.IsZeroValue(des.Labels) {
 		des.Labels = initial.Labels
+	} else {
+		cDes.Labels = des.Labels
 	}
-	des.Scheduling = canonicalizeWorkflowTemplateJobsScheduling(des.Scheduling, initial.Scheduling, opts...)
+	cDes.Scheduling = canonicalizeWorkflowTemplateJobsScheduling(des.Scheduling, initial.Scheduling, opts...)
 	if dcl.IsZeroValue(des.PrerequisiteStepIds) {
 		des.PrerequisiteStepIds = initial.PrerequisiteStepIds
+	} else {
+		cDes.PrerequisiteStepIds = des.PrerequisiteStepIds
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSlice(des, initial []WorkflowTemplateJobs, opts ...dcl.ApplyOption) []WorkflowTemplateJobs {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobs, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobs(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobs, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobs(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobs(c *Client, des, nw *WorkflowTemplateJobs) *WorkflowTemplateJobs {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobs while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.StepId, nw.StepId) {
@@ -1064,13 +1152,7 @@ func canonicalizeNewWorkflowTemplateJobs(c *Client, des, nw *WorkflowTemplateJob
 	nw.SparkRJob = canonicalizeNewWorkflowTemplateJobsSparkRJob(c, des.SparkRJob, nw.SparkRJob)
 	nw.SparkSqlJob = canonicalizeNewWorkflowTemplateJobsSparkSqlJob(c, des.SparkSqlJob, nw.SparkSqlJob)
 	nw.PrestoJob = canonicalizeNewWorkflowTemplateJobsPrestoJob(c, des.PrestoJob, nw.PrestoJob)
-	if dcl.IsZeroValue(nw.Labels) {
-		nw.Labels = des.Labels
-	}
 	nw.Scheduling = canonicalizeNewWorkflowTemplateJobsScheduling(c, des.Scheduling, nw.Scheduling)
-	if dcl.IsZeroValue(nw.PrerequisiteStepIds) {
-		nw.PrerequisiteStepIds = des.PrerequisiteStepIds
-	}
 
 	return nw
 }
@@ -1130,35 +1212,88 @@ func canonicalizeWorkflowTemplateJobsHadoopJob(des, initial *WorkflowTemplateJob
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsHadoopJob{}
+
 	if dcl.StringCanonicalize(des.MainJarFileUri, initial.MainJarFileUri) || dcl.IsZeroValue(des.MainJarFileUri) {
-		des.MainJarFileUri = initial.MainJarFileUri
+		cDes.MainJarFileUri = initial.MainJarFileUri
+	} else {
+		cDes.MainJarFileUri = des.MainJarFileUri
 	}
 	if dcl.StringCanonicalize(des.MainClass, initial.MainClass) || dcl.IsZeroValue(des.MainClass) {
-		des.MainClass = initial.MainClass
+		cDes.MainClass = initial.MainClass
+	} else {
+		cDes.MainClass = des.MainClass
 	}
 	if dcl.IsZeroValue(des.Args) {
 		des.Args = initial.Args
+	} else {
+		cDes.Args = des.Args
 	}
 	if dcl.IsZeroValue(des.JarFileUris) {
 		des.JarFileUris = initial.JarFileUris
+	} else {
+		cDes.JarFileUris = des.JarFileUris
 	}
 	if dcl.IsZeroValue(des.FileUris) {
 		des.FileUris = initial.FileUris
+	} else {
+		cDes.FileUris = des.FileUris
 	}
 	if dcl.IsZeroValue(des.ArchiveUris) {
 		des.ArchiveUris = initial.ArchiveUris
+	} else {
+		cDes.ArchiveUris = des.ArchiveUris
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsHadoopJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsHadoopJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsHadoopJobSlice(des, initial []WorkflowTemplateJobsHadoopJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsHadoopJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsHadoopJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsHadoopJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsHadoopJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsHadoopJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsHadoopJob(c *Client, des, nw *WorkflowTemplateJobsHadoopJob) *WorkflowTemplateJobsHadoopJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsHadoopJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.MainJarFileUri, nw.MainJarFileUri) {
@@ -1166,21 +1301,6 @@ func canonicalizeNewWorkflowTemplateJobsHadoopJob(c *Client, des, nw *WorkflowTe
 	}
 	if dcl.StringCanonicalize(des.MainClass, nw.MainClass) {
 		nw.MainClass = des.MainClass
-	}
-	if dcl.IsZeroValue(nw.Args) {
-		nw.Args = des.Args
-	}
-	if dcl.IsZeroValue(nw.JarFileUris) {
-		nw.JarFileUris = des.JarFileUris
-	}
-	if dcl.IsZeroValue(nw.FileUris) {
-		nw.FileUris = des.FileUris
-	}
-	if dcl.IsZeroValue(nw.ArchiveUris) {
-		nw.ArchiveUris = des.ArchiveUris
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
 	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsHadoopJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
@@ -1242,20 +1362,57 @@ func canonicalizeWorkflowTemplateJobsHadoopJobLoggingConfig(des, initial *Workfl
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsHadoopJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsHadoopJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsHadoopJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsHadoopJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsHadoopJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsHadoopJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsHadoopJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsHadoopJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsHadoopJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsHadoopJobLoggingConfig) *WorkflowTemplateJobsHadoopJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsHadoopJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -1316,35 +1473,88 @@ func canonicalizeWorkflowTemplateJobsSparkJob(des, initial *WorkflowTemplateJobs
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkJob{}
+
 	if dcl.StringCanonicalize(des.MainJarFileUri, initial.MainJarFileUri) || dcl.IsZeroValue(des.MainJarFileUri) {
-		des.MainJarFileUri = initial.MainJarFileUri
+		cDes.MainJarFileUri = initial.MainJarFileUri
+	} else {
+		cDes.MainJarFileUri = des.MainJarFileUri
 	}
 	if dcl.StringCanonicalize(des.MainClass, initial.MainClass) || dcl.IsZeroValue(des.MainClass) {
-		des.MainClass = initial.MainClass
+		cDes.MainClass = initial.MainClass
+	} else {
+		cDes.MainClass = des.MainClass
 	}
 	if dcl.IsZeroValue(des.Args) {
 		des.Args = initial.Args
+	} else {
+		cDes.Args = des.Args
 	}
 	if dcl.IsZeroValue(des.JarFileUris) {
 		des.JarFileUris = initial.JarFileUris
+	} else {
+		cDes.JarFileUris = des.JarFileUris
 	}
 	if dcl.IsZeroValue(des.FileUris) {
 		des.FileUris = initial.FileUris
+	} else {
+		cDes.FileUris = des.FileUris
 	}
 	if dcl.IsZeroValue(des.ArchiveUris) {
 		des.ArchiveUris = initial.ArchiveUris
+	} else {
+		cDes.ArchiveUris = des.ArchiveUris
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsSparkJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsSparkJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkJobSlice(des, initial []WorkflowTemplateJobsSparkJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkJob(c *Client, des, nw *WorkflowTemplateJobsSparkJob) *WorkflowTemplateJobsSparkJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.MainJarFileUri, nw.MainJarFileUri) {
@@ -1352,21 +1562,6 @@ func canonicalizeNewWorkflowTemplateJobsSparkJob(c *Client, des, nw *WorkflowTem
 	}
 	if dcl.StringCanonicalize(des.MainClass, nw.MainClass) {
 		nw.MainClass = des.MainClass
-	}
-	if dcl.IsZeroValue(nw.Args) {
-		nw.Args = des.Args
-	}
-	if dcl.IsZeroValue(nw.JarFileUris) {
-		nw.JarFileUris = des.JarFileUris
-	}
-	if dcl.IsZeroValue(nw.FileUris) {
-		nw.FileUris = des.FileUris
-	}
-	if dcl.IsZeroValue(nw.ArchiveUris) {
-		nw.ArchiveUris = des.ArchiveUris
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
 	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsSparkJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
@@ -1428,20 +1623,57 @@ func canonicalizeWorkflowTemplateJobsSparkJobLoggingConfig(des, initial *Workflo
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsSparkJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsSparkJobLoggingConfig) *WorkflowTemplateJobsSparkJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -1502,57 +1734,92 @@ func canonicalizeWorkflowTemplateJobsPysparkJob(des, initial *WorkflowTemplateJo
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPysparkJob{}
+
 	if dcl.StringCanonicalize(des.MainPythonFileUri, initial.MainPythonFileUri) || dcl.IsZeroValue(des.MainPythonFileUri) {
-		des.MainPythonFileUri = initial.MainPythonFileUri
+		cDes.MainPythonFileUri = initial.MainPythonFileUri
+	} else {
+		cDes.MainPythonFileUri = des.MainPythonFileUri
 	}
 	if dcl.IsZeroValue(des.Args) {
 		des.Args = initial.Args
+	} else {
+		cDes.Args = des.Args
 	}
 	if dcl.IsZeroValue(des.PythonFileUris) {
 		des.PythonFileUris = initial.PythonFileUris
+	} else {
+		cDes.PythonFileUris = des.PythonFileUris
 	}
 	if dcl.IsZeroValue(des.JarFileUris) {
 		des.JarFileUris = initial.JarFileUris
+	} else {
+		cDes.JarFileUris = des.JarFileUris
 	}
 	if dcl.IsZeroValue(des.FileUris) {
 		des.FileUris = initial.FileUris
+	} else {
+		cDes.FileUris = des.FileUris
 	}
 	if dcl.IsZeroValue(des.ArchiveUris) {
 		des.ArchiveUris = initial.ArchiveUris
+	} else {
+		cDes.ArchiveUris = des.ArchiveUris
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsPysparkJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsPysparkJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPysparkJobSlice(des, initial []WorkflowTemplateJobsPysparkJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPysparkJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPysparkJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPysparkJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPysparkJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPysparkJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPysparkJob(c *Client, des, nw *WorkflowTemplateJobsPysparkJob) *WorkflowTemplateJobsPysparkJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPysparkJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.MainPythonFileUri, nw.MainPythonFileUri) {
 		nw.MainPythonFileUri = des.MainPythonFileUri
-	}
-	if dcl.IsZeroValue(nw.Args) {
-		nw.Args = des.Args
-	}
-	if dcl.IsZeroValue(nw.PythonFileUris) {
-		nw.PythonFileUris = des.PythonFileUris
-	}
-	if dcl.IsZeroValue(nw.JarFileUris) {
-		nw.JarFileUris = des.JarFileUris
-	}
-	if dcl.IsZeroValue(nw.FileUris) {
-		nw.FileUris = des.FileUris
-	}
-	if dcl.IsZeroValue(nw.ArchiveUris) {
-		nw.ArchiveUris = des.ArchiveUris
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
 	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsPysparkJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
@@ -1614,20 +1881,57 @@ func canonicalizeWorkflowTemplateJobsPysparkJobLoggingConfig(des, initial *Workf
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPysparkJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPysparkJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsPysparkJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPysparkJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPysparkJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPysparkJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPysparkJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPysparkJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPysparkJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsPysparkJobLoggingConfig) *WorkflowTemplateJobsPysparkJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPysparkJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -1688,29 +1992,78 @@ func canonicalizeWorkflowTemplateJobsHiveJob(des, initial *WorkflowTemplateJobsH
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsHiveJob{}
+
 	if dcl.StringCanonicalize(des.QueryFileUri, initial.QueryFileUri) || dcl.IsZeroValue(des.QueryFileUri) {
-		des.QueryFileUri = initial.QueryFileUri
+		cDes.QueryFileUri = initial.QueryFileUri
+	} else {
+		cDes.QueryFileUri = des.QueryFileUri
 	}
-	des.QueryList = canonicalizeWorkflowTemplateJobsHiveJobQueryList(des.QueryList, initial.QueryList, opts...)
+	cDes.QueryList = canonicalizeWorkflowTemplateJobsHiveJobQueryList(des.QueryList, initial.QueryList, opts...)
 	if dcl.BoolCanonicalize(des.ContinueOnFailure, initial.ContinueOnFailure) || dcl.IsZeroValue(des.ContinueOnFailure) {
-		des.ContinueOnFailure = initial.ContinueOnFailure
+		cDes.ContinueOnFailure = initial.ContinueOnFailure
+	} else {
+		cDes.ContinueOnFailure = des.ContinueOnFailure
 	}
 	if dcl.IsZeroValue(des.ScriptVariables) {
 		des.ScriptVariables = initial.ScriptVariables
+	} else {
+		cDes.ScriptVariables = des.ScriptVariables
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
 	if dcl.IsZeroValue(des.JarFileUris) {
 		des.JarFileUris = initial.JarFileUris
+	} else {
+		cDes.JarFileUris = des.JarFileUris
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsHiveJobSlice(des, initial []WorkflowTemplateJobsHiveJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsHiveJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsHiveJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsHiveJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsHiveJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsHiveJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsHiveJob(c *Client, des, nw *WorkflowTemplateJobsHiveJob) *WorkflowTemplateJobsHiveJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsHiveJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.QueryFileUri, nw.QueryFileUri) {
@@ -1719,15 +2072,6 @@ func canonicalizeNewWorkflowTemplateJobsHiveJob(c *Client, des, nw *WorkflowTemp
 	nw.QueryList = canonicalizeNewWorkflowTemplateJobsHiveJobQueryList(c, des.QueryList, nw.QueryList)
 	if dcl.BoolCanonicalize(des.ContinueOnFailure, nw.ContinueOnFailure) {
 		nw.ContinueOnFailure = des.ContinueOnFailure
-	}
-	if dcl.IsZeroValue(nw.ScriptVariables) {
-		nw.ScriptVariables = des.ScriptVariables
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
-	}
-	if dcl.IsZeroValue(nw.JarFileUris) {
-		nw.JarFileUris = des.JarFileUris
 	}
 
 	return nw
@@ -1788,20 +2132,57 @@ func canonicalizeWorkflowTemplateJobsHiveJobQueryList(des, initial *WorkflowTemp
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsHiveJobQueryList{}
+
 	if dcl.IsZeroValue(des.Queries) {
 		des.Queries = initial.Queries
+	} else {
+		cDes.Queries = des.Queries
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsHiveJobQueryListSlice(des, initial []WorkflowTemplateJobsHiveJobQueryList, opts ...dcl.ApplyOption) []WorkflowTemplateJobsHiveJobQueryList {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsHiveJobQueryList, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsHiveJobQueryList(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsHiveJobQueryList, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsHiveJobQueryList(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsHiveJobQueryList(c *Client, des, nw *WorkflowTemplateJobsHiveJobQueryList) *WorkflowTemplateJobsHiveJobQueryList {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.Queries) {
-		nw.Queries = des.Queries
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsHiveJobQueryList while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -1862,30 +2243,79 @@ func canonicalizeWorkflowTemplateJobsPigJob(des, initial *WorkflowTemplateJobsPi
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPigJob{}
+
 	if dcl.StringCanonicalize(des.QueryFileUri, initial.QueryFileUri) || dcl.IsZeroValue(des.QueryFileUri) {
-		des.QueryFileUri = initial.QueryFileUri
+		cDes.QueryFileUri = initial.QueryFileUri
+	} else {
+		cDes.QueryFileUri = des.QueryFileUri
 	}
-	des.QueryList = canonicalizeWorkflowTemplateJobsPigJobQueryList(des.QueryList, initial.QueryList, opts...)
+	cDes.QueryList = canonicalizeWorkflowTemplateJobsPigJobQueryList(des.QueryList, initial.QueryList, opts...)
 	if dcl.BoolCanonicalize(des.ContinueOnFailure, initial.ContinueOnFailure) || dcl.IsZeroValue(des.ContinueOnFailure) {
-		des.ContinueOnFailure = initial.ContinueOnFailure
+		cDes.ContinueOnFailure = initial.ContinueOnFailure
+	} else {
+		cDes.ContinueOnFailure = des.ContinueOnFailure
 	}
 	if dcl.IsZeroValue(des.ScriptVariables) {
 		des.ScriptVariables = initial.ScriptVariables
+	} else {
+		cDes.ScriptVariables = des.ScriptVariables
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
 	if dcl.IsZeroValue(des.JarFileUris) {
 		des.JarFileUris = initial.JarFileUris
+	} else {
+		cDes.JarFileUris = des.JarFileUris
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsPigJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsPigJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPigJobSlice(des, initial []WorkflowTemplateJobsPigJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPigJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPigJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPigJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPigJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPigJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPigJob(c *Client, des, nw *WorkflowTemplateJobsPigJob) *WorkflowTemplateJobsPigJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPigJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.QueryFileUri, nw.QueryFileUri) {
@@ -1894,15 +2324,6 @@ func canonicalizeNewWorkflowTemplateJobsPigJob(c *Client, des, nw *WorkflowTempl
 	nw.QueryList = canonicalizeNewWorkflowTemplateJobsPigJobQueryList(c, des.QueryList, nw.QueryList)
 	if dcl.BoolCanonicalize(des.ContinueOnFailure, nw.ContinueOnFailure) {
 		nw.ContinueOnFailure = des.ContinueOnFailure
-	}
-	if dcl.IsZeroValue(nw.ScriptVariables) {
-		nw.ScriptVariables = des.ScriptVariables
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
-	}
-	if dcl.IsZeroValue(nw.JarFileUris) {
-		nw.JarFileUris = des.JarFileUris
 	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsPigJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
@@ -1964,20 +2385,57 @@ func canonicalizeWorkflowTemplateJobsPigJobQueryList(des, initial *WorkflowTempl
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPigJobQueryList{}
+
 	if dcl.IsZeroValue(des.Queries) {
 		des.Queries = initial.Queries
+	} else {
+		cDes.Queries = des.Queries
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPigJobQueryListSlice(des, initial []WorkflowTemplateJobsPigJobQueryList, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPigJobQueryList {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPigJobQueryList, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPigJobQueryList(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPigJobQueryList, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPigJobQueryList(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPigJobQueryList(c *Client, des, nw *WorkflowTemplateJobsPigJobQueryList) *WorkflowTemplateJobsPigJobQueryList {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.Queries) {
-		nw.Queries = des.Queries
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPigJobQueryList while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2038,20 +2496,57 @@ func canonicalizeWorkflowTemplateJobsPigJobLoggingConfig(des, initial *WorkflowT
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPigJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPigJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsPigJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPigJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPigJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPigJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPigJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPigJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPigJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsPigJobLoggingConfig) *WorkflowTemplateJobsPigJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPigJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2112,45 +2607,82 @@ func canonicalizeWorkflowTemplateJobsSparkRJob(des, initial *WorkflowTemplateJob
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkRJob{}
+
 	if dcl.StringCanonicalize(des.MainRFileUri, initial.MainRFileUri) || dcl.IsZeroValue(des.MainRFileUri) {
-		des.MainRFileUri = initial.MainRFileUri
+		cDes.MainRFileUri = initial.MainRFileUri
+	} else {
+		cDes.MainRFileUri = des.MainRFileUri
 	}
 	if dcl.IsZeroValue(des.Args) {
 		des.Args = initial.Args
+	} else {
+		cDes.Args = des.Args
 	}
 	if dcl.IsZeroValue(des.FileUris) {
 		des.FileUris = initial.FileUris
+	} else {
+		cDes.FileUris = des.FileUris
 	}
 	if dcl.IsZeroValue(des.ArchiveUris) {
 		des.ArchiveUris = initial.ArchiveUris
+	} else {
+		cDes.ArchiveUris = des.ArchiveUris
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsSparkRJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsSparkRJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkRJobSlice(des, initial []WorkflowTemplateJobsSparkRJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkRJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkRJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkRJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkRJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkRJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkRJob(c *Client, des, nw *WorkflowTemplateJobsSparkRJob) *WorkflowTemplateJobsSparkRJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkRJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.MainRFileUri, nw.MainRFileUri) {
 		nw.MainRFileUri = des.MainRFileUri
-	}
-	if dcl.IsZeroValue(nw.Args) {
-		nw.Args = des.Args
-	}
-	if dcl.IsZeroValue(nw.FileUris) {
-		nw.FileUris = des.FileUris
-	}
-	if dcl.IsZeroValue(nw.ArchiveUris) {
-		nw.ArchiveUris = des.ArchiveUris
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
 	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsSparkRJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
@@ -2212,20 +2744,57 @@ func canonicalizeWorkflowTemplateJobsSparkRJobLoggingConfig(des, initial *Workfl
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkRJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkRJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsSparkRJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkRJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkRJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkRJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkRJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkRJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkRJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsSparkRJobLoggingConfig) *WorkflowTemplateJobsSparkRJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkRJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2286,42 +2855,80 @@ func canonicalizeWorkflowTemplateJobsSparkSqlJob(des, initial *WorkflowTemplateJ
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkSqlJob{}
+
 	if dcl.StringCanonicalize(des.QueryFileUri, initial.QueryFileUri) || dcl.IsZeroValue(des.QueryFileUri) {
-		des.QueryFileUri = initial.QueryFileUri
+		cDes.QueryFileUri = initial.QueryFileUri
+	} else {
+		cDes.QueryFileUri = des.QueryFileUri
 	}
-	des.QueryList = canonicalizeWorkflowTemplateJobsSparkSqlJobQueryList(des.QueryList, initial.QueryList, opts...)
+	cDes.QueryList = canonicalizeWorkflowTemplateJobsSparkSqlJobQueryList(des.QueryList, initial.QueryList, opts...)
 	if dcl.IsZeroValue(des.ScriptVariables) {
 		des.ScriptVariables = initial.ScriptVariables
+	} else {
+		cDes.ScriptVariables = des.ScriptVariables
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
 	if dcl.IsZeroValue(des.JarFileUris) {
 		des.JarFileUris = initial.JarFileUris
+	} else {
+		cDes.JarFileUris = des.JarFileUris
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsSparkSqlJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsSparkSqlJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkSqlJobSlice(des, initial []WorkflowTemplateJobsSparkSqlJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkSqlJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkSqlJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkSqlJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkSqlJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkSqlJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkSqlJob(c *Client, des, nw *WorkflowTemplateJobsSparkSqlJob) *WorkflowTemplateJobsSparkSqlJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkSqlJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.QueryFileUri, nw.QueryFileUri) {
 		nw.QueryFileUri = des.QueryFileUri
 	}
 	nw.QueryList = canonicalizeNewWorkflowTemplateJobsSparkSqlJobQueryList(c, des.QueryList, nw.QueryList)
-	if dcl.IsZeroValue(nw.ScriptVariables) {
-		nw.ScriptVariables = des.ScriptVariables
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
-	}
-	if dcl.IsZeroValue(nw.JarFileUris) {
-		nw.JarFileUris = des.JarFileUris
-	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsSparkSqlJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
 	return nw
@@ -2382,20 +2989,57 @@ func canonicalizeWorkflowTemplateJobsSparkSqlJobQueryList(des, initial *Workflow
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkSqlJobQueryList{}
+
 	if dcl.IsZeroValue(des.Queries) {
 		des.Queries = initial.Queries
+	} else {
+		cDes.Queries = des.Queries
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkSqlJobQueryListSlice(des, initial []WorkflowTemplateJobsSparkSqlJobQueryList, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkSqlJobQueryList {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkSqlJobQueryList, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkSqlJobQueryList(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkSqlJobQueryList, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkSqlJobQueryList(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkSqlJobQueryList(c *Client, des, nw *WorkflowTemplateJobsSparkSqlJobQueryList) *WorkflowTemplateJobsSparkSqlJobQueryList {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.Queries) {
-		nw.Queries = des.Queries
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkSqlJobQueryList while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2456,20 +3100,57 @@ func canonicalizeWorkflowTemplateJobsSparkSqlJobLoggingConfig(des, initial *Work
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsSparkSqlJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSparkSqlJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsSparkSqlJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsSparkSqlJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsSparkSqlJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsSparkSqlJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsSparkSqlJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsSparkSqlJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsSparkSqlJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsSparkSqlJobLoggingConfig) *WorkflowTemplateJobsSparkSqlJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsSparkSqlJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2530,30 +3211,79 @@ func canonicalizeWorkflowTemplateJobsPrestoJob(des, initial *WorkflowTemplateJob
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPrestoJob{}
+
 	if dcl.StringCanonicalize(des.QueryFileUri, initial.QueryFileUri) || dcl.IsZeroValue(des.QueryFileUri) {
-		des.QueryFileUri = initial.QueryFileUri
+		cDes.QueryFileUri = initial.QueryFileUri
+	} else {
+		cDes.QueryFileUri = des.QueryFileUri
 	}
-	des.QueryList = canonicalizeWorkflowTemplateJobsPrestoJobQueryList(des.QueryList, initial.QueryList, opts...)
+	cDes.QueryList = canonicalizeWorkflowTemplateJobsPrestoJobQueryList(des.QueryList, initial.QueryList, opts...)
 	if dcl.BoolCanonicalize(des.ContinueOnFailure, initial.ContinueOnFailure) || dcl.IsZeroValue(des.ContinueOnFailure) {
-		des.ContinueOnFailure = initial.ContinueOnFailure
+		cDes.ContinueOnFailure = initial.ContinueOnFailure
+	} else {
+		cDes.ContinueOnFailure = des.ContinueOnFailure
 	}
 	if dcl.StringCanonicalize(des.OutputFormat, initial.OutputFormat) || dcl.IsZeroValue(des.OutputFormat) {
-		des.OutputFormat = initial.OutputFormat
+		cDes.OutputFormat = initial.OutputFormat
+	} else {
+		cDes.OutputFormat = des.OutputFormat
 	}
 	if dcl.IsZeroValue(des.ClientTags) {
 		des.ClientTags = initial.ClientTags
+	} else {
+		cDes.ClientTags = des.ClientTags
 	}
 	if dcl.IsZeroValue(des.Properties) {
 		des.Properties = initial.Properties
+	} else {
+		cDes.Properties = des.Properties
 	}
-	des.LoggingConfig = canonicalizeWorkflowTemplateJobsPrestoJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
+	cDes.LoggingConfig = canonicalizeWorkflowTemplateJobsPrestoJobLoggingConfig(des.LoggingConfig, initial.LoggingConfig, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPrestoJobSlice(des, initial []WorkflowTemplateJobsPrestoJob, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPrestoJob {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPrestoJob, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPrestoJob(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPrestoJob, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPrestoJob(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPrestoJob(c *Client, des, nw *WorkflowTemplateJobsPrestoJob) *WorkflowTemplateJobsPrestoJob {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPrestoJob while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.QueryFileUri, nw.QueryFileUri) {
@@ -2565,12 +3295,6 @@ func canonicalizeNewWorkflowTemplateJobsPrestoJob(c *Client, des, nw *WorkflowTe
 	}
 	if dcl.StringCanonicalize(des.OutputFormat, nw.OutputFormat) {
 		nw.OutputFormat = des.OutputFormat
-	}
-	if dcl.IsZeroValue(nw.ClientTags) {
-		nw.ClientTags = des.ClientTags
-	}
-	if dcl.IsZeroValue(nw.Properties) {
-		nw.Properties = des.Properties
 	}
 	nw.LoggingConfig = canonicalizeNewWorkflowTemplateJobsPrestoJobLoggingConfig(c, des.LoggingConfig, nw.LoggingConfig)
 
@@ -2632,20 +3356,57 @@ func canonicalizeWorkflowTemplateJobsPrestoJobQueryList(des, initial *WorkflowTe
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPrestoJobQueryList{}
+
 	if dcl.IsZeroValue(des.Queries) {
 		des.Queries = initial.Queries
+	} else {
+		cDes.Queries = des.Queries
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPrestoJobQueryListSlice(des, initial []WorkflowTemplateJobsPrestoJobQueryList, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPrestoJobQueryList {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPrestoJobQueryList, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPrestoJobQueryList(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPrestoJobQueryList, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPrestoJobQueryList(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPrestoJobQueryList(c *Client, des, nw *WorkflowTemplateJobsPrestoJobQueryList) *WorkflowTemplateJobsPrestoJobQueryList {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.Queries) {
-		nw.Queries = des.Queries
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPrestoJobQueryList while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2706,20 +3467,57 @@ func canonicalizeWorkflowTemplateJobsPrestoJobLoggingConfig(des, initial *Workfl
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsPrestoJobLoggingConfig{}
+
 	if dcl.IsZeroValue(des.DriverLogLevels) {
 		des.DriverLogLevels = initial.DriverLogLevels
+	} else {
+		cDes.DriverLogLevels = des.DriverLogLevels
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsPrestoJobLoggingConfigSlice(des, initial []WorkflowTemplateJobsPrestoJobLoggingConfig, opts ...dcl.ApplyOption) []WorkflowTemplateJobsPrestoJobLoggingConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsPrestoJobLoggingConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsPrestoJobLoggingConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsPrestoJobLoggingConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsPrestoJobLoggingConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsPrestoJobLoggingConfig(c *Client, des, nw *WorkflowTemplateJobsPrestoJobLoggingConfig) *WorkflowTemplateJobsPrestoJobLoggingConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.DriverLogLevels) {
-		nw.DriverLogLevels = des.DriverLogLevels
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsPrestoJobLoggingConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2780,26 +3578,62 @@ func canonicalizeWorkflowTemplateJobsScheduling(des, initial *WorkflowTemplateJo
 		return des
 	}
 
+	cDes := &WorkflowTemplateJobsScheduling{}
+
 	if dcl.IsZeroValue(des.MaxFailuresPerHour) {
 		des.MaxFailuresPerHour = initial.MaxFailuresPerHour
+	} else {
+		cDes.MaxFailuresPerHour = des.MaxFailuresPerHour
 	}
 	if dcl.IsZeroValue(des.MaxFailuresTotal) {
 		des.MaxFailuresTotal = initial.MaxFailuresTotal
+	} else {
+		cDes.MaxFailuresTotal = des.MaxFailuresTotal
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateJobsSchedulingSlice(des, initial []WorkflowTemplateJobsScheduling, opts ...dcl.ApplyOption) []WorkflowTemplateJobsScheduling {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateJobsScheduling, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateJobsScheduling(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateJobsScheduling, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateJobsScheduling(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateJobsScheduling(c *Client, des, nw *WorkflowTemplateJobsScheduling) *WorkflowTemplateJobsScheduling {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.MaxFailuresPerHour) {
-		nw.MaxFailuresPerHour = des.MaxFailuresPerHour
-	}
-	if dcl.IsZeroValue(nw.MaxFailuresTotal) {
-		nw.MaxFailuresTotal = des.MaxFailuresTotal
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateJobsScheduling while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -2860,30 +3694,72 @@ func canonicalizeWorkflowTemplateParameters(des, initial *WorkflowTemplateParame
 		return des
 	}
 
+	cDes := &WorkflowTemplateParameters{}
+
 	if dcl.StringCanonicalize(des.Name, initial.Name) || dcl.IsZeroValue(des.Name) {
-		des.Name = initial.Name
+		cDes.Name = initial.Name
+	} else {
+		cDes.Name = des.Name
 	}
 	if dcl.IsZeroValue(des.Fields) {
 		des.Fields = initial.Fields
+	} else {
+		cDes.Fields = des.Fields
 	}
 	if dcl.StringCanonicalize(des.Description, initial.Description) || dcl.IsZeroValue(des.Description) {
-		des.Description = initial.Description
+		cDes.Description = initial.Description
+	} else {
+		cDes.Description = des.Description
 	}
-	des.Validation = canonicalizeWorkflowTemplateParametersValidation(des.Validation, initial.Validation, opts...)
+	cDes.Validation = canonicalizeWorkflowTemplateParametersValidation(des.Validation, initial.Validation, opts...)
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateParametersSlice(des, initial []WorkflowTemplateParameters, opts ...dcl.ApplyOption) []WorkflowTemplateParameters {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateParameters, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateParameters(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateParameters, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateParameters(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateParameters(c *Client, des, nw *WorkflowTemplateParameters) *WorkflowTemplateParameters {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateParameters while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.Name, nw.Name) {
 		nw.Name = des.Name
-	}
-	if dcl.IsZeroValue(nw.Fields) {
-		nw.Fields = des.Fields
 	}
 	if dcl.StringCanonicalize(des.Description, nw.Description) {
 		nw.Description = des.Description
@@ -2948,15 +3824,54 @@ func canonicalizeWorkflowTemplateParametersValidation(des, initial *WorkflowTemp
 		return des
 	}
 
-	des.Regex = canonicalizeWorkflowTemplateParametersValidationRegex(des.Regex, initial.Regex, opts...)
-	des.Values = canonicalizeWorkflowTemplateParametersValidationValues(des.Values, initial.Values, opts...)
+	cDes := &WorkflowTemplateParametersValidation{}
 
-	return des
+	cDes.Regex = canonicalizeWorkflowTemplateParametersValidationRegex(des.Regex, initial.Regex, opts...)
+	cDes.Values = canonicalizeWorkflowTemplateParametersValidationValues(des.Values, initial.Values, opts...)
+
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateParametersValidationSlice(des, initial []WorkflowTemplateParametersValidation, opts ...dcl.ApplyOption) []WorkflowTemplateParametersValidation {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateParametersValidation, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateParametersValidation(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateParametersValidation, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateParametersValidation(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateParametersValidation(c *Client, des, nw *WorkflowTemplateParametersValidation) *WorkflowTemplateParametersValidation {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateParametersValidation while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	nw.Regex = canonicalizeNewWorkflowTemplateParametersValidationRegex(c, des.Regex, nw.Regex)
@@ -3020,20 +3935,57 @@ func canonicalizeWorkflowTemplateParametersValidationRegex(des, initial *Workflo
 		return des
 	}
 
+	cDes := &WorkflowTemplateParametersValidationRegex{}
+
 	if dcl.IsZeroValue(des.Regexes) {
 		des.Regexes = initial.Regexes
+	} else {
+		cDes.Regexes = des.Regexes
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateParametersValidationRegexSlice(des, initial []WorkflowTemplateParametersValidationRegex, opts ...dcl.ApplyOption) []WorkflowTemplateParametersValidationRegex {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateParametersValidationRegex, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateParametersValidationRegex(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateParametersValidationRegex, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateParametersValidationRegex(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateParametersValidationRegex(c *Client, des, nw *WorkflowTemplateParametersValidationRegex) *WorkflowTemplateParametersValidationRegex {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.Regexes) {
-		nw.Regexes = des.Regexes
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateParametersValidationRegex while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -3094,20 +4046,57 @@ func canonicalizeWorkflowTemplateParametersValidationValues(des, initial *Workfl
 		return des
 	}
 
+	cDes := &WorkflowTemplateParametersValidationValues{}
+
 	if dcl.IsZeroValue(des.Values) {
 		des.Values = initial.Values
+	} else {
+		cDes.Values = des.Values
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeWorkflowTemplateParametersValidationValuesSlice(des, initial []WorkflowTemplateParametersValidationValues, opts ...dcl.ApplyOption) []WorkflowTemplateParametersValidationValues {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]WorkflowTemplateParametersValidationValues, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeWorkflowTemplateParametersValidationValues(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]WorkflowTemplateParametersValidationValues, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeWorkflowTemplateParametersValidationValues(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewWorkflowTemplateParametersValidationValues(c *Client, des, nw *WorkflowTemplateParametersValidationValues) *WorkflowTemplateParametersValidationValues {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.Values) {
-		nw.Values = des.Values
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for WorkflowTemplateParametersValidationValues while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -3178,7 +4167,7 @@ func diffWorkflowTemplate(c *Client, desired, actual *WorkflowTemplate, opts ...
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Version, actual.Version, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Version")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Version, actual.Version, dcl.Info{OutputOnly: true, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Version")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3199,35 +4188,35 @@ func diffWorkflowTemplate(c *Client, desired, actual *WorkflowTemplate, opts ...
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Labels, actual.Labels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Labels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Labels, actual.Labels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Labels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Placement, actual.Placement, dcl.Info{ObjectFunction: compareWorkflowTemplatePlacementNewStyle, EmptyObject: EmptyWorkflowTemplatePlacement, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Placement")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Placement, actual.Placement, dcl.Info{ObjectFunction: compareWorkflowTemplatePlacementNewStyle, EmptyObject: EmptyWorkflowTemplatePlacement, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Placement")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Jobs, actual.Jobs, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsNewStyle, EmptyObject: EmptyWorkflowTemplateJobs, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Jobs")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Jobs, actual.Jobs, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsNewStyle, EmptyObject: EmptyWorkflowTemplateJobs, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Jobs")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Parameters, actual.Parameters, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersNewStyle, EmptyObject: EmptyWorkflowTemplateParameters, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Parameters")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Parameters, actual.Parameters, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersNewStyle, EmptyObject: EmptyWorkflowTemplateParameters, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Parameters")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.DagTimeout, actual.DagTimeout, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DagTimeout")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DagTimeout, actual.DagTimeout, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DagTimeout")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3270,14 +4259,14 @@ func compareWorkflowTemplatePlacementNewStyle(d, a interface{}, fn dcl.FieldName
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.ManagedCluster, actual.ManagedCluster, dcl.Info{ObjectFunction: compareWorkflowTemplatePlacementManagedClusterNewStyle, EmptyObject: EmptyWorkflowTemplatePlacementManagedCluster, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ManagedCluster")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ManagedCluster, actual.ManagedCluster, dcl.Info{ObjectFunction: compareWorkflowTemplatePlacementManagedClusterNewStyle, EmptyObject: EmptyWorkflowTemplatePlacementManagedCluster, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ManagedCluster")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ClusterSelector, actual.ClusterSelector, dcl.Info{ObjectFunction: compareWorkflowTemplatePlacementClusterSelectorNewStyle, EmptyObject: EmptyWorkflowTemplatePlacementClusterSelector, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ClusterSelector")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ClusterSelector, actual.ClusterSelector, dcl.Info{ObjectFunction: compareWorkflowTemplatePlacementClusterSelectorNewStyle, EmptyObject: EmptyWorkflowTemplatePlacementClusterSelector, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ClusterSelector")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3306,21 +4295,21 @@ func compareWorkflowTemplatePlacementManagedClusterNewStyle(d, a interface{}, fn
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.ClusterName, actual.ClusterName, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ClusterName")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ClusterName, actual.ClusterName, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ClusterName")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Config, actual.Config, dcl.Info{ObjectFunction: compareClusterClusterConfigNewStyle, EmptyObject: EmptyClusterClusterConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Config")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Config, actual.Config, dcl.Info{ObjectFunction: compareClusterClusterConfigNewStyle, EmptyObject: EmptyClusterClusterConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Config")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Labels, actual.Labels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Labels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Labels, actual.Labels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Labels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3349,14 +4338,14 @@ func compareWorkflowTemplatePlacementClusterSelectorNewStyle(d, a interface{}, f
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Zone, actual.Zone, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Zone")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Zone, actual.Zone, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Zone")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ClusterLabels, actual.ClusterLabels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ClusterLabels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ClusterLabels, actual.ClusterLabels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ClusterLabels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3385,84 +4374,84 @@ func compareWorkflowTemplateJobsNewStyle(d, a interface{}, fn dcl.FieldName) ([]
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.StepId, actual.StepId, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("StepId")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.StepId, actual.StepId, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("StepId")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.HadoopJob, actual.HadoopJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHadoopJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHadoopJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("HadoopJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.HadoopJob, actual.HadoopJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHadoopJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHadoopJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("HadoopJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.SparkJob, actual.SparkJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("SparkJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.SparkJob, actual.SparkJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("SparkJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.PysparkJob, actual.PysparkJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPysparkJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPysparkJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("PysparkJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.PysparkJob, actual.PysparkJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPysparkJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPysparkJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("PysparkJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.HiveJob, actual.HiveJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHiveJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHiveJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("HiveJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.HiveJob, actual.HiveJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHiveJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHiveJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("HiveJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.PigJob, actual.PigJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPigJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPigJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("PigJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.PigJob, actual.PigJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPigJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPigJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("PigJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.SparkRJob, actual.SparkRJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkRJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkRJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("SparkRJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.SparkRJob, actual.SparkRJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkRJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkRJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("SparkRJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.SparkSqlJob, actual.SparkSqlJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkSqlJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkSqlJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("SparkSqlJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.SparkSqlJob, actual.SparkSqlJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkSqlJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkSqlJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("SparkSqlJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.PrestoJob, actual.PrestoJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPrestoJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPrestoJob, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("PrestoJob")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.PrestoJob, actual.PrestoJob, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPrestoJobNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPrestoJob, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("PrestoJob")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Labels, actual.Labels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Labels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Labels, actual.Labels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Labels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Scheduling, actual.Scheduling, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSchedulingNewStyle, EmptyObject: EmptyWorkflowTemplateJobsScheduling, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Scheduling")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Scheduling, actual.Scheduling, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSchedulingNewStyle, EmptyObject: EmptyWorkflowTemplateJobsScheduling, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Scheduling")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.PrerequisiteStepIds, actual.PrerequisiteStepIds, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("PrerequisiteStepIds")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.PrerequisiteStepIds, actual.PrerequisiteStepIds, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("PrerequisiteStepIds")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3491,56 +4480,56 @@ func compareWorkflowTemplateJobsHadoopJobNewStyle(d, a interface{}, fn dcl.Field
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.MainJarFileUri, actual.MainJarFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MainJarFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MainJarFileUri, actual.MainJarFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MainJarFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.MainClass, actual.MainClass, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MainClass")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MainClass, actual.MainClass, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MainClass")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHadoopJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHadoopJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHadoopJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHadoopJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3569,7 +4558,7 @@ func compareWorkflowTemplateJobsHadoopJobLoggingConfigNewStyle(d, a interface{},
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3598,56 +4587,56 @@ func compareWorkflowTemplateJobsSparkJobNewStyle(d, a interface{}, fn dcl.FieldN
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.MainJarFileUri, actual.MainJarFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MainJarFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MainJarFileUri, actual.MainJarFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MainJarFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.MainClass, actual.MainClass, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MainClass")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MainClass, actual.MainClass, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MainClass")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3676,7 +4665,7 @@ func compareWorkflowTemplateJobsSparkJobLoggingConfigNewStyle(d, a interface{}, 
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3705,56 +4694,56 @@ func compareWorkflowTemplateJobsPysparkJobNewStyle(d, a interface{}, fn dcl.Fiel
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.MainPythonFileUri, actual.MainPythonFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MainPythonFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MainPythonFileUri, actual.MainPythonFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MainPythonFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.PythonFileUris, actual.PythonFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("PythonFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.PythonFileUris, actual.PythonFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("PythonFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPysparkJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPysparkJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPysparkJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPysparkJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3783,7 +4772,7 @@ func compareWorkflowTemplateJobsPysparkJobLoggingConfigNewStyle(d, a interface{}
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3812,42 +4801,42 @@ func compareWorkflowTemplateJobsHiveJobNewStyle(d, a interface{}, fn dcl.FieldNa
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHiveJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHiveJobQueryList, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsHiveJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsHiveJobQueryList, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ContinueOnFailure, actual.ContinueOnFailure, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ContinueOnFailure")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ContinueOnFailure, actual.ContinueOnFailure, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ContinueOnFailure")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ScriptVariables, actual.ScriptVariables, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ScriptVariables")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ScriptVariables, actual.ScriptVariables, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ScriptVariables")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3876,7 +4865,7 @@ func compareWorkflowTemplateJobsHiveJobQueryListNewStyle(d, a interface{}, fn dc
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3905,49 +4894,49 @@ func compareWorkflowTemplateJobsPigJobNewStyle(d, a interface{}, fn dcl.FieldNam
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPigJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPigJobQueryList, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPigJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPigJobQueryList, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ContinueOnFailure, actual.ContinueOnFailure, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ContinueOnFailure")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ContinueOnFailure, actual.ContinueOnFailure, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ContinueOnFailure")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ScriptVariables, actual.ScriptVariables, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ScriptVariables")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ScriptVariables, actual.ScriptVariables, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ScriptVariables")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPigJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPigJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPigJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPigJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -3976,7 +4965,7 @@ func compareWorkflowTemplateJobsPigJobQueryListNewStyle(d, a interface{}, fn dcl
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4005,7 +4994,7 @@ func compareWorkflowTemplateJobsPigJobLoggingConfigNewStyle(d, a interface{}, fn
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4034,42 +5023,42 @@ func compareWorkflowTemplateJobsSparkRJobNewStyle(d, a interface{}, fn dcl.Field
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.MainRFileUri, actual.MainRFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MainRFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MainRFileUri, actual.MainRFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MainRFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Args, actual.Args, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Args")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.FileUris, actual.FileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("FileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ArchiveUris, actual.ArchiveUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ArchiveUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkRJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkRJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkRJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkRJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4098,7 +5087,7 @@ func compareWorkflowTemplateJobsSparkRJobLoggingConfigNewStyle(d, a interface{},
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4127,42 +5116,42 @@ func compareWorkflowTemplateJobsSparkSqlJobNewStyle(d, a interface{}, fn dcl.Fie
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkSqlJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkSqlJobQueryList, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkSqlJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkSqlJobQueryList, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ScriptVariables, actual.ScriptVariables, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ScriptVariables")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ScriptVariables, actual.ScriptVariables, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ScriptVariables")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.JarFileUris, actual.JarFileUris, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("JarFileUris")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkSqlJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkSqlJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsSparkSqlJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsSparkSqlJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4191,7 +5180,7 @@ func compareWorkflowTemplateJobsSparkSqlJobQueryListNewStyle(d, a interface{}, f
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4220,7 +5209,7 @@ func compareWorkflowTemplateJobsSparkSqlJobLoggingConfigNewStyle(d, a interface{
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4249,49 +5238,49 @@ func compareWorkflowTemplateJobsPrestoJobNewStyle(d, a interface{}, fn dcl.Field
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryFileUri, actual.QueryFileUri, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryFileUri")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPrestoJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPrestoJobQueryList, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.QueryList, actual.QueryList, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPrestoJobQueryListNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPrestoJobQueryList, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("QueryList")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ContinueOnFailure, actual.ContinueOnFailure, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ContinueOnFailure")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ContinueOnFailure, actual.ContinueOnFailure, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ContinueOnFailure")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.OutputFormat, actual.OutputFormat, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("OutputFormat")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.OutputFormat, actual.OutputFormat, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("OutputFormat")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.ClientTags, actual.ClientTags, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("ClientTags")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.ClientTags, actual.ClientTags, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("ClientTags")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Properties, actual.Properties, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Properties")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPrestoJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPrestoJobLoggingConfig, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.LoggingConfig, actual.LoggingConfig, dcl.Info{ObjectFunction: compareWorkflowTemplateJobsPrestoJobLoggingConfigNewStyle, EmptyObject: EmptyWorkflowTemplateJobsPrestoJobLoggingConfig, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("LoggingConfig")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4320,7 +5309,7 @@ func compareWorkflowTemplateJobsPrestoJobQueryListNewStyle(d, a interface{}, fn 
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Queries, actual.Queries, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Queries")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4349,7 +5338,7 @@ func compareWorkflowTemplateJobsPrestoJobLoggingConfigNewStyle(d, a interface{},
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.DriverLogLevels, actual.DriverLogLevels, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("DriverLogLevels")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4378,14 +5367,14 @@ func compareWorkflowTemplateJobsSchedulingNewStyle(d, a interface{}, fn dcl.Fiel
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.MaxFailuresPerHour, actual.MaxFailuresPerHour, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MaxFailuresPerHour")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MaxFailuresPerHour, actual.MaxFailuresPerHour, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MaxFailuresPerHour")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.MaxFailuresTotal, actual.MaxFailuresTotal, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("MaxFailuresTotal")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.MaxFailuresTotal, actual.MaxFailuresTotal, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("MaxFailuresTotal")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4414,28 +5403,28 @@ func compareWorkflowTemplateParametersNewStyle(d, a interface{}, fn dcl.FieldNam
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Name, actual.Name, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Name")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Name, actual.Name, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Name")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Fields, actual.Fields, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Fields")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Fields, actual.Fields, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Fields")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Description, actual.Description, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Description")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Description, actual.Description, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Description")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Validation, actual.Validation, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersValidationNewStyle, EmptyObject: EmptyWorkflowTemplateParametersValidation, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Validation")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Validation, actual.Validation, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersValidationNewStyle, EmptyObject: EmptyWorkflowTemplateParametersValidation, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Validation")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4464,14 +5453,14 @@ func compareWorkflowTemplateParametersValidationNewStyle(d, a interface{}, fn dc
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Regex, actual.Regex, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersValidationRegexNewStyle, EmptyObject: EmptyWorkflowTemplateParametersValidationRegex, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Regex")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Regex, actual.Regex, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersValidationRegexNewStyle, EmptyObject: EmptyWorkflowTemplateParametersValidationRegex, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Regex")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
 		diffs = append(diffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Values, actual.Values, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersValidationValuesNewStyle, EmptyObject: EmptyWorkflowTemplateParametersValidationValues, OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Values")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Values, actual.Values, dcl.Info{ObjectFunction: compareWorkflowTemplateParametersValidationValuesNewStyle, EmptyObject: EmptyWorkflowTemplateParametersValidationValues, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Values")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4500,7 +5489,7 @@ func compareWorkflowTemplateParametersValidationRegexNewStyle(d, a interface{}, 
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Regexes, actual.Regexes, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Regexes")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Regexes, actual.Regexes, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Regexes")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4529,7 +5518,7 @@ func compareWorkflowTemplateParametersValidationValuesNewStyle(d, a interface{},
 		actual = &actualNotPointer
 	}
 
-	if ds, err := dcl.Diff(desired.Values, actual.Values, dcl.Info{OperationSelector: dcl.TriggersOperation("updateWorkflowTemplateUpdateWorkflowTemplateOperation")}, fn.AddNest("Values")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Values, actual.Values, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Values")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -4550,32 +5539,7 @@ func (r *WorkflowTemplate) urlNormalized() *WorkflowTemplate {
 	return &normalized
 }
 
-func (r *WorkflowTemplate) getFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
-func (r *WorkflowTemplate) createFields() (string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location)
-}
-
-func (r *WorkflowTemplate) deleteFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
 func (r *WorkflowTemplate) updateURL(userBasePath, updateName string) (string, error) {
-	n := r.urlNormalized()
-	if updateName == "UpdateWorkflowTemplate" {
-		fields := map[string]interface{}{
-			"project":  dcl.ValueOrEmptyString(n.Project),
-			"location": dcl.ValueOrEmptyString(n.Location),
-			"name":     dcl.ValueOrEmptyString(n.Name),
-		}
-		return dcl.URL("projects/{{project}}/locations/{{location}}/workflowTemplates/{{name}}", "https://dataproc.googleapis.com/v1/", userBasePath, fields), nil
-
-	}
 	return "", fmt.Errorf("unknown update name: %s", updateName)
 }
 
@@ -4602,7 +5566,11 @@ func unmarshalWorkflowTemplate(b []byte, c *Client) (*WorkflowTemplate, error) {
 
 func unmarshalMapWorkflowTemplate(m map[string]interface{}, c *Client) (*WorkflowTemplate, error) {
 
-	return flattenWorkflowTemplate(c, m), nil
+	flattened := flattenWorkflowTemplate(c, m)
+	if flattened == nil {
+		return nil, fmt.Errorf("attempted to flatten empty json object")
+	}
+	return flattened, nil
 }
 
 // expandWorkflowTemplate expands WorkflowTemplate into a JSON request object.
@@ -4612,15 +5580,6 @@ func expandWorkflowTemplate(c *Client, f *WorkflowTemplate) (map[string]interfac
 		return nil, fmt.Errorf("error expanding Name into name: %w", err)
 	} else if v != nil {
 		m["name"] = v
-	}
-	if v := f.Version; !dcl.IsEmptyValueIndirect(v) {
-		m["version"] = v
-	}
-	if v := f.CreateTime; !dcl.IsEmptyValueIndirect(v) {
-		m["createTime"] = v
-	}
-	if v := f.UpdateTime; !dcl.IsEmptyValueIndirect(v) {
-		m["updateTime"] = v
 	}
 	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
 		m["labels"] = v
@@ -4632,12 +5591,12 @@ func expandWorkflowTemplate(c *Client, f *WorkflowTemplate) (map[string]interfac
 	}
 	if v, err := expandWorkflowTemplateJobsSlice(c, f.Jobs); err != nil {
 		return nil, fmt.Errorf("error expanding Jobs into jobs: %w", err)
-	} else if v != nil {
+	} else {
 		m["jobs"] = v
 	}
 	if v, err := expandWorkflowTemplateParametersSlice(c, f.Parameters); err != nil {
 		return nil, fmt.Errorf("error expanding Parameters into parameters: %w", err)
-	} else if v != nil {
+	} else {
 		m["parameters"] = v
 	}
 	if v := f.DagTimeout; !dcl.IsEmptyValueIndirect(v) {
@@ -5188,7 +6147,7 @@ func expandWorkflowTemplateJobs(c *Client, f *WorkflowTemplateJobs) (map[string]
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["scheduling"] = v
 	}
-	if v := f.PrerequisiteStepIds; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.PrerequisiteStepIds; v != nil {
 		m["prerequisiteStepIds"] = v
 	}
 
@@ -5319,16 +6278,16 @@ func expandWorkflowTemplateJobsHadoopJob(c *Client, f *WorkflowTemplateJobsHadoo
 	if v := f.MainClass; !dcl.IsEmptyValueIndirect(v) {
 		m["mainClass"] = v
 	}
-	if v := f.Args; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Args; v != nil {
 		m["args"] = v
 	}
-	if v := f.JarFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.JarFileUris; v != nil {
 		m["jarFileUris"] = v
 	}
-	if v := f.FileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.FileUris; v != nil {
 		m["fileUris"] = v
 	}
-	if v := f.ArchiveUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ArchiveUris; v != nil {
 		m["archiveUris"] = v
 	}
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
@@ -5577,16 +6536,16 @@ func expandWorkflowTemplateJobsSparkJob(c *Client, f *WorkflowTemplateJobsSparkJ
 	if v := f.MainClass; !dcl.IsEmptyValueIndirect(v) {
 		m["mainClass"] = v
 	}
-	if v := f.Args; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Args; v != nil {
 		m["args"] = v
 	}
-	if v := f.JarFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.JarFileUris; v != nil {
 		m["jarFileUris"] = v
 	}
-	if v := f.FileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.FileUris; v != nil {
 		m["fileUris"] = v
 	}
-	if v := f.ArchiveUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ArchiveUris; v != nil {
 		m["archiveUris"] = v
 	}
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
@@ -5832,19 +6791,19 @@ func expandWorkflowTemplateJobsPysparkJob(c *Client, f *WorkflowTemplateJobsPysp
 	if v := f.MainPythonFileUri; !dcl.IsEmptyValueIndirect(v) {
 		m["mainPythonFileUri"] = v
 	}
-	if v := f.Args; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Args; v != nil {
 		m["args"] = v
 	}
-	if v := f.PythonFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.PythonFileUris; v != nil {
 		m["pythonFileUris"] = v
 	}
-	if v := f.JarFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.JarFileUris; v != nil {
 		m["jarFileUris"] = v
 	}
-	if v := f.FileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.FileUris; v != nil {
 		m["fileUris"] = v
 	}
-	if v := f.ArchiveUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ArchiveUris; v != nil {
 		m["archiveUris"] = v
 	}
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
@@ -6104,7 +7063,7 @@ func expandWorkflowTemplateJobsHiveJob(c *Client, f *WorkflowTemplateJobsHiveJob
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
 		m["properties"] = v
 	}
-	if v := f.JarFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.JarFileUris; v != nil {
 		m["jarFileUris"] = v
 	}
 
@@ -6223,7 +7182,7 @@ func expandWorkflowTemplateJobsHiveJobQueryList(c *Client, f *WorkflowTemplateJo
 	}
 
 	m := make(map[string]interface{})
-	if v := f.Queries; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Queries; v != nil {
 		m["queries"] = v
 	}
 
@@ -6354,7 +7313,7 @@ func expandWorkflowTemplateJobsPigJob(c *Client, f *WorkflowTemplateJobsPigJob) 
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
 		m["properties"] = v
 	}
-	if v := f.JarFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.JarFileUris; v != nil {
 		m["jarFileUris"] = v
 	}
 	if v, err := expandWorkflowTemplateJobsPigJobLoggingConfig(c, f.LoggingConfig); err != nil {
@@ -6479,7 +7438,7 @@ func expandWorkflowTemplateJobsPigJobQueryList(c *Client, f *WorkflowTemplateJob
 	}
 
 	m := make(map[string]interface{})
-	if v := f.Queries; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Queries; v != nil {
 		m["queries"] = v
 	}
 
@@ -6710,13 +7669,13 @@ func expandWorkflowTemplateJobsSparkRJob(c *Client, f *WorkflowTemplateJobsSpark
 	if v := f.MainRFileUri; !dcl.IsEmptyValueIndirect(v) {
 		m["mainRFileUri"] = v
 	}
-	if v := f.Args; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Args; v != nil {
 		m["args"] = v
 	}
-	if v := f.FileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.FileUris; v != nil {
 		m["fileUris"] = v
 	}
-	if v := f.ArchiveUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ArchiveUris; v != nil {
 		m["archiveUris"] = v
 	}
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
@@ -6971,7 +7930,7 @@ func expandWorkflowTemplateJobsSparkSqlJob(c *Client, f *WorkflowTemplateJobsSpa
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
 		m["properties"] = v
 	}
-	if v := f.JarFileUris; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.JarFileUris; v != nil {
 		m["jarFileUris"] = v
 	}
 	if v, err := expandWorkflowTemplateJobsSparkSqlJobLoggingConfig(c, f.LoggingConfig); err != nil {
@@ -7095,7 +8054,7 @@ func expandWorkflowTemplateJobsSparkSqlJobQueryList(c *Client, f *WorkflowTempla
 	}
 
 	m := make(map[string]interface{})
-	if v := f.Queries; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Queries; v != nil {
 		m["queries"] = v
 	}
 
@@ -7337,7 +8296,7 @@ func expandWorkflowTemplateJobsPrestoJob(c *Client, f *WorkflowTemplateJobsPrest
 	if v := f.OutputFormat; !dcl.IsEmptyValueIndirect(v) {
 		m["outputFormat"] = v
 	}
-	if v := f.ClientTags; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ClientTags; v != nil {
 		m["clientTags"] = v
 	}
 	if v := f.Properties; !dcl.IsEmptyValueIndirect(v) {
@@ -7465,7 +8424,7 @@ func expandWorkflowTemplateJobsPrestoJobQueryList(c *Client, f *WorkflowTemplate
 	}
 
 	m := make(map[string]interface{})
-	if v := f.Queries; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Queries; v != nil {
 		m["queries"] = v
 	}
 
@@ -7814,7 +8773,7 @@ func expandWorkflowTemplateParameters(c *Client, f *WorkflowTemplateParameters) 
 	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
 		m["name"] = v
 	}
-	if v := f.Fields; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Fields; v != nil {
 		m["fields"] = v
 	}
 	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
@@ -8061,7 +9020,7 @@ func expandWorkflowTemplateParametersValidationRegex(c *Client, f *WorkflowTempl
 	}
 
 	m := make(map[string]interface{})
-	if v := f.Regexes; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Regexes; v != nil {
 		m["regexes"] = v
 	}
 
@@ -8175,7 +9134,7 @@ func expandWorkflowTemplateParametersValidationValues(c *Client, f *WorkflowTemp
 	}
 
 	m := make(map[string]interface{})
-	if v := f.Values; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Values; v != nil {
 		m["values"] = v
 	}
 
@@ -8248,31 +9207,46 @@ type workflowTemplateDiff struct {
 	UpdateOp         workflowTemplateApiOperation
 }
 
-func convertFieldDiffToWorkflowTemplateOp(ops []string, fds []*dcl.FieldDiff, opts []dcl.ApplyOption) ([]workflowTemplateDiff, error) {
+func convertFieldDiffsToWorkflowTemplateDiffs(config *dcl.Config, fds []*dcl.FieldDiff, opts []dcl.ApplyOption) ([]workflowTemplateDiff, error) {
+	opNamesToFieldDiffs := make(map[string][]*dcl.FieldDiff)
+	// Map each operation name to the field diffs associated with it.
+	for _, fd := range fds {
+		for _, ro := range fd.ResultingOperation {
+			if fieldDiffs, ok := opNamesToFieldDiffs[ro]; ok {
+				fieldDiffs = append(fieldDiffs, fd)
+				opNamesToFieldDiffs[ro] = fieldDiffs
+			} else {
+				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
+			}
+		}
+	}
 	var diffs []workflowTemplateDiff
-	for _, op := range ops {
+	// For each operation name, create a workflowTemplateDiff which contains the operation.
+	for opName, fieldDiffs := range opNamesToFieldDiffs {
 		diff := workflowTemplateDiff{}
-		if op == "Recreate" {
+		if opName == "Recreate" {
 			diff.RequiresRecreate = true
 		} else {
-			op, err := convertOpNameToworkflowTemplateApiOperation(op, fds, opts...)
+			apiOp, err := convertOpNameToWorkflowTemplateApiOperation(opName, fieldDiffs, opts...)
 			if err != nil {
 				return diffs, err
 			}
-			diff.UpdateOp = op
+			diff.UpdateOp = apiOp
 		}
 		diffs = append(diffs, diff)
 	}
 	return diffs, nil
 }
 
-func convertOpNameToworkflowTemplateApiOperation(op string, diffs []*dcl.FieldDiff, opts ...dcl.ApplyOption) (workflowTemplateApiOperation, error) {
-	switch op {
-
-	case "updateWorkflowTemplateUpdateWorkflowTemplateOperation":
-		return &updateWorkflowTemplateUpdateWorkflowTemplateOperation{Diffs: diffs}, nil
+func convertOpNameToWorkflowTemplateApiOperation(opName string, fieldDiffs []*dcl.FieldDiff, opts ...dcl.ApplyOption) (workflowTemplateApiOperation, error) {
+	switch opName {
 
 	default:
-		return nil, fmt.Errorf("no such operation with name: %v", op)
+		return nil, fmt.Errorf("no such operation with name: %v", opName)
 	}
+}
+
+func extractWorkflowTemplateFields(r *WorkflowTemplate) error {
+	return nil
 }

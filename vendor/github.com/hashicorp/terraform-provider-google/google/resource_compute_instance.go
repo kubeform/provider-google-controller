@@ -350,6 +350,51 @@ func resourceComputeInstance() *schema.Resource {
 								},
 							},
 						},
+
+						"stack_type": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							Computed:     true,
+							ValidateFunc: validation.StringInSlice([]string{"IPV4_ONLY", "IPV4_IPV6", ""}, false),
+							Description:  `The stack type for this network interface to identify whether the IPv6 feature is enabled or not. If not specified, IPV4_ONLY will be used.`,
+						},
+
+						"ipv6_access_type": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: `One of EXTERNAL, INTERNAL to indicate whether the IP can be accessed from the Internet. This field is always inherited from its subnetwork.`,
+						},
+
+						"ipv6_access_config": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `An array of IPv6 access configurations for this interface. Currently, only one IPv6 access config, DIRECT_IPV6, is supported. If there is no ipv6AccessConfig specified, then this instance will have no external IPv6 Internet access.`,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"network_tier": {
+										Type:         schema.TypeString,
+										Required:     true,
+										ValidateFunc: validation.StringInSlice([]string{"PREMIUM"}, false),
+										Description:  `The service-level to be provided for IPv6 traffic when the subnet has an external subnet. Only PREMIUM tier is valid for IPv6`,
+									},
+									"public_ptr_domain_name": {
+										Type:        schema.TypeString,
+										Optional:    true,
+										Description: `The domain name to be used when creating DNSv6 records for the external IPv6 ranges.`,
+									},
+									"external_ipv6": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `The first IPv6 address of the external IPv6 range associated with this instance, prefix length is stored in externalIpv6PrefixLength in ipv6AccessConfig. The field is output only, an IPv6 address from a subnetwork associated with the instance will be allocated dynamically.`,
+									},
+									"external_ipv6_prefix_length": {
+										Type:        schema.TypeString,
+										Computed:    true,
+										Description: `The prefix length of the external IPv6 range.`,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -640,6 +685,28 @@ func resourceComputeInstance() *schema.Resource {
 					},
 				},
 			},
+			"advanced_machine_features": {
+				Type:        schema.TypeList,
+				MaxItems:    1,
+				Optional:    true,
+				Description: `Controls for advanced machine-related behavior features.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enable_nested_virtualization": {
+							Type:         schema.TypeBool,
+							Optional:     true,
+							AtLeastOneOf: []string{"advanced_machine_features.0.enable_nested_virtualization", "advanced_machine_features.0.threads_per_core"},
+							Description:  `Whether to enable nested virtualization or not.`,
+						},
+						"threads_per_core": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							AtLeastOneOf: []string{"advanced_machine_features.0.enable_nested_virtualization", "advanced_machine_features.0.threads_per_core"},
+							Description:  `The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed.`,
+						},
+					},
+				},
+			},
 			"confidential_instance_config": {
 				Type:        schema.TypeList,
 				MaxItems:    1,
@@ -732,14 +799,14 @@ func resourceComputeInstance() *schema.Resource {
 				Elem:             &schema.Schema{Type: schema.TypeString},
 				DiffSuppressFunc: compareSelfLinkRelativePaths,
 				Optional:         true,
-				ForceNew:         true,
 				MaxItems:         1,
-				Description:      `A list of short names or self_links of resource policies to attach to the instance. Modifying this list will cause the instance to recreate. Currently a max of 1 resource policy is supported.`,
+				Description:      `A list of short names or self_links of resource policies to attach to the instance. Currently a max of 1 resource policy is supported.`,
 			},
 
 			"reservation_affinity": {
 				Type:        schema.TypeList,
 				MaxItems:    1,
+				Computed:    true,
 				Optional:    true,
 				ForceNew:    true,
 				Description: `Specifies the reservations that this instance can consume from.`,
@@ -922,6 +989,7 @@ func expandComputeInstance(project string, d *schema.ResourceData, config *Confi
 		Hostname:                   d.Get("hostname").(string),
 		ForceSendFields:            []string{"CanIpForward", "DeletionProtection"},
 		ConfidentialInstanceConfig: expandConfidentialInstanceConfig(d),
+		AdvancedMachineFeatures:    expandAdvancedMachineFeatures(d),
 		ShieldedInstanceConfig:     expandShieldedVmConfigs(d),
 		DisplayDevice:              expandDisplayDevice(d),
 		ResourcePolicies:           convertStringArr(d.Get("resource_policies").([]interface{})),
@@ -1278,6 +1346,9 @@ func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error
 	if err := d.Set("confidential_instance_config", flattenConfidentialInstanceConfig(instance.ConfidentialInstanceConfig)); err != nil {
 		return fmt.Errorf("Error setting confidential_instance_config: %s", err)
 	}
+	if err := d.Set("advanced_machine_features", flattenAdvancedMachineFeatures(instance.AdvancedMachineFeatures)); err != nil {
+		return fmt.Errorf("Error setting advanced_machine_features: %s", err)
+	}
 	if d.Get("desired_status") != "" {
 		if err := d.Set("desired_status", instance.Status); err != nil {
 			return fmt.Errorf("Error setting desired_status: %s", err)
@@ -1392,6 +1463,37 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		opErr := computeOperationWaitTime(config, op, project, "labels to update", userAgent, d.Timeout(schema.TimeoutUpdate))
 		if opErr != nil {
 			return opErr
+		}
+	}
+
+	if d.HasChange("resource_policies") {
+		if len(instance.ResourcePolicies) > 0 {
+			req := compute.InstancesRemoveResourcePoliciesRequest{ResourcePolicies: instance.ResourcePolicies}
+
+			op, err := config.NewComputeClient(userAgent).Instances.RemoveResourcePolicies(project, zone, instance.Name, &req).Do()
+			if err != nil {
+				return fmt.Errorf("Error removing existing resource policies: %s", err)
+			}
+
+			opErr := computeOperationWaitTime(config, op, project, "resource policies to remove", userAgent, d.Timeout(schema.TimeoutUpdate))
+			if opErr != nil {
+				return opErr
+			}
+		}
+
+		resourcePolicies := convertStringArr(d.Get("resource_policies").([]interface{}))
+		if len(resourcePolicies) > 0 {
+			req := compute.InstancesAddResourcePoliciesRequest{ResourcePolicies: resourcePolicies}
+
+			op, err := config.NewComputeClient(userAgent).Instances.AddResourcePolicies(project, zone, instance.Name, &req).Do()
+			if err != nil {
+				return fmt.Errorf("Error adding resource policies: %s", err)
+			}
+
+			opErr := computeOperationWaitTime(config, op, project, "resource policies to add", userAgent, d.Timeout(schema.TimeoutUpdate))
+			if opErr != nil {
+				return opErr
+			}
 		}
 	}
 
@@ -1682,7 +1784,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 		}
 	}
 
-	needToStopInstanceBeforeUpdating := scopesChange || d.HasChange("service_account.0.email") || d.HasChange("machine_type") || d.HasChange("min_cpu_platform") || d.HasChange("enable_display") || d.HasChange("shielded_instance_config") || len(updatesToNIWhileStopped) > 0 || bootRequiredSchedulingChange
+	needToStopInstanceBeforeUpdating := scopesChange || d.HasChange("service_account.0.email") || d.HasChange("machine_type") || d.HasChange("min_cpu_platform") || d.HasChange("enable_display") || d.HasChange("shielded_instance_config") || len(updatesToNIWhileStopped) > 0 || bootRequiredSchedulingChange || d.HasChange("advanced_machine_features")
 
 	if d.HasChange("desired_status") && !needToStopInstanceBeforeUpdating {
 		desiredStatus := d.Get("desired_status").(string)
@@ -1717,7 +1819,7 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 
 		if statusBeforeUpdate == "RUNNING" && desiredStatus != "TERMINATED" && !d.Get("allow_stopping_for_update").(bool) {
 			return fmt.Errorf("Changing the machine_type, min_cpu_platform, service_account, enable_display, shielded_instance_config, scheduling.node_affinities " +
-				"or network_interface.[#d].(network/subnetwork/subnetwork_project) on a started instance requires stopping it. " +
+				"or network_interface.[#d].(network/subnetwork/subnetwork_project) or advanced_machine_features on a started instance requires stopping it. " +
 				"To acknowledge this, please set allow_stopping_for_update = true in your config. " +
 				"You can also stop it by setting desired_status = \"TERMINATED\", but the instance will not be restarted after the update.")
 		}
@@ -1838,6 +1940,37 @@ func resourceComputeInstanceUpdate(d *schema.ResourceData, meta interface{}) err
 				d.Timeout(schema.TimeoutUpdate))
 			if opErr != nil {
 				return opErr
+			}
+		}
+
+		if d.HasChange("advanced_machine_features") {
+			err = retry(
+				func() error {
+					// retrieve up-to-date instance from the API in case several updates hit simultaneously. instances
+					// sometimes but not always share metadata fingerprints.
+					instance, err := config.NewComputeBetaClient(userAgent).Instances.Get(project, zone, instance.Name).Do()
+					if err != nil {
+						return fmt.Errorf("Error retrieving instance: %s", err)
+					}
+
+					instance.AdvancedMachineFeatures = expandAdvancedMachineFeatures(d)
+
+					op, err := config.NewComputeBetaClient(userAgent).Instances.Update(project, zone, instance.Name, instance).Do()
+					if err != nil {
+						return fmt.Errorf("Error updating instance: %s", err)
+					}
+
+					opErr := computeOperationWaitTime(config, op, project, "advanced_machine_features to update", userAgent, d.Timeout(schema.TimeoutUpdate))
+					if opErr != nil {
+						return opErr
+					}
+
+					return nil
+				},
+			)
+
+			if err != nil {
+				return err
 			}
 		}
 

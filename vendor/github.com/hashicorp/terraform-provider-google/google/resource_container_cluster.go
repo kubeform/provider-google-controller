@@ -411,6 +411,27 @@ func resourceContainerCluster() *schema.Resource {
 				Description: `The number of nodes to create in this cluster's default node pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Must be set if node_pool is not set. If you're using google_container_node_pool objects with no default node pool, you'll need to set this to a value of at least 1, alongside setting remove_default_node_pool to true.`,
 			},
 
+			"logging_config": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Computed:    true,
+				MaxItems:    1,
+				Description: `Logging configuration for the cluster.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enable_components": {
+							Type:        schema.TypeList,
+							Required:    true,
+							Description: `GKE components exposing logs. Valid values include SYSTEM_COMPONENTS and WORKLOADS.`,
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: validation.StringInSlice([]string{"SYSTEM_COMPONENTS", "WORKLOADS"}, false),
+							},
+						},
+					},
+				},
+			},
+
 			"logging_service": {
 				Type:         schema.TypeString,
 				Optional:     true,
@@ -507,11 +528,33 @@ func resourceContainerCluster() *schema.Resource {
 				},
 			},
 
+			"monitoring_config": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Computed:    true,
+				MaxItems:    1,
+				Description: `Monitoring configuration for the cluster.`,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"enable_components": {
+							Type:        schema.TypeList,
+							Required:    true,
+							Description: `GKE components exposing metrics. Valid values include SYSTEM_COMPONENTS.`,
+							Elem: &schema.Schema{
+								Type:         schema.TypeString,
+								ValidateFunc: validation.StringInSlice([]string{"SYSTEM_COMPONENTS"}, false),
+							},
+						},
+					},
+				},
+			},
+
 			"master_auth": {
 				Type:        schema.TypeList,
 				Optional:    true,
 				MaxItems:    1,
 				Computed:    true,
+				Deprecated:  `Basic authentication was removed for GKE cluster versions >= 1.19.`,
 				Description: `The authentication information for accessing the Kubernetes master. Some values in this block are only returned by the API if your service account has permission to get credentials for your GKE cluster. If you see an unexpected diff removing a username/password or unsetting your client cert, ensure you have the container.clusters.getCredentials permission.`,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -703,6 +746,7 @@ func resourceContainerCluster() *schema.Resource {
 			"instance_group_urls": {
 				Type:        schema.TypeList,
 				Computed:    true,
+				Deprecated:  `Please use node_pool.instance_group_urls instead.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: `List of instance group URLs which have been assigned to the cluster.`,
 			},
@@ -891,9 +935,12 @@ func resourceContainerCluster() *schema.Resource {
 				},
 			},
 			"workload_identity_config": {
-				Type:          schema.TypeList,
-				MaxItems:      1,
-				Optional:      true,
+				Type:     schema.TypeList,
+				MaxItems: 1,
+				Optional: true,
+				// Computed is unsafe to remove- this API may return `"workloadIdentityConfig": {},` or omit the key entirely
+				// and both will be valid. Note that we don't handle the case where the API returns nothing & the user has defined
+				// workload_identity_config today.
 				Computed:      true,
 				Description:   `Configuration for the use of Kubernetes Service Accounts in GCP IAM policies.`,
 				ConflictsWith: []string{"enable_autopilot"},
@@ -901,8 +948,15 @@ func resourceContainerCluster() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"identity_namespace": {
 							Type:        schema.TypeString,
-							Required:    true,
+							Optional:    true,
 							Description: `Enables workload identity.`,
+							Deprecated:  "This field will be removed in a future major release as it has been deprecated in the API. Use `workload_pool` instead.",
+						},
+
+						"workload_pool": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "The workload pool to attach all Kubernetes service accounts to.",
 						},
 					},
 				},
@@ -1263,6 +1317,14 @@ func resourceContainerClusterCreate(d *schema.ResourceData, meta interface{}) er
 		cluster.ResourceUsageExportConfig = expandResourceUsageExportConfig(v)
 	}
 
+	if v, ok := d.GetOk("logging_config"); ok {
+		cluster.LoggingConfig = expandContainerClusterLoggingConfig(v)
+	}
+
+	if v, ok := d.GetOk("monitoring_config"); ok {
+		cluster.MonitoringConfig = expandMonitoringConfig(v)
+	}
+
 	req := &containerBeta.CreateClusterRequest{
 		Cluster: cluster,
 	}
@@ -1560,7 +1622,7 @@ func resourceContainerClusterRead(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	if err := d.Set("workload_identity_config", flattenWorkloadIdentityConfig(cluster.WorkloadIdentityConfig)); err != nil {
+	if err := d.Set("workload_identity_config", flattenWorkloadIdentityConfig(cluster.WorkloadIdentityConfig, d, config)); err != nil {
 		return err
 	}
 
@@ -1576,6 +1638,14 @@ func resourceContainerClusterRead(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	if err := d.Set("resource_usage_export_config", flattenResourceUsageExportConfig(cluster.ResourceUsageExportConfig)); err != nil {
+		return err
+	}
+
+	if err := d.Set("logging_config", flattenContainerClusterLoggingConfig(cluster.LoggingConfig)); err != nil {
+		return err
+	}
+
+	if err := d.Set("monitoring_config", flattenMonitoringConfig(cluster.MonitoringConfig)); err != nil {
 		return err
 	}
 
@@ -2243,6 +2313,36 @@ func resourceContainerClusterUpdate(d *schema.ResourceData, meta interface{}) er
 		log.Printf("[INFO] GKE cluster %s workload identity config has been updated", d.Id())
 	}
 
+	if d.HasChange("logging_config") {
+		req := &containerBeta.UpdateClusterRequest{
+			Update: &containerBeta.ClusterUpdate{
+				DesiredLoggingConfig: expandContainerClusterLoggingConfig(d.Get("logging_config")),
+			},
+		}
+		updateF := updateFunc(req, "updating GKE cluster logging config")
+		// Call update serially.
+		if err := lockedCall(lockKey, updateF); err != nil {
+			return err
+		}
+
+		log.Printf("[INFO] GKE cluster %s logging config has been updated", d.Id())
+	}
+
+	if d.HasChange("monitoring_config") {
+		req := &containerBeta.UpdateClusterRequest{
+			Update: &containerBeta.ClusterUpdate{
+				DesiredMonitoringConfig: expandMonitoringConfig(d.Get("monitoring_config")),
+			},
+		}
+		updateF := updateFunc(req, "updating GKE cluster monitoring config")
+		// Call update serially.
+		if err := lockedCall(lockKey, updateF); err != nil {
+			return err
+		}
+
+		log.Printf("[INFO] GKE cluster %s monitoring config has been updated", d.Id())
+	}
+
 	if d.HasChange("resource_labels") {
 		resourceLabels := d.Get("resource_labels").(map[string]interface{})
 		labelFingerprint := d.Get("label_fingerprint").(string)
@@ -2622,7 +2722,7 @@ func expandMaintenancePolicy(d *schema.ResourceData, meta interface{}) *containe
 	}
 	maintenancePolicy := l[0].(map[string]interface{})
 
-	if maintenanceExclusions, ok := maintenancePolicy["maintenance_exclusion"]; ok && len(maintenanceExclusions.(*schema.Set).List()) > 0 {
+	if maintenanceExclusions, ok := maintenancePolicy["maintenance_exclusion"]; ok {
 		for k := range exclusions {
 			delete(exclusions, k)
 		}
@@ -2882,13 +2982,19 @@ func expandDefaultSnatStatus(configured interface{}) *containerBeta.DefaultSnatS
 
 func expandWorkloadIdentityConfig(configured interface{}) *containerBeta.WorkloadIdentityConfig {
 	l := configured.([]interface{})
+	v := &containerBeta.WorkloadIdentityConfig{}
+
+	// this API considers unset and set-to-empty equivalent. Note that it will
+	// always return an empty block given that we always send one, but clusters
+	// not created in TF will not always return one (and may return nil)
 	if len(l) == 0 || l[0] == nil {
-		return nil
+		return v
 	}
+
 	config := l[0].(map[string]interface{})
-	return &containerBeta.WorkloadIdentityConfig{
-		IdentityNamespace: config["identity_namespace"].(string),
-	}
+	v.IdentityNamespace = config["identity_namespace"].(string)
+	v.WorkloadPool = config["workload_pool"].(string)
+	return v
 }
 
 func expandPodSecurityPolicyConfig(configured interface{}) *containerBeta.PodSecurityPolicyConfig {
@@ -2934,6 +3040,34 @@ func expandResourceUsageExportConfig(configured interface{}) *containerBeta.Reso
 		}
 	}
 	return result
+}
+
+func expandContainerClusterLoggingConfig(configured interface{}) *containerBeta.LoggingConfig {
+	l := configured.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	config := l[0].(map[string]interface{})
+	return &containerBeta.LoggingConfig{
+		ComponentConfig: &containerBeta.LoggingComponentConfig{
+			EnableComponents: convertStringArr(config["enable_components"].([]interface{})),
+		},
+	}
+}
+
+func expandMonitoringConfig(configured interface{}) *containerBeta.MonitoringConfig {
+	l := configured.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	config := l[0].(map[string]interface{})
+	return &containerBeta.MonitoringConfig{
+		ComponentConfig: &containerBeta.MonitoringComponentConfig{
+			EnableComponents: convertStringArr(config["enable_components"].([]interface{})),
+		},
+	}
 }
 
 func flattenNetworkPolicy(c *containerBeta.NetworkPolicy) []map[string]interface{} {
@@ -3083,10 +3217,32 @@ func flattenDefaultSnatStatus(c *containerBeta.DefaultSnatStatus) []map[string]i
 	return result
 }
 
-func flattenWorkloadIdentityConfig(c *containerBeta.WorkloadIdentityConfig) []map[string]interface{} {
+func flattenWorkloadIdentityConfig(c *containerBeta.WorkloadIdentityConfig, d *schema.ResourceData, config *Config) []map[string]interface{} {
 	if c == nil {
 		return nil
 	}
+
+	_, identityNamespaceSet := d.GetOk("workload_identity_config.0.identity_namespace")
+	_, workloadPoolSet := d.GetOk("workload_identity_config.0.workload_pool")
+
+	if identityNamespaceSet && workloadPoolSet {
+		// if both are set, set both
+		return []map[string]interface{}{
+			{
+				"identity_namespace": c.IdentityNamespace,
+				"workload_pool":      c.WorkloadPool,
+			},
+		}
+	} else if workloadPoolSet {
+		// if the new value is set, set it
+		return []map[string]interface{}{
+			{
+				"workload_pool": c.WorkloadPool,
+			},
+		}
+	}
+
+	// otherwise, set the old value (incl. import)
 	return []map[string]interface{}{
 		{
 			"identity_namespace": c.IdentityNamespace,
@@ -3272,6 +3428,30 @@ func flattenDatabaseEncryption(c *containerBeta.DatabaseEncryption) []map[string
 		{
 			"state":    c.State,
 			"key_name": c.KeyName,
+		},
+	}
+}
+
+func flattenContainerClusterLoggingConfig(c *containerBeta.LoggingConfig) []map[string]interface{} {
+	if c == nil {
+		return nil
+	}
+
+	return []map[string]interface{}{
+		{
+			"enable_components": c.ComponentConfig.EnableComponents,
+		},
+	}
+}
+
+func flattenMonitoringConfig(c *containerBeta.MonitoringConfig) []map[string]interface{} {
+	if c == nil {
+		return nil
+	}
+
+	return []map[string]interface{}{
+		{
+			"enable_components": c.ComponentConfig.EnableComponents,
 		},
 	}
 }

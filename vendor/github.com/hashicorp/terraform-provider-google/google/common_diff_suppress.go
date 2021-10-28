@@ -23,7 +23,7 @@ func optionalPrefixSuppress(prefix string) schema.SchemaDiffSuppressFunc {
 
 func ignoreMissingKeyInMap(key string) schema.SchemaDiffSuppressFunc {
 	return func(k, old, new string, d *schema.ResourceData) bool {
-		log.Printf("suppressing diff %q with old %q, new %q", k, old, new)
+		log.Printf("[DEBUG] - suppressing diff %q with old %q, new %q", k, old, new)
 		if strings.HasSuffix(k, ".%") {
 			oldNum, err := strconv.Atoi(old)
 			if err != nil {
@@ -142,9 +142,9 @@ func locationDiffSuppressHelper(a, b string) bool {
 // For managed SSL certs, if new is an absolute FQDN (trailing '.') but old isn't, treat them as equals.
 func absoluteDomainSuppress(k, old, new string, _ *schema.ResourceData) bool {
 	if strings.HasPrefix(k, "managed.0.domains.") {
-		return old == strings.TrimRight(new, ".")
+		return old == strings.TrimRight(new, ".") || new == strings.TrimRight(old, ".")
 	}
-	return old == new
+	return false
 }
 
 func timestampDiffSuppress(format string) schema.SchemaDiffSuppressFunc {
@@ -181,4 +181,17 @@ func durationDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
 		return false
 	}
 	return oDuration == nDuration
+}
+
+// Use this method when the field accepts either an IP address or a
+// self_link referencing a resource (such as google_compute_route's
+// next_hop_ilb)
+func compareIpAddressOrSelfLinkOrResourceName(_, old, new string, _ *schema.ResourceData) bool {
+	// if we can parse `new` as an IP address, then compare as strings
+	if net.ParseIP(new) != nil {
+		return new == old
+	}
+
+	// otherwise compare as self links
+	return compareSelfLinkOrResourceName("", old, new, nil)
 }

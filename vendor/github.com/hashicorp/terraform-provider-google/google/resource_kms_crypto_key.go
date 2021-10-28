@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //
-//     ***     AUTO GENERATED CODE    ***    AUTO GENERATED CODE     ***
+//     ***     AUTO GENERATED CODE    ***    Type: MMv1     ***
 //
 // ----------------------------------------------------------------------------
 //
@@ -67,6 +67,21 @@ Format: ''projects/{{project}}/locations/{{location}}/keyRings/{{keyRing}}''.`,
 				Required:    true,
 				ForceNew:    true,
 				Description: `The resource name for the CryptoKey.`,
+			},
+			"destroy_scheduled_duration": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `The period of time that versions of this key spend in the DESTROY_SCHEDULED state before transitioning to DESTROYED.
+If not specified at creation time, the default duration is 24 hours.`,
+			},
+			"import_only": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Optional:    true,
+				ForceNew:    true,
+				Description: `Whether this key may contain imported versions only.`,
 			},
 			"labels": {
 				Type:        schema.TypeMap,
@@ -168,6 +183,18 @@ func resourceKMSCryptoKeyCreate(d *schema.ResourceData, meta interface{}) error 
 	} else if v, ok := d.GetOkExists("version_template"); !isEmptyValue(reflect.ValueOf(versionTemplateProp)) && (ok || !reflect.DeepEqual(v, versionTemplateProp)) {
 		obj["versionTemplate"] = versionTemplateProp
 	}
+	destroyScheduledDurationProp, err := expandKMSCryptoKeyDestroyScheduledDuration(d.Get("destroy_scheduled_duration"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("destroy_scheduled_duration"); !isEmptyValue(reflect.ValueOf(destroyScheduledDurationProp)) && (ok || !reflect.DeepEqual(v, destroyScheduledDurationProp)) {
+		obj["destroyScheduledDuration"] = destroyScheduledDurationProp
+	}
+	importOnlyProp, err := expandKMSCryptoKeyImportOnly(d.Get("import_only"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("import_only"); !isEmptyValue(reflect.ValueOf(importOnlyProp)) && (ok || !reflect.DeepEqual(v, importOnlyProp)) {
+		obj["importOnly"] = importOnlyProp
+	}
 
 	obj, err = resourceKMSCryptoKeyEncoder(d, meta, obj)
 	if err != nil {
@@ -258,6 +285,12 @@ func resourceKMSCryptoKeyRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error reading CryptoKey: %s", err)
 	}
 	if err := d.Set("version_template", flattenKMSCryptoKeyVersionTemplate(res["versionTemplate"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CryptoKey: %s", err)
+	}
+	if err := d.Set("destroy_scheduled_duration", flattenKMSCryptoKeyDestroyScheduledDuration(res["destroyScheduledDuration"], d, config)); err != nil {
+		return fmt.Errorf("Error reading CryptoKey: %s", err)
+	}
+	if err := d.Set("import_only", flattenKMSCryptoKeyImportOnly(res["importOnly"], d, config)); err != nil {
 		return fmt.Errorf("Error reading CryptoKey: %s", err)
 	}
 
@@ -436,6 +469,14 @@ func flattenKMSCryptoKeyVersionTemplateProtectionLevel(v interface{}, d *schema.
 	return v
 }
 
+func flattenKMSCryptoKeyDestroyScheduledDuration(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenKMSCryptoKeyImportOnly(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
 func expandKMSCryptoKeyLabels(v interface{}, d TerraformResourceData, config *Config) (map[string]string, error) {
 	if v == nil {
 		return map[string]string{}, nil
@@ -486,6 +527,14 @@ func expandKMSCryptoKeyVersionTemplateAlgorithm(v interface{}, d TerraformResour
 }
 
 func expandKMSCryptoKeyVersionTemplateProtectionLevel(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandKMSCryptoKeyDestroyScheduledDuration(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandKMSCryptoKeyImportOnly(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 

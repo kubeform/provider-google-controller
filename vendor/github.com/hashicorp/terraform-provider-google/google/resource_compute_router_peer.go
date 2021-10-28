@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //
-//     ***     AUTO GENERATED CODE    ***    AUTO GENERATED CODE     ***
+//     ***     AUTO GENERATED CODE    ***    Type: MMv1     ***
 //
 // ----------------------------------------------------------------------------
 //
@@ -19,6 +19,7 @@ import (
 	"log"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -139,6 +140,22 @@ CIDR-formatted string.`,
 Where there is more than one matching route of maximum
 length, the routes with the lowest priority value win.`,
 			},
+			"enable": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Description: `The status of the BGP peer connection. If set to false, any active session
+with the peer is terminated and all associated routing information is removed.
+If set to true, the peer connection can be established with routing information.
+The default is true.`,
+				Default: true,
+			},
+			"ip_address": {
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				Description: `IP address of the interface inside Google Cloud Platform.
+Only IPv4 is supported.`,
+			},
 			"region": {
 				Type:             schema.TypeString,
 				Computed:         true,
@@ -147,12 +164,6 @@ length, the routes with the lowest priority value win.`,
 				DiffSuppressFunc: compareSelfLinkOrResourceName,
 				Description: `Region where the router and BgpPeer reside.
 If it is not provided, the provider region is used.`,
-			},
-			"ip_address": {
-				Type:     schema.TypeString,
-				Computed: true,
-				Description: `IP address of the interface inside Google Cloud Platform.
-Only IPv4 is supported.`,
 			},
 			"management_type": {
 				Type:     schema.TypeString,
@@ -199,6 +210,12 @@ func resourceComputeRouterBgpPeerCreate(d *schema.ResourceData, meta interface{}
 	} else if v, ok := d.GetOkExists("interface"); !isEmptyValue(reflect.ValueOf(interfaceNameProp)) && (ok || !reflect.DeepEqual(v, interfaceNameProp)) {
 		obj["interfaceName"] = interfaceNameProp
 	}
+	ipAddressProp, err := expandNestedComputeRouterBgpPeerIpAddress(d.Get("ip_address"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("ip_address"); !isEmptyValue(reflect.ValueOf(ipAddressProp)) && (ok || !reflect.DeepEqual(v, ipAddressProp)) {
+		obj["ipAddress"] = ipAddressProp
+	}
 	peerIpAddressProp, err := expandNestedComputeRouterBgpPeerPeerIpAddress(d.Get("peer_ip_address"), d, config)
 	if err != nil {
 		return err
@@ -214,7 +231,7 @@ func resourceComputeRouterBgpPeerCreate(d *schema.ResourceData, meta interface{}
 	advertisedRoutePriorityProp, err := expandNestedComputeRouterBgpPeerAdvertisedRoutePriority(d.Get("advertised_route_priority"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("advertised_route_priority"); !isEmptyValue(reflect.ValueOf(advertisedRoutePriorityProp)) && (ok || !reflect.DeepEqual(v, advertisedRoutePriorityProp)) {
+	} else if v, ok := d.GetOkExists("advertised_route_priority"); ok || !reflect.DeepEqual(v, advertisedRoutePriorityProp) {
 		obj["advertisedRoutePriority"] = advertisedRoutePriorityProp
 	}
 	advertiseModeProp, err := expandNestedComputeRouterBgpPeerAdvertiseMode(d.Get("advertise_mode"), d, config)
@@ -234,6 +251,12 @@ func resourceComputeRouterBgpPeerCreate(d *schema.ResourceData, meta interface{}
 		return err
 	} else if v, ok := d.GetOkExists("advertised_ip_ranges"); ok || !reflect.DeepEqual(v, advertisedIpRangesProp) {
 		obj["advertisedIpRanges"] = advertisedIpRangesProp
+	}
+	enableProp, err := expandNestedComputeRouterBgpPeerEnable(d.Get("enable"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("enable"); ok || !reflect.DeepEqual(v, enableProp) {
+		obj["enable"] = enableProp
 	}
 
 	lockName, err := replaceVars(d, config, "router/{{region}}/{{router}}")
@@ -370,6 +393,9 @@ func resourceComputeRouterBgpPeerRead(d *schema.ResourceData, meta interface{}) 
 	if err := d.Set("management_type", flattenNestedComputeRouterBgpPeerManagementType(res["managementType"], d, config)); err != nil {
 		return fmt.Errorf("Error reading RouterBgpPeer: %s", err)
 	}
+	if err := d.Set("enable", flattenNestedComputeRouterBgpPeerEnable(res["enable"], d, config)); err != nil {
+		return fmt.Errorf("Error reading RouterBgpPeer: %s", err)
+	}
 
 	return nil
 }
@@ -390,6 +416,12 @@ func resourceComputeRouterBgpPeerUpdate(d *schema.ResourceData, meta interface{}
 	billingProject = project
 
 	obj := make(map[string]interface{})
+	ipAddressProp, err := expandNestedComputeRouterBgpPeerIpAddress(d.Get("ip_address"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("ip_address"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, ipAddressProp)) {
+		obj["ipAddress"] = ipAddressProp
+	}
 	peerIpAddressProp, err := expandNestedComputeRouterBgpPeerPeerIpAddress(d.Get("peer_ip_address"), d, config)
 	if err != nil {
 		return err
@@ -405,7 +437,7 @@ func resourceComputeRouterBgpPeerUpdate(d *schema.ResourceData, meta interface{}
 	advertisedRoutePriorityProp, err := expandNestedComputeRouterBgpPeerAdvertisedRoutePriority(d.Get("advertised_route_priority"), d, config)
 	if err != nil {
 		return err
-	} else if v, ok := d.GetOkExists("advertised_route_priority"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, advertisedRoutePriorityProp)) {
+	} else if v, ok := d.GetOkExists("advertised_route_priority"); ok || !reflect.DeepEqual(v, advertisedRoutePriorityProp) {
 		obj["advertisedRoutePriority"] = advertisedRoutePriorityProp
 	}
 	advertiseModeProp, err := expandNestedComputeRouterBgpPeerAdvertiseMode(d.Get("advertise_mode"), d, config)
@@ -425,6 +457,12 @@ func resourceComputeRouterBgpPeerUpdate(d *schema.ResourceData, meta interface{}
 		return err
 	} else if v, ok := d.GetOkExists("advertised_ip_ranges"); ok || !reflect.DeepEqual(v, advertisedIpRangesProp) {
 		obj["advertisedIpRanges"] = advertisedIpRangesProp
+	}
+	enableProp, err := expandNestedComputeRouterBgpPeerEnable(d.Get("enable"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("enable"); ok || !reflect.DeepEqual(v, enableProp) {
+		obj["enable"] = enableProp
 	}
 
 	lockName, err := replaceVars(d, config, "router/{{region}}/{{router}}")
@@ -641,11 +679,27 @@ func flattenNestedComputeRouterBgpPeerManagementType(v interface{}, d *schema.Re
 	return v
 }
 
+func flattenNestedComputeRouterBgpPeerEnable(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return true
+	}
+	b, err := strconv.ParseBool(v.(string))
+	if err != nil {
+		// If we can't convert it into a bool return value as is and let caller handle it
+		return v
+	}
+	return b
+}
+
 func expandNestedComputeRouterBgpPeerName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 
 func expandNestedComputeRouterBgpPeerInterface(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandNestedComputeRouterBgpPeerIpAddress(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 
@@ -704,6 +758,14 @@ func expandNestedComputeRouterBgpPeerAdvertisedIpRangesRange(v interface{}, d Te
 
 func expandNestedComputeRouterBgpPeerAdvertisedIpRangesDescription(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
+}
+
+func expandNestedComputeRouterBgpPeerEnable(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	return strings.ToUpper(strconv.FormatBool(v.(bool))), nil
 }
 
 func flattenNestedComputeRouterBgpPeer(d *schema.ResourceData, meta interface{}, res map[string]interface{}) (map[string]interface{}, error) {

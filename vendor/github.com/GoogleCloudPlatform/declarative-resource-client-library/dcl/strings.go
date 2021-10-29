@@ -22,7 +22,9 @@ import (
 // We can assume camelCase is the same as TitleCase except that we downcase the
 // first segment
 var initialisms = map[string]string{
+	"ai":      "AI",
 	"ip":      "IP",
+	"os":      "OS",
 	"ipv4":    "IPv4",
 	"ipv6":    "IPv6",
 	"oauth":   "OAuth",
@@ -77,6 +79,17 @@ func SnakeToTitleCasePath(s, sep string) string {
 	return strings.Join(str, sep)
 }
 
+// TitleToCamelCasePath converts a resource path from title case to lower title case.
+// For example: FooBar.Baz.Qux -> fooBar.baz.qux
+func TitleToCamelCasePath(s string) string {
+	// Lowercase the first character and every character following a .
+	parts := strings.Split(s, ".")
+	for i, part := range parts {
+		parts[i] = strings.ToLower(part[:1]) + part[1:]
+	}
+	return strings.Join(parts, ".")
+}
+
 // ProtoCamelCase converts a snake case name to a upper camel case name using the
 // go protoc special rules: convert to camel case, except when
 // the character following the underscore is a digit; e.g.,
@@ -113,6 +126,10 @@ func ProtoCamelCase(s string) string {
 
 // TitleToSnakeCase takes in a snake_case string and returns a TitleCase string.
 func TitleToSnakeCase(s string) string {
+	for k, v := range initialisms {
+		kCap := strings.ToUpper(k[0:1]) + k[1:]
+		s = strings.Replace(s, v, kCap, -1)
+	}
 	str := regexp.MustCompile("(.)([A-Z][a-z]+)").ReplaceAllString(s, "${1}_${2}")
 	return strings.ToLower(regexp.MustCompile("([a-z0-9])([A-Z])").ReplaceAllString(str, "${1}_${2}"))
 }

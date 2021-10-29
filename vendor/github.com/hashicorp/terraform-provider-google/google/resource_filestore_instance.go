@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 //
-//     ***     AUTO GENERATED CODE    ***    AUTO GENERATED CODE     ***
+//     ***     AUTO GENERATED CODE    ***    Type: MMv1     ***
 //
 // ----------------------------------------------------------------------------
 //
@@ -103,6 +103,7 @@ instance is connected.`,
 							Type:     schema.TypeString,
 							Computed: true,
 							Optional: true,
+							ForceNew: true,
 							Description: `A /29 CIDR block that identifies the range of IP
 addresses reserved for this instance.`,
 						},

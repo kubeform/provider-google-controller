@@ -11,27 +11,27 @@ require (
 	github.com/hashicorp/hcl v1.0.0
 	github.com/hashicorp/terraform-plugin-go v0.3.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.6.0
-	github.com/hashicorp/terraform-provider-google v1.20.1-0.20210628164239-4d5f8365936e
+	github.com/hashicorp/terraform-provider-google v1.20.1-0.20211026174940-38188671dbf5
 	github.com/imdario/mergo v0.3.12
 	github.com/json-iterator/go v1.1.11
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
-	go.bytebuilders.dev/audit v0.0.7
-	go.bytebuilders.dev/license-verifier v0.9.2
+	go.bytebuilders.dev/audit v0.0.11
+	go.bytebuilders.dev/license-verifier v0.9.3
 	go.bytebuilders.dev/license-verifier/kubernetes v0.9.2
 	gomodules.xyz/kglog v0.0.5
-	gomodules.xyz/x v0.0.7
+	gomodules.xyz/x v0.0.8
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.1
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v10.0.0+incompatible
 	k8s.io/klog/v2 v2.8.0
-	kmodules.xyz/client-go v0.0.0-20210822203828-5e9cebbf1dfa
+	kmodules.xyz/client-go v0.0.0-20211028120227-48eb36f92a30
 	kmodules.xyz/constants v0.0.0-20210218100002-2c304bfda278
 	kubeform.dev/apimachinery v0.0.0-20210824104859-ba5604d5a1cc
-	kubeform.dev/provider-google-api v0.3.1-0.20211020091131-00af37496990
+	kubeform.dev/provider-google-api v0.3.1-0.20211028192649-23b22d54348b
 	kubeform.dev/terraform-backend-sdk v0.0.0-20210922115523-21574335f0db
 	sigs.k8s.io/cli-utils v0.25.0
 	sigs.k8s.io/controller-runtime v0.9.0

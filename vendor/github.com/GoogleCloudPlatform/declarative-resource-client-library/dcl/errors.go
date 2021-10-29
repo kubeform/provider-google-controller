@@ -15,6 +15,7 @@ package dcl
 
 import (
 	"fmt"
+	"time"
 
 	"google.golang.org/api/googleapi"
 )
@@ -81,18 +82,25 @@ func (e NotDeletedError) Error() string {
 	return fmt.Sprintf("resource not successfully deleted: %#v.", e.ExistingResource)
 }
 
+// IsRetryableGoogleError returns true if the error is retryable according to the given retryability.
+func IsRetryableGoogleError(gerr *googleapi.Error, retryability Retryability, start time.Time) bool {
+	return retryability.Retryable && retryability.regex.MatchString(gerr.Message) && time.Since(start) < retryability.Timeout
+}
+
 // IsRetryableHTTPError returns true if the error is retryable - in GCP that's a 500, 502, 503, or 429.
-func IsRetryableHTTPError(err error) bool {
+func IsRetryableHTTPError(err error, retryability map[int]Retryability, start time.Time) bool {
 	if gerr, ok := err.(*googleapi.Error); ok {
-		return gerr.Code == 503 || gerr.Code == 500 || gerr.Code == 429 || gerr.Code == 502
+		rtblt, ok := retryability[gerr.Code]
+		return ok && IsRetryableGoogleError(gerr, rtblt, start)
 	}
 	return false
 }
 
 // IsNonRetryableHTTPError returns true if we know that the error is not retryable - in GCP that's a 400, 403, 404, or 409.
-func IsNonRetryableHTTPError(err error) bool {
+func IsNonRetryableHTTPError(err error, retryability map[int]Retryability, start time.Time) bool {
 	if gerr, ok := err.(*googleapi.Error); ok {
-		return gerr.Code == 400 || gerr.Code == 403 || gerr.Code == 404 || gerr.Code == 409
+		rtblt, ok := retryability[gerr.Code]
+		return ok && !IsRetryableGoogleError(gerr, rtblt, start)
 	}
 	return false
 }

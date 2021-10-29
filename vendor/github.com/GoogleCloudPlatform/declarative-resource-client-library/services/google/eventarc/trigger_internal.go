@@ -92,42 +92,50 @@ func (r *TriggerTransport) validate() error {
 func (r *TriggerTransportPubsub) validate() error {
 	return nil
 }
-
-func triggerGetURL(userBasePath string, r *Trigger) (string, error) {
-	params := map[string]interface{}{
-		"project":  dcl.ValueOrEmptyString(r.Project),
-		"location": dcl.ValueOrEmptyString(r.Location),
-		"name":     dcl.ValueOrEmptyString(r.Name),
-	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers/{{name}}", "https://eventarc.googleapis.com/v1/", userBasePath, params), nil
+func (r *Trigger) basePath() string {
+	params := map[string]interface{}{}
+	return dcl.Nprintf("https://eventarc.googleapis.com/v1/", params)
 }
 
-func triggerListURL(userBasePath, project, location string) (string, error) {
+func (r *Trigger) getURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  project,
-		"location": location,
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers", "https://eventarc.googleapis.com/v1/", userBasePath, params), nil
-
+	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers/{{name}}", nr.basePath(), userBasePath, params), nil
 }
 
-func triggerCreateURL(userBasePath, project, location, name string) (string, error) {
+func (r *Trigger) listURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  project,
-		"location": location,
-		"name":     name,
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers?triggerId={{name}}", "https://eventarc.googleapis.com/v1/", userBasePath, params), nil
+	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers", nr.basePath(), userBasePath, params), nil
 
 }
 
-func triggerDeleteURL(userBasePath string, r *Trigger) (string, error) {
+func (r *Trigger) createURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  dcl.ValueOrEmptyString(r.Project),
-		"location": dcl.ValueOrEmptyString(r.Location),
-		"name":     dcl.ValueOrEmptyString(r.Name),
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers/{{name}}", "https://eventarc.googleapis.com/v1/", userBasePath, params), nil
+	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers?triggerId={{name}}", nr.basePath(), userBasePath, params), nil
+
+}
+
+func (r *Trigger) deleteURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
+	params := map[string]interface{}{
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
+	}
+	return dcl.URL("projects/{{project}}/locations/{{location}}/triggers/{{name}}", nr.basePath(), userBasePath, params), nil
 }
 
 // triggerApiOperation represents a mutable operation in the underlying REST
@@ -149,7 +157,7 @@ func newUpdateTriggerUpdateTriggerRequest(ctx context.Context, f *Trigger, c *Cl
 	}
 	if v, err := expandTriggerMatchingCriteriaSlice(c, f.MatchingCriteria); err != nil {
 		return nil, fmt.Errorf("error expanding MatchingCriteria into eventFilters: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
+	} else if v != nil {
 		req["eventFilters"] = v
 	}
 	if v := f.ServiceAccount; !dcl.IsEmptyValueIndirect(v) {
@@ -163,7 +171,7 @@ func newUpdateTriggerUpdateTriggerRequest(ctx context.Context, f *Trigger, c *Cl
 	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
 		req["labels"] = v
 	}
-	b, err := c.getTriggerRaw(ctx, f.urlNormalized())
+	b, err := c.getTriggerRaw(ctx, f)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +184,7 @@ func newUpdateTriggerUpdateTriggerRequest(ctx context.Context, f *Trigger, c *Cl
 		[]string{"etag"},
 	)
 	if err != nil {
-		c.Config.Logger.Warningf("Failed to fetch from JSON Path: %v", err)
+		c.Config.Logger.WarningWithContextf(ctx, "Failed to fetch from JSON Path: %v", err)
 	} else {
 		req["etag"] = rawEtag.(string)
 	}
@@ -195,7 +203,7 @@ type updateTriggerUpdateTriggerOperation struct {
 	// Usually it will be nil - this is to prevent us from accidentally depending on apply
 	// options, which should usually be unnecessary.
 	ApplyOptions []dcl.ApplyOption
-	Diffs        []*dcl.FieldDiff
+	FieldDiffs   []*dcl.FieldDiff
 }
 
 // do creates a request and sends it to the appropriate URL. In most operations,
@@ -203,7 +211,7 @@ type updateTriggerUpdateTriggerOperation struct {
 // PUT request to a single URL.
 
 func (op *updateTriggerUpdateTriggerOperation) do(ctx context.Context, r *Trigger, c *Client) error {
-	_, err := c.GetTrigger(ctx, r.urlNormalized())
+	_, err := c.GetTrigger(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -212,7 +220,7 @@ func (op *updateTriggerUpdateTriggerOperation) do(ctx context.Context, r *Trigge
 	if err != nil {
 		return err
 	}
-	mask := dcl.UpdateMask(op.Diffs)
+	mask := dcl.UpdateMask(op.FieldDiffs)
 	u, err = dcl.AddQueryParams(u, map[string]string{"updateMask": mask})
 	if err != nil {
 		return err
@@ -223,7 +231,7 @@ func (op *updateTriggerUpdateTriggerOperation) do(ctx context.Context, r *Trigge
 		return err
 	}
 
-	c.Config.Logger.Infof("Created update: %#v", req)
+	c.Config.Logger.InfoWithContextf(ctx, "Created update: %#v", req)
 	body, err := marshalUpdateTriggerUpdateTriggerRequest(c, req)
 	if err != nil {
 		return err
@@ -237,7 +245,7 @@ func (op *updateTriggerUpdateTriggerOperation) do(ctx context.Context, r *Trigge
 	if err := dcl.ParseResponse(resp.Response, &o); err != nil {
 		return err
 	}
-	err = o.Wait(ctx, c.Config, "https://eventarc.googleapis.com/v1/", "GET")
+	err = o.Wait(context.WithValue(ctx, dcl.DoNotLogRequestsKey, true), c.Config, r.basePath(), "GET")
 
 	if err != nil {
 		return err
@@ -246,8 +254,8 @@ func (op *updateTriggerUpdateTriggerOperation) do(ctx context.Context, r *Trigge
 	return nil
 }
 
-func (c *Client) listTriggerRaw(ctx context.Context, project, location, pageToken string, pageSize int32) ([]byte, error) {
-	u, err := triggerListURL(c.Config.BasePath, project, location)
+func (c *Client) listTriggerRaw(ctx context.Context, r *Trigger, pageToken string, pageSize int32) ([]byte, error) {
+	u, err := r.urlNormalized().listURL(c.Config.BasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +286,8 @@ type listTriggerOperation struct {
 	Token    string                   `json:"nextPageToken"`
 }
 
-func (c *Client) listTrigger(ctx context.Context, project, location, pageToken string, pageSize int32) ([]*Trigger, string, error) {
-	b, err := c.listTriggerRaw(ctx, project, location, pageToken, pageSize)
+func (c *Client) listTrigger(ctx context.Context, r *Trigger, pageToken string, pageSize int32) ([]*Trigger, string, error) {
+	b, err := c.listTriggerRaw(ctx, r, pageToken, pageSize)
 	if err != nil {
 		return nil, "", err
 	}
@@ -295,8 +303,8 @@ func (c *Client) listTrigger(ctx context.Context, project, location, pageToken s
 		if err != nil {
 			return nil, m.Token, err
 		}
-		res.Project = &project
-		res.Location = &location
+		res.Project = r.Project
+		res.Location = r.Location
 		l = append(l, res)
 	}
 
@@ -324,19 +332,17 @@ func (c *Client) deleteAllTrigger(ctx context.Context, f func(*Trigger) bool, re
 type deleteTriggerOperation struct{}
 
 func (op *deleteTriggerOperation) do(ctx context.Context, r *Trigger, c *Client) error {
-
-	_, err := c.GetTrigger(ctx, r.urlNormalized())
-
+	r, err := c.GetTrigger(ctx, r)
 	if err != nil {
 		if dcl.IsNotFound(err) {
-			c.Config.Logger.Infof("Trigger not found, returning. Original error: %v", err)
+			c.Config.Logger.InfoWithContextf(ctx, "Trigger not found, returning. Original error: %v", err)
 			return nil
 		}
-		c.Config.Logger.Warningf("GetTrigger checking for existence. error: %v", err)
+		c.Config.Logger.WarningWithContextf(ctx, "GetTrigger checking for existence. error: %v", err)
 		return err
 	}
 
-	u, err := triggerDeleteURL(c.Config.BasePath, r.urlNormalized())
+	u, err := r.deleteURL(c.Config.BasePath)
 	if err != nil {
 		return err
 	}
@@ -353,7 +359,7 @@ func (op *deleteTriggerOperation) do(ctx context.Context, r *Trigger, c *Client)
 	if err := dcl.ParseResponse(resp.Response, &o); err != nil {
 		return err
 	}
-	if err := o.Wait(ctx, c.Config, "https://eventarc.googleapis.com/v1/", "GET"); err != nil {
+	if err := o.Wait(context.WithValue(ctx, dcl.DoNotLogRequestsKey, true), c.Config, r.basePath(), "GET"); err != nil {
 		return err
 	}
 
@@ -361,7 +367,7 @@ func (op *deleteTriggerOperation) do(ctx context.Context, r *Trigger, c *Client)
 	// this is the reason we are adding retry to handle that case.
 	maxRetry := 10
 	for i := 1; i <= maxRetry; i++ {
-		_, err = c.GetTrigger(ctx, r.urlNormalized())
+		_, err = c.GetTrigger(ctx, r)
 		if !dcl.IsNotFound(err) {
 			if i == maxRetry {
 				return dcl.NotDeletedError{ExistingResource: r}
@@ -386,11 +392,8 @@ func (op *createTriggerOperation) FirstResponse() (map[string]interface{}, bool)
 }
 
 func (op *createTriggerOperation) do(ctx context.Context, r *Trigger, c *Client) error {
-	c.Config.Logger.Infof("Attempting to create %v", r)
-
-	project, location, name := r.createFields()
-	u, err := triggerCreateURL(c.Config.BasePath, project, location, name)
-
+	c.Config.Logger.InfoWithContextf(ctx, "Attempting to create %v", r)
+	u, err := r.createURL(c.Config.BasePath)
 	if err != nil {
 		return err
 	}
@@ -408,15 +411,15 @@ func (op *createTriggerOperation) do(ctx context.Context, r *Trigger, c *Client)
 	if err := dcl.ParseResponse(resp.Response, &o); err != nil {
 		return err
 	}
-	if err := o.Wait(ctx, c.Config, "https://eventarc.googleapis.com/v1/", "GET"); err != nil {
+	if err := o.Wait(context.WithValue(ctx, dcl.DoNotLogRequestsKey, true), c.Config, r.basePath(), "GET"); err != nil {
 		c.Config.Logger.Warningf("Creation failed after waiting for operation: %v", err)
 		return err
 	}
-	c.Config.Logger.Infof("Successfully waited for operation")
+	c.Config.Logger.InfoWithContextf(ctx, "Successfully waited for operation")
 	op.response, _ = o.FirstResponse()
 
-	if _, err := c.GetTrigger(ctx, r.urlNormalized()); err != nil {
-		c.Config.Logger.Warningf("get returned error: %v", err)
+	if _, err := c.GetTrigger(ctx, r); err != nil {
+		c.Config.Logger.WarningWithContextf(ctx, "get returned error: %v", err)
 		return err
 	}
 
@@ -425,7 +428,7 @@ func (op *createTriggerOperation) do(ctx context.Context, r *Trigger, c *Client)
 
 func (c *Client) getTriggerRaw(ctx context.Context, r *Trigger) ([]byte, error) {
 
-	u, err := triggerGetURL(c.Config.BasePath, r.urlNormalized())
+	u, err := r.getURL(c.Config.BasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -443,12 +446,12 @@ func (c *Client) getTriggerRaw(ctx context.Context, r *Trigger) ([]byte, error) 
 }
 
 func (c *Client) triggerDiffsForRawDesired(ctx context.Context, rawDesired *Trigger, opts ...dcl.ApplyOption) (initial, desired *Trigger, diffs []*dcl.FieldDiff, err error) {
-	c.Config.Logger.Info("Fetching initial state...")
+	c.Config.Logger.InfoWithContext(ctx, "Fetching initial state...")
 	// First, let us see if the user provided a state hint.  If they did, we will start fetching based on that.
 	var fetchState *Trigger
 	if sh := dcl.FetchStateHint(opts); sh != nil {
 		if r, ok := sh.(*Trigger); !ok {
-			c.Config.Logger.Warningf("Initial state hint was of the wrong type; expected Trigger, got %T", sh)
+			c.Config.Logger.WarningWithContextf(ctx, "Initial state hint was of the wrong type; expected Trigger, got %T", sh)
 		} else {
 			fetchState = r
 		}
@@ -458,34 +461,33 @@ func (c *Client) triggerDiffsForRawDesired(ctx context.Context, rawDesired *Trig
 	}
 
 	// 1.2: Retrieval of raw initial state from API
-	rawInitial, err := c.GetTrigger(ctx, fetchState.urlNormalized())
+	rawInitial, err := c.GetTrigger(ctx, fetchState)
 	if rawInitial == nil {
 		if !dcl.IsNotFound(err) {
-			c.Config.Logger.Warningf("Failed to retrieve whether a Trigger resource already exists: %s", err)
+			c.Config.Logger.WarningWithContextf(ctx, "Failed to retrieve whether a Trigger resource already exists: %s", err)
 			return nil, nil, nil, fmt.Errorf("failed to retrieve Trigger resource: %v", err)
 		}
-		c.Config.Logger.Info("Found that Trigger resource did not exist.")
+		c.Config.Logger.InfoWithContext(ctx, "Found that Trigger resource did not exist.")
 		// Perform canonicalization to pick up defaults.
 		desired, err = canonicalizeTriggerDesiredState(rawDesired, rawInitial)
 		return nil, desired, nil, err
 	}
-
-	c.Config.Logger.Infof("Found initial state for Trigger: %v", rawInitial)
-	c.Config.Logger.Infof("Initial desired state for Trigger: %v", rawDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Trigger: %v", rawInitial)
+	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Trigger: %v", rawDesired)
 
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeTriggerInitialState(rawInitial, rawDesired)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c.Config.Logger.Infof("Canonicalized initial state for Trigger: %v", initial)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalized initial state for Trigger: %v", initial)
 
 	// 1.4: Canonicalize raw desired state into desired state.
 	desired, err = canonicalizeTriggerDesiredState(rawDesired, rawInitial, opts...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c.Config.Logger.Infof("Canonicalized desired state for Trigger: %v", desired)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalized desired state for Trigger: %v", desired)
 
 	// 2.1: Comparison of initial and desired state.
 	diffs, err = diffTrigger(c, desired, initial, opts...)
@@ -514,34 +516,42 @@ func canonicalizeTriggerDesiredState(rawDesired, rawInitial *Trigger, opts ...dc
 
 		return rawDesired, nil
 	}
-
+	canonicalDesired := &Trigger{}
 	if dcl.PartialSelfLinkToSelfLink(rawDesired.Name, rawInitial.Name) {
-		rawDesired.Name = rawInitial.Name
+		canonicalDesired.Name = rawInitial.Name
+	} else {
+		canonicalDesired.Name = rawDesired.Name
 	}
-	if dcl.IsZeroValue(rawDesired.MatchingCriteria) {
-		rawDesired.MatchingCriteria = rawInitial.MatchingCriteria
-	}
+	canonicalDesired.MatchingCriteria = canonicalizeTriggerMatchingCriteriaSlice(rawDesired.MatchingCriteria, rawInitial.MatchingCriteria, opts...)
 	if dcl.NameToSelfLink(rawDesired.ServiceAccount, rawInitial.ServiceAccount) {
-		rawDesired.ServiceAccount = rawInitial.ServiceAccount
+		canonicalDesired.ServiceAccount = rawInitial.ServiceAccount
+	} else {
+		canonicalDesired.ServiceAccount = rawDesired.ServiceAccount
 	}
-	rawDesired.Destination = canonicalizeTriggerDestination(rawDesired.Destination, rawInitial.Destination, opts...)
-	rawDesired.Transport = canonicalizeTriggerTransport(rawDesired.Transport, rawInitial.Transport, opts...)
+	canonicalDesired.Destination = canonicalizeTriggerDestination(rawDesired.Destination, rawInitial.Destination, opts...)
+	canonicalDesired.Transport = canonicalizeTriggerTransport(rawDesired.Transport, rawInitial.Transport, opts...)
 	if dcl.IsZeroValue(rawDesired.Labels) {
-		rawDesired.Labels = rawInitial.Labels
+		canonicalDesired.Labels = rawInitial.Labels
+	} else {
+		canonicalDesired.Labels = rawDesired.Labels
 	}
 	if dcl.NameToSelfLink(rawDesired.Project, rawInitial.Project) {
-		rawDesired.Project = rawInitial.Project
+		canonicalDesired.Project = rawInitial.Project
+	} else {
+		canonicalDesired.Project = rawDesired.Project
 	}
 	if dcl.NameToSelfLink(rawDesired.Location, rawInitial.Location) {
-		rawDesired.Location = rawInitial.Location
+		canonicalDesired.Location = rawInitial.Location
+	} else {
+		canonicalDesired.Location = rawDesired.Location
 	}
 
-	return rawDesired, nil
+	return canonicalDesired, nil
 }
 
 func canonicalizeTriggerNewState(c *Client, rawNew, rawDesired *Trigger) (*Trigger, error) {
 
-	if dcl.IsEmptyValueIndirect(rawNew.Name) && dcl.IsEmptyValueIndirect(rawDesired.Name) {
+	if dcl.IsNotReturnedByServer(rawNew.Name) && dcl.IsNotReturnedByServer(rawDesired.Name) {
 		rawNew.Name = rawDesired.Name
 	} else {
 		if dcl.PartialSelfLinkToSelfLink(rawDesired.Name, rawNew.Name) {
@@ -549,7 +559,7 @@ func canonicalizeTriggerNewState(c *Client, rawNew, rawDesired *Trigger) (*Trigg
 		}
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Uid) && dcl.IsEmptyValueIndirect(rawDesired.Uid) {
+	if dcl.IsNotReturnedByServer(rawNew.Uid) && dcl.IsNotReturnedByServer(rawDesired.Uid) {
 		rawNew.Uid = rawDesired.Uid
 	} else {
 		if dcl.StringCanonicalize(rawDesired.Uid, rawNew.Uid) {
@@ -557,23 +567,23 @@ func canonicalizeTriggerNewState(c *Client, rawNew, rawDesired *Trigger) (*Trigg
 		}
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.CreateTime) && dcl.IsEmptyValueIndirect(rawDesired.CreateTime) {
+	if dcl.IsNotReturnedByServer(rawNew.CreateTime) && dcl.IsNotReturnedByServer(rawDesired.CreateTime) {
 		rawNew.CreateTime = rawDesired.CreateTime
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.UpdateTime) && dcl.IsEmptyValueIndirect(rawDesired.UpdateTime) {
+	if dcl.IsNotReturnedByServer(rawNew.UpdateTime) && dcl.IsNotReturnedByServer(rawDesired.UpdateTime) {
 		rawNew.UpdateTime = rawDesired.UpdateTime
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.MatchingCriteria) && dcl.IsEmptyValueIndirect(rawDesired.MatchingCriteria) {
+	if dcl.IsNotReturnedByServer(rawNew.MatchingCriteria) && dcl.IsNotReturnedByServer(rawDesired.MatchingCriteria) {
 		rawNew.MatchingCriteria = rawDesired.MatchingCriteria
 	} else {
 		rawNew.MatchingCriteria = canonicalizeNewTriggerMatchingCriteriaSet(c, rawDesired.MatchingCriteria, rawNew.MatchingCriteria)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.ServiceAccount) && dcl.IsEmptyValueIndirect(rawDesired.ServiceAccount) {
+	if dcl.IsNotReturnedByServer(rawNew.ServiceAccount) && dcl.IsNotReturnedByServer(rawDesired.ServiceAccount) {
 		rawNew.ServiceAccount = rawDesired.ServiceAccount
 	} else {
 		if dcl.NameToSelfLink(rawDesired.ServiceAccount, rawNew.ServiceAccount) {
@@ -581,24 +591,24 @@ func canonicalizeTriggerNewState(c *Client, rawNew, rawDesired *Trigger) (*Trigg
 		}
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Destination) && dcl.IsEmptyValueIndirect(rawDesired.Destination) {
+	if dcl.IsNotReturnedByServer(rawNew.Destination) && dcl.IsNotReturnedByServer(rawDesired.Destination) {
 		rawNew.Destination = rawDesired.Destination
 	} else {
 		rawNew.Destination = canonicalizeNewTriggerDestination(c, rawDesired.Destination, rawNew.Destination)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Transport) && dcl.IsEmptyValueIndirect(rawDesired.Transport) {
+	if dcl.IsNotReturnedByServer(rawNew.Transport) && dcl.IsNotReturnedByServer(rawDesired.Transport) {
 		rawNew.Transport = rawDesired.Transport
 	} else {
 		rawNew.Transport = canonicalizeNewTriggerTransport(c, rawDesired.Transport, rawNew.Transport)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Labels) && dcl.IsEmptyValueIndirect(rawDesired.Labels) {
+	if dcl.IsNotReturnedByServer(rawNew.Labels) && dcl.IsNotReturnedByServer(rawDesired.Labels) {
 		rawNew.Labels = rawDesired.Labels
 	} else {
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.Etag) && dcl.IsEmptyValueIndirect(rawDesired.Etag) {
+	if dcl.IsNotReturnedByServer(rawNew.Etag) && dcl.IsNotReturnedByServer(rawDesired.Etag) {
 		rawNew.Etag = rawDesired.Etag
 	} else {
 		if dcl.StringCanonicalize(rawDesired.Etag, rawNew.Etag) {
@@ -625,19 +635,62 @@ func canonicalizeTriggerMatchingCriteria(des, initial *TriggerMatchingCriteria, 
 		return des
 	}
 
+	cDes := &TriggerMatchingCriteria{}
+
 	if dcl.StringCanonicalize(des.Attribute, initial.Attribute) || dcl.IsZeroValue(des.Attribute) {
-		des.Attribute = initial.Attribute
+		cDes.Attribute = initial.Attribute
+	} else {
+		cDes.Attribute = des.Attribute
 	}
 	if dcl.StringCanonicalize(des.Value, initial.Value) || dcl.IsZeroValue(des.Value) {
-		des.Value = initial.Value
+		cDes.Value = initial.Value
+	} else {
+		cDes.Value = des.Value
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeTriggerMatchingCriteriaSlice(des, initial []TriggerMatchingCriteria, opts ...dcl.ApplyOption) []TriggerMatchingCriteria {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]TriggerMatchingCriteria, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeTriggerMatchingCriteria(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]TriggerMatchingCriteria, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeTriggerMatchingCriteria(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewTriggerMatchingCriteria(c *Client, des, nw *TriggerMatchingCriteria) *TriggerMatchingCriteria {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for TriggerMatchingCriteria while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.Attribute, nw.Attribute) {
@@ -705,17 +758,58 @@ func canonicalizeTriggerDestination(des, initial *TriggerDestination, opts ...dc
 		return des
 	}
 
-	des.CloudRunService = canonicalizeTriggerDestinationCloudRunService(des.CloudRunService, initial.CloudRunService, opts...)
+	cDes := &TriggerDestination{}
+
+	cDes.CloudRunService = canonicalizeTriggerDestinationCloudRunService(des.CloudRunService, initial.CloudRunService, opts...)
 	if dcl.NameToSelfLink(des.CloudFunction, initial.CloudFunction) || dcl.IsZeroValue(des.CloudFunction) {
-		des.CloudFunction = initial.CloudFunction
+		cDes.CloudFunction = initial.CloudFunction
+	} else {
+		cDes.CloudFunction = des.CloudFunction
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeTriggerDestinationSlice(des, initial []TriggerDestination, opts ...dcl.ApplyOption) []TriggerDestination {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]TriggerDestination, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeTriggerDestination(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]TriggerDestination, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeTriggerDestination(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewTriggerDestination(c *Client, des, nw *TriggerDestination) *TriggerDestination {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for TriggerDestination while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	nw.CloudRunService = canonicalizeNewTriggerDestinationCloudRunService(c, des.CloudRunService, nw.CloudRunService)
@@ -781,22 +875,67 @@ func canonicalizeTriggerDestinationCloudRunService(des, initial *TriggerDestinat
 		return des
 	}
 
+	cDes := &TriggerDestinationCloudRunService{}
+
 	if dcl.NameToSelfLink(des.Service, initial.Service) || dcl.IsZeroValue(des.Service) {
-		des.Service = initial.Service
+		cDes.Service = initial.Service
+	} else {
+		cDes.Service = des.Service
 	}
 	if dcl.StringCanonicalize(des.Path, initial.Path) || dcl.IsZeroValue(des.Path) {
-		des.Path = initial.Path
+		cDes.Path = initial.Path
+	} else {
+		cDes.Path = des.Path
 	}
 	if dcl.StringCanonicalize(des.Region, initial.Region) || dcl.IsZeroValue(des.Region) {
-		des.Region = initial.Region
+		cDes.Region = initial.Region
+	} else {
+		cDes.Region = des.Region
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeTriggerDestinationCloudRunServiceSlice(des, initial []TriggerDestinationCloudRunService, opts ...dcl.ApplyOption) []TriggerDestinationCloudRunService {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]TriggerDestinationCloudRunService, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeTriggerDestinationCloudRunService(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]TriggerDestinationCloudRunService, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeTriggerDestinationCloudRunService(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewTriggerDestinationCloudRunService(c *Client, des, nw *TriggerDestinationCloudRunService) *TriggerDestinationCloudRunService {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for TriggerDestinationCloudRunService while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.NameToSelfLink(des.Service, nw.Service) {
@@ -867,14 +1006,53 @@ func canonicalizeTriggerTransport(des, initial *TriggerTransport, opts ...dcl.Ap
 		return des
 	}
 
-	des.Pubsub = canonicalizeTriggerTransportPubsub(des.Pubsub, initial.Pubsub, opts...)
+	cDes := &TriggerTransport{}
 
-	return des
+	cDes.Pubsub = canonicalizeTriggerTransportPubsub(des.Pubsub, initial.Pubsub, opts...)
+
+	return cDes
+}
+
+func canonicalizeTriggerTransportSlice(des, initial []TriggerTransport, opts ...dcl.ApplyOption) []TriggerTransport {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]TriggerTransport, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeTriggerTransport(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]TriggerTransport, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeTriggerTransport(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewTriggerTransport(c *Client, des, nw *TriggerTransport) *TriggerTransport {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for TriggerTransport while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	nw.Pubsub = canonicalizeNewTriggerTransportPubsub(c, des.Pubsub, nw.Pubsub)
@@ -937,16 +1115,57 @@ func canonicalizeTriggerTransportPubsub(des, initial *TriggerTransportPubsub, op
 		return des
 	}
 
+	cDes := &TriggerTransportPubsub{}
+
 	if dcl.StringCanonicalize(des.Topic, initial.Topic) || dcl.IsZeroValue(des.Topic) {
-		des.Topic = initial.Topic
+		cDes.Topic = initial.Topic
+	} else {
+		cDes.Topic = des.Topic
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeTriggerTransportPubsubSlice(des, initial []TriggerTransportPubsub, opts ...dcl.ApplyOption) []TriggerTransportPubsub {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]TriggerTransportPubsub, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeTriggerTransportPubsub(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]TriggerTransportPubsub, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeTriggerTransportPubsub(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewTriggerTransportPubsub(c *Client, des, nw *TriggerTransportPubsub) *TriggerTransportPubsub {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for TriggerTransportPubsub while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.Topic, nw.Topic) {
@@ -1297,32 +1516,18 @@ func (r *Trigger) urlNormalized() *Trigger {
 	return &normalized
 }
 
-func (r *Trigger) getFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
-func (r *Trigger) createFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
-func (r *Trigger) deleteFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
 func (r *Trigger) updateURL(userBasePath, updateName string) (string, error) {
-	n := r.urlNormalized()
+	nr := r.urlNormalized()
 	if updateName == "UpdateTrigger" {
 		fields := map[string]interface{}{
-			"project":  dcl.ValueOrEmptyString(n.Project),
-			"location": dcl.ValueOrEmptyString(n.Location),
-			"name":     dcl.ValueOrEmptyString(n.Name),
+			"project":  dcl.ValueOrEmptyString(nr.Project),
+			"location": dcl.ValueOrEmptyString(nr.Location),
+			"name":     dcl.ValueOrEmptyString(nr.Name),
 		}
-		return dcl.URL("projects/{{project}}/locations/{{location}}/triggers/{{name}}", "https://eventarc.googleapis.com/v1/", userBasePath, fields), nil
+		return dcl.URL("projects/{{project}}/locations/{{location}}/triggers/{{name}}", nr.basePath(), userBasePath, fields), nil
 
 	}
+
 	return "", fmt.Errorf("unknown update name: %s", updateName)
 }
 
@@ -1349,7 +1554,11 @@ func unmarshalTrigger(b []byte, c *Client) (*Trigger, error) {
 
 func unmarshalMapTrigger(m map[string]interface{}, c *Client) (*Trigger, error) {
 
-	return flattenTrigger(c, m), nil
+	flattened := flattenTrigger(c, m)
+	if flattened == nil {
+		return nil, fmt.Errorf("attempted to flatten empty json object")
+	}
+	return flattened, nil
 }
 
 // expandTrigger expands Trigger into a JSON request object.
@@ -1360,18 +1569,9 @@ func expandTrigger(c *Client, f *Trigger) (map[string]interface{}, error) {
 	} else if v != nil {
 		m["name"] = v
 	}
-	if v := f.Uid; !dcl.IsEmptyValueIndirect(v) {
-		m["uid"] = v
-	}
-	if v := f.CreateTime; !dcl.IsEmptyValueIndirect(v) {
-		m["createTime"] = v
-	}
-	if v := f.UpdateTime; !dcl.IsEmptyValueIndirect(v) {
-		m["updateTime"] = v
-	}
 	if v, err := expandTriggerMatchingCriteriaSlice(c, f.MatchingCriteria); err != nil {
 		return nil, fmt.Errorf("error expanding MatchingCriteria into eventFilters: %w", err)
-	} else if v != nil {
+	} else {
 		m["eventFilters"] = v
 	}
 	if v := f.ServiceAccount; !dcl.IsEmptyValueIndirect(v) {
@@ -1389,9 +1589,6 @@ func expandTrigger(c *Client, f *Trigger) (map[string]interface{}, error) {
 	}
 	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
 		m["labels"] = v
-	}
-	if v := f.Etag; !dcl.IsEmptyValueIndirect(v) {
-		m["etag"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Project into project: %w", err)
@@ -2003,9 +2200,6 @@ func expandTriggerTransportPubsub(c *Client, f *TriggerTransportPubsub) (map[str
 	if v := f.Topic; !dcl.IsEmptyValueIndirect(v) {
 		m["topic"] = v
 	}
-	if v := f.Subscription; !dcl.IsEmptyValueIndirect(v) {
-		m["subscription"] = v
-	}
 
 	return m, nil
 }
@@ -2077,31 +2271,49 @@ type triggerDiff struct {
 	UpdateOp         triggerApiOperation
 }
 
-func convertFieldDiffToTriggerOp(ops []string, fds []*dcl.FieldDiff, opts []dcl.ApplyOption) ([]triggerDiff, error) {
+func convertFieldDiffsToTriggerDiffs(config *dcl.Config, fds []*dcl.FieldDiff, opts []dcl.ApplyOption) ([]triggerDiff, error) {
+	opNamesToFieldDiffs := make(map[string][]*dcl.FieldDiff)
+	// Map each operation name to the field diffs associated with it.
+	for _, fd := range fds {
+		for _, ro := range fd.ResultingOperation {
+			if fieldDiffs, ok := opNamesToFieldDiffs[ro]; ok {
+				fieldDiffs = append(fieldDiffs, fd)
+				opNamesToFieldDiffs[ro] = fieldDiffs
+			} else {
+				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
+			}
+		}
+	}
 	var diffs []triggerDiff
-	for _, op := range ops {
+	// For each operation name, create a triggerDiff which contains the operation.
+	for opName, fieldDiffs := range opNamesToFieldDiffs {
 		diff := triggerDiff{}
-		if op == "Recreate" {
+		if opName == "Recreate" {
 			diff.RequiresRecreate = true
 		} else {
-			op, err := convertOpNameTotriggerApiOperation(op, fds, opts...)
+			apiOp, err := convertOpNameToTriggerApiOperation(opName, fieldDiffs, opts...)
 			if err != nil {
 				return diffs, err
 			}
-			diff.UpdateOp = op
+			diff.UpdateOp = apiOp
 		}
 		diffs = append(diffs, diff)
 	}
 	return diffs, nil
 }
 
-func convertOpNameTotriggerApiOperation(op string, diffs []*dcl.FieldDiff, opts ...dcl.ApplyOption) (triggerApiOperation, error) {
-	switch op {
+func convertOpNameToTriggerApiOperation(opName string, fieldDiffs []*dcl.FieldDiff, opts ...dcl.ApplyOption) (triggerApiOperation, error) {
+	switch opName {
 
 	case "updateTriggerUpdateTriggerOperation":
-		return &updateTriggerUpdateTriggerOperation{Diffs: diffs}, nil
+		return &updateTriggerUpdateTriggerOperation{FieldDiffs: fieldDiffs}, nil
 
 	default:
-		return nil, fmt.Errorf("no such operation with name: %v", op)
+		return nil, fmt.Errorf("no such operation with name: %v", opName)
 	}
+}
+
+func extractTriggerFields(r *Trigger) error {
+	return nil
 }

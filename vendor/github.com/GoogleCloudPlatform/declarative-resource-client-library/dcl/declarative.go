@@ -54,6 +54,15 @@ func HasLifecycleParam(lps []LifecycleParam, p LifecycleParam) bool {
 	return false
 }
 
+// SprintResourceCompact prints a struct into a compact single line string.
+func SprintResourceCompact(v interface{}) string {
+	prettyConfig := &pretty.Config{
+		Compact:           true,
+		IncludeUnexported: true,
+	}
+	return prettyConfig.Sprint(v)
+}
+
 // SprintResource prints a struct into a multiline string to display to readers.
 func SprintResource(v interface{}) string {
 	prettyConfig := &pretty.Config{
@@ -315,7 +324,7 @@ func FlattenTime(v interface{}) time.Time {
 }
 
 // FlattenSecretValue behaves the same way as FlattenString, except that it
-// returns nil if the value is no present.
+// returns nil if the value is not present.
 func FlattenSecretValue(v interface{}) *string {
 	p, ok := v.(string)
 	if !ok {

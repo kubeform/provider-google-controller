@@ -91,41 +91,49 @@ func (r *AutoscalingPolicyWorkerConfig) validate() error {
 func (r *AutoscalingPolicySecondaryWorkerConfig) validate() error {
 	return nil
 }
-
-func autoscalingPolicyGetURL(userBasePath string, r *AutoscalingPolicy) (string, error) {
-	params := map[string]interface{}{
-		"project":  dcl.ValueOrEmptyString(r.Project),
-		"location": dcl.ValueOrEmptyString(r.Location),
-		"name":     dcl.ValueOrEmptyString(r.Name),
-	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
+func (r *AutoscalingPolicy) basePath() string {
+	params := map[string]interface{}{}
+	return dcl.Nprintf("https://dataproc.googleapis.com/v1/", params)
 }
 
-func autoscalingPolicyListURL(userBasePath, project, location string) (string, error) {
+func (r *AutoscalingPolicy) getURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  project,
-		"location": location,
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
-
+	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}", nr.basePath(), userBasePath, params), nil
 }
 
-func autoscalingPolicyCreateURL(userBasePath, project, location string) (string, error) {
+func (r *AutoscalingPolicy) listURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  project,
-		"location": location,
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
+	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies", nr.basePath(), userBasePath, params), nil
 
 }
 
-func autoscalingPolicyDeleteURL(userBasePath string, r *AutoscalingPolicy) (string, error) {
+func (r *AutoscalingPolicy) createURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
 	params := map[string]interface{}{
-		"project":  dcl.ValueOrEmptyString(r.Project),
-		"location": dcl.ValueOrEmptyString(r.Location),
-		"name":     dcl.ValueOrEmptyString(r.Name),
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
 	}
-	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}", "https://dataproc.googleapis.com/v1/", userBasePath, params), nil
+	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies", nr.basePath(), userBasePath, params), nil
+
+}
+
+func (r *AutoscalingPolicy) deleteURL(userBasePath string) (string, error) {
+	nr := r.urlNormalized()
+	params := map[string]interface{}{
+		"project":  dcl.ValueOrEmptyString(nr.Project),
+		"location": dcl.ValueOrEmptyString(nr.Location),
+		"name":     dcl.ValueOrEmptyString(nr.Name),
+	}
+	return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}", nr.basePath(), userBasePath, params), nil
 }
 
 // autoscalingPolicyApiOperation represents a mutable operation in the underlying REST
@@ -176,7 +184,7 @@ type updateAutoscalingPolicyUpdateAutoscalingPolicyOperation struct {
 	// Usually it will be nil - this is to prevent us from accidentally depending on apply
 	// options, which should usually be unnecessary.
 	ApplyOptions []dcl.ApplyOption
-	Diffs        []*dcl.FieldDiff
+	FieldDiffs   []*dcl.FieldDiff
 }
 
 // do creates a request and sends it to the appropriate URL. In most operations,
@@ -184,7 +192,7 @@ type updateAutoscalingPolicyUpdateAutoscalingPolicyOperation struct {
 // PUT request to a single URL.
 
 func (op *updateAutoscalingPolicyUpdateAutoscalingPolicyOperation) do(ctx context.Context, r *AutoscalingPolicy, c *Client) error {
-	_, err := c.GetAutoscalingPolicy(ctx, r.urlNormalized())
+	_, err := c.GetAutoscalingPolicy(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -199,7 +207,7 @@ func (op *updateAutoscalingPolicyUpdateAutoscalingPolicyOperation) do(ctx contex
 		return err
 	}
 
-	c.Config.Logger.Infof("Created update: %#v", req)
+	c.Config.Logger.InfoWithContextf(ctx, "Created update: %#v", req)
 	body, err := marshalUpdateAutoscalingPolicyUpdateAutoscalingPolicyRequest(c, req)
 	if err != nil {
 		return err
@@ -212,8 +220,8 @@ func (op *updateAutoscalingPolicyUpdateAutoscalingPolicyOperation) do(ctx contex
 	return nil
 }
 
-func (c *Client) listAutoscalingPolicyRaw(ctx context.Context, project, location, pageToken string, pageSize int32) ([]byte, error) {
-	u, err := autoscalingPolicyListURL(c.Config.BasePath, project, location)
+func (c *Client) listAutoscalingPolicyRaw(ctx context.Context, r *AutoscalingPolicy, pageToken string, pageSize int32) ([]byte, error) {
+	u, err := r.urlNormalized().listURL(c.Config.BasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -244,8 +252,8 @@ type listAutoscalingPolicyOperation struct {
 	Token    string                   `json:"nextPageToken"`
 }
 
-func (c *Client) listAutoscalingPolicy(ctx context.Context, project, location, pageToken string, pageSize int32) ([]*AutoscalingPolicy, string, error) {
-	b, err := c.listAutoscalingPolicyRaw(ctx, project, location, pageToken, pageSize)
+func (c *Client) listAutoscalingPolicy(ctx context.Context, r *AutoscalingPolicy, pageToken string, pageSize int32) ([]*AutoscalingPolicy, string, error) {
+	b, err := c.listAutoscalingPolicyRaw(ctx, r, pageToken, pageSize)
 	if err != nil {
 		return nil, "", err
 	}
@@ -261,8 +269,8 @@ func (c *Client) listAutoscalingPolicy(ctx context.Context, project, location, p
 		if err != nil {
 			return nil, m.Token, err
 		}
-		res.Project = &project
-		res.Location = &location
+		res.Project = r.Project
+		res.Location = r.Location
 		l = append(l, res)
 	}
 
@@ -290,19 +298,17 @@ func (c *Client) deleteAllAutoscalingPolicy(ctx context.Context, f func(*Autosca
 type deleteAutoscalingPolicyOperation struct{}
 
 func (op *deleteAutoscalingPolicyOperation) do(ctx context.Context, r *AutoscalingPolicy, c *Client) error {
-
-	_, err := c.GetAutoscalingPolicy(ctx, r.urlNormalized())
-
+	r, err := c.GetAutoscalingPolicy(ctx, r)
 	if err != nil {
 		if dcl.IsNotFound(err) {
-			c.Config.Logger.Infof("AutoscalingPolicy not found, returning. Original error: %v", err)
+			c.Config.Logger.InfoWithContextf(ctx, "AutoscalingPolicy not found, returning. Original error: %v", err)
 			return nil
 		}
-		c.Config.Logger.Warningf("GetAutoscalingPolicy checking for existence. error: %v", err)
+		c.Config.Logger.WarningWithContextf(ctx, "GetAutoscalingPolicy checking for existence. error: %v", err)
 		return err
 	}
 
-	u, err := autoscalingPolicyDeleteURL(c.Config.BasePath, r.urlNormalized())
+	u, err := r.deleteURL(c.Config.BasePath)
 	if err != nil {
 		return err
 	}
@@ -318,7 +324,7 @@ func (op *deleteAutoscalingPolicyOperation) do(ctx context.Context, r *Autoscali
 	// this is the reason we are adding retry to handle that case.
 	maxRetry := 10
 	for i := 1; i <= maxRetry; i++ {
-		_, err = c.GetAutoscalingPolicy(ctx, r.urlNormalized())
+		_, err = c.GetAutoscalingPolicy(ctx, r)
 		if !dcl.IsNotFound(err) {
 			if i == maxRetry {
 				return dcl.NotDeletedError{ExistingResource: r}
@@ -343,11 +349,8 @@ func (op *createAutoscalingPolicyOperation) FirstResponse() (map[string]interfac
 }
 
 func (op *createAutoscalingPolicyOperation) do(ctx context.Context, r *AutoscalingPolicy, c *Client) error {
-	c.Config.Logger.Infof("Attempting to create %v", r)
-
-	project, location := r.createFields()
-	u, err := autoscalingPolicyCreateURL(c.Config.BasePath, project, location)
-
+	c.Config.Logger.InfoWithContextf(ctx, "Attempting to create %v", r)
+	u, err := r.createURL(c.Config.BasePath)
 	if err != nil {
 		return err
 	}
@@ -367,8 +370,8 @@ func (op *createAutoscalingPolicyOperation) do(ctx context.Context, r *Autoscali
 	}
 	op.response = o
 
-	if _, err := c.GetAutoscalingPolicy(ctx, r.urlNormalized()); err != nil {
-		c.Config.Logger.Warningf("get returned error: %v", err)
+	if _, err := c.GetAutoscalingPolicy(ctx, r); err != nil {
+		c.Config.Logger.WarningWithContextf(ctx, "get returned error: %v", err)
 		return err
 	}
 
@@ -377,7 +380,7 @@ func (op *createAutoscalingPolicyOperation) do(ctx context.Context, r *Autoscali
 
 func (c *Client) getAutoscalingPolicyRaw(ctx context.Context, r *AutoscalingPolicy) ([]byte, error) {
 
-	u, err := autoscalingPolicyGetURL(c.Config.BasePath, r.urlNormalized())
+	u, err := r.getURL(c.Config.BasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -395,12 +398,12 @@ func (c *Client) getAutoscalingPolicyRaw(ctx context.Context, r *AutoscalingPoli
 }
 
 func (c *Client) autoscalingPolicyDiffsForRawDesired(ctx context.Context, rawDesired *AutoscalingPolicy, opts ...dcl.ApplyOption) (initial, desired *AutoscalingPolicy, diffs []*dcl.FieldDiff, err error) {
-	c.Config.Logger.Info("Fetching initial state...")
+	c.Config.Logger.InfoWithContext(ctx, "Fetching initial state...")
 	// First, let us see if the user provided a state hint.  If they did, we will start fetching based on that.
 	var fetchState *AutoscalingPolicy
 	if sh := dcl.FetchStateHint(opts); sh != nil {
 		if r, ok := sh.(*AutoscalingPolicy); !ok {
-			c.Config.Logger.Warningf("Initial state hint was of the wrong type; expected AutoscalingPolicy, got %T", sh)
+			c.Config.Logger.WarningWithContextf(ctx, "Initial state hint was of the wrong type; expected AutoscalingPolicy, got %T", sh)
 		} else {
 			fetchState = r
 		}
@@ -410,34 +413,33 @@ func (c *Client) autoscalingPolicyDiffsForRawDesired(ctx context.Context, rawDes
 	}
 
 	// 1.2: Retrieval of raw initial state from API
-	rawInitial, err := c.GetAutoscalingPolicy(ctx, fetchState.urlNormalized())
+	rawInitial, err := c.GetAutoscalingPolicy(ctx, fetchState)
 	if rawInitial == nil {
 		if !dcl.IsNotFound(err) {
-			c.Config.Logger.Warningf("Failed to retrieve whether a AutoscalingPolicy resource already exists: %s", err)
+			c.Config.Logger.WarningWithContextf(ctx, "Failed to retrieve whether a AutoscalingPolicy resource already exists: %s", err)
 			return nil, nil, nil, fmt.Errorf("failed to retrieve AutoscalingPolicy resource: %v", err)
 		}
-		c.Config.Logger.Info("Found that AutoscalingPolicy resource did not exist.")
+		c.Config.Logger.InfoWithContext(ctx, "Found that AutoscalingPolicy resource did not exist.")
 		// Perform canonicalization to pick up defaults.
 		desired, err = canonicalizeAutoscalingPolicyDesiredState(rawDesired, rawInitial)
 		return nil, desired, nil, err
 	}
-
-	c.Config.Logger.Infof("Found initial state for AutoscalingPolicy: %v", rawInitial)
-	c.Config.Logger.Infof("Initial desired state for AutoscalingPolicy: %v", rawDesired)
+	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for AutoscalingPolicy: %v", rawInitial)
+	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for AutoscalingPolicy: %v", rawDesired)
 
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeAutoscalingPolicyInitialState(rawInitial, rawDesired)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c.Config.Logger.Infof("Canonicalized initial state for AutoscalingPolicy: %v", initial)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalized initial state for AutoscalingPolicy: %v", initial)
 
 	// 1.4: Canonicalize raw desired state into desired state.
 	desired, err = canonicalizeAutoscalingPolicyDesiredState(rawDesired, rawInitial, opts...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	c.Config.Logger.Infof("Canonicalized desired state for AutoscalingPolicy: %v", desired)
+	c.Config.Logger.InfoWithContextf(ctx, "Canonicalized desired state for AutoscalingPolicy: %v", desired)
 
 	// 2.1: Comparison of initial and desired state.
 	diffs, err = diffAutoscalingPolicy(c, desired, initial, opts...)
@@ -467,26 +469,32 @@ func canonicalizeAutoscalingPolicyDesiredState(rawDesired, rawInitial *Autoscali
 
 		return rawDesired, nil
 	}
-
+	canonicalDesired := &AutoscalingPolicy{}
 	if dcl.StringCanonicalize(rawDesired.Name, rawInitial.Name) {
-		rawDesired.Name = rawInitial.Name
+		canonicalDesired.Name = rawInitial.Name
+	} else {
+		canonicalDesired.Name = rawDesired.Name
 	}
-	rawDesired.BasicAlgorithm = canonicalizeAutoscalingPolicyBasicAlgorithm(rawDesired.BasicAlgorithm, rawInitial.BasicAlgorithm, opts...)
-	rawDesired.WorkerConfig = canonicalizeAutoscalingPolicyWorkerConfig(rawDesired.WorkerConfig, rawInitial.WorkerConfig, opts...)
-	rawDesired.SecondaryWorkerConfig = canonicalizeAutoscalingPolicySecondaryWorkerConfig(rawDesired.SecondaryWorkerConfig, rawInitial.SecondaryWorkerConfig, opts...)
+	canonicalDesired.BasicAlgorithm = canonicalizeAutoscalingPolicyBasicAlgorithm(rawDesired.BasicAlgorithm, rawInitial.BasicAlgorithm, opts...)
+	canonicalDesired.WorkerConfig = canonicalizeAutoscalingPolicyWorkerConfig(rawDesired.WorkerConfig, rawInitial.WorkerConfig, opts...)
+	canonicalDesired.SecondaryWorkerConfig = canonicalizeAutoscalingPolicySecondaryWorkerConfig(rawDesired.SecondaryWorkerConfig, rawInitial.SecondaryWorkerConfig, opts...)
 	if dcl.NameToSelfLink(rawDesired.Project, rawInitial.Project) {
-		rawDesired.Project = rawInitial.Project
+		canonicalDesired.Project = rawInitial.Project
+	} else {
+		canonicalDesired.Project = rawDesired.Project
 	}
 	if dcl.NameToSelfLink(rawDesired.Location, rawInitial.Location) {
-		rawDesired.Location = rawInitial.Location
+		canonicalDesired.Location = rawInitial.Location
+	} else {
+		canonicalDesired.Location = rawDesired.Location
 	}
 
-	return rawDesired, nil
+	return canonicalDesired, nil
 }
 
 func canonicalizeAutoscalingPolicyNewState(c *Client, rawNew, rawDesired *AutoscalingPolicy) (*AutoscalingPolicy, error) {
 
-	if dcl.IsEmptyValueIndirect(rawNew.Name) && dcl.IsEmptyValueIndirect(rawDesired.Name) {
+	if dcl.IsNotReturnedByServer(rawNew.Name) && dcl.IsNotReturnedByServer(rawDesired.Name) {
 		rawNew.Name = rawDesired.Name
 	} else {
 		if dcl.StringCanonicalize(rawDesired.Name, rawNew.Name) {
@@ -494,19 +502,19 @@ func canonicalizeAutoscalingPolicyNewState(c *Client, rawNew, rawDesired *Autosc
 		}
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.BasicAlgorithm) && dcl.IsEmptyValueIndirect(rawDesired.BasicAlgorithm) {
+	if dcl.IsNotReturnedByServer(rawNew.BasicAlgorithm) && dcl.IsNotReturnedByServer(rawDesired.BasicAlgorithm) {
 		rawNew.BasicAlgorithm = rawDesired.BasicAlgorithm
 	} else {
 		rawNew.BasicAlgorithm = canonicalizeNewAutoscalingPolicyBasicAlgorithm(c, rawDesired.BasicAlgorithm, rawNew.BasicAlgorithm)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.WorkerConfig) && dcl.IsEmptyValueIndirect(rawDesired.WorkerConfig) {
+	if dcl.IsNotReturnedByServer(rawNew.WorkerConfig) && dcl.IsNotReturnedByServer(rawDesired.WorkerConfig) {
 		rawNew.WorkerConfig = rawDesired.WorkerConfig
 	} else {
 		rawNew.WorkerConfig = canonicalizeNewAutoscalingPolicyWorkerConfig(c, rawDesired.WorkerConfig, rawNew.WorkerConfig)
 	}
 
-	if dcl.IsEmptyValueIndirect(rawNew.SecondaryWorkerConfig) && dcl.IsEmptyValueIndirect(rawDesired.SecondaryWorkerConfig) {
+	if dcl.IsNotReturnedByServer(rawNew.SecondaryWorkerConfig) && dcl.IsNotReturnedByServer(rawDesired.SecondaryWorkerConfig) {
 		rawNew.SecondaryWorkerConfig = rawDesired.SecondaryWorkerConfig
 	} else {
 		rawNew.SecondaryWorkerConfig = canonicalizeNewAutoscalingPolicySecondaryWorkerConfig(c, rawDesired.SecondaryWorkerConfig, rawNew.SecondaryWorkerConfig)
@@ -531,17 +539,58 @@ func canonicalizeAutoscalingPolicyBasicAlgorithm(des, initial *AutoscalingPolicy
 		return des
 	}
 
-	des.YarnConfig = canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(des.YarnConfig, initial.YarnConfig, opts...)
+	cDes := &AutoscalingPolicyBasicAlgorithm{}
+
+	cDes.YarnConfig = canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(des.YarnConfig, initial.YarnConfig, opts...)
 	if dcl.StringCanonicalize(des.CooldownPeriod, initial.CooldownPeriod) || dcl.IsZeroValue(des.CooldownPeriod) {
-		des.CooldownPeriod = initial.CooldownPeriod
+		cDes.CooldownPeriod = initial.CooldownPeriod
+	} else {
+		cDes.CooldownPeriod = des.CooldownPeriod
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeAutoscalingPolicyBasicAlgorithmSlice(des, initial []AutoscalingPolicyBasicAlgorithm, opts ...dcl.ApplyOption) []AutoscalingPolicyBasicAlgorithm {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]AutoscalingPolicyBasicAlgorithm, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeAutoscalingPolicyBasicAlgorithm(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]AutoscalingPolicyBasicAlgorithm, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeAutoscalingPolicyBasicAlgorithm(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewAutoscalingPolicyBasicAlgorithm(c *Client, des, nw *AutoscalingPolicyBasicAlgorithm) *AutoscalingPolicyBasicAlgorithm {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for AutoscalingPolicyBasicAlgorithm while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	nw.YarnConfig = canonicalizeNewAutoscalingPolicyBasicAlgorithmYarnConfig(c, des.YarnConfig, nw.YarnConfig)
@@ -607,44 +656,81 @@ func canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(des, initial *Autosca
 		return des
 	}
 
+	cDes := &AutoscalingPolicyBasicAlgorithmYarnConfig{}
+
 	if dcl.StringCanonicalize(des.GracefulDecommissionTimeout, initial.GracefulDecommissionTimeout) || dcl.IsZeroValue(des.GracefulDecommissionTimeout) {
-		des.GracefulDecommissionTimeout = initial.GracefulDecommissionTimeout
+		cDes.GracefulDecommissionTimeout = initial.GracefulDecommissionTimeout
+	} else {
+		cDes.GracefulDecommissionTimeout = des.GracefulDecommissionTimeout
 	}
 	if dcl.IsZeroValue(des.ScaleUpFactor) {
 		des.ScaleUpFactor = initial.ScaleUpFactor
+	} else {
+		cDes.ScaleUpFactor = des.ScaleUpFactor
 	}
 	if dcl.IsZeroValue(des.ScaleDownFactor) {
 		des.ScaleDownFactor = initial.ScaleDownFactor
+	} else {
+		cDes.ScaleDownFactor = des.ScaleDownFactor
 	}
 	if dcl.IsZeroValue(des.ScaleUpMinWorkerFraction) {
 		des.ScaleUpMinWorkerFraction = initial.ScaleUpMinWorkerFraction
+	} else {
+		cDes.ScaleUpMinWorkerFraction = des.ScaleUpMinWorkerFraction
 	}
 	if dcl.IsZeroValue(des.ScaleDownMinWorkerFraction) {
 		des.ScaleDownMinWorkerFraction = initial.ScaleDownMinWorkerFraction
+	} else {
+		cDes.ScaleDownMinWorkerFraction = des.ScaleDownMinWorkerFraction
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfigSlice(des, initial []AutoscalingPolicyBasicAlgorithmYarnConfig, opts ...dcl.ApplyOption) []AutoscalingPolicyBasicAlgorithmYarnConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]AutoscalingPolicyBasicAlgorithmYarnConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]AutoscalingPolicyBasicAlgorithmYarnConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewAutoscalingPolicyBasicAlgorithmYarnConfig(c *Client, des, nw *AutoscalingPolicyBasicAlgorithmYarnConfig) *AutoscalingPolicyBasicAlgorithmYarnConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
+	}
+
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for AutoscalingPolicyBasicAlgorithmYarnConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	if dcl.StringCanonicalize(des.GracefulDecommissionTimeout, nw.GracefulDecommissionTimeout) {
 		nw.GracefulDecommissionTimeout = des.GracefulDecommissionTimeout
-	}
-	if dcl.IsZeroValue(nw.ScaleUpFactor) {
-		nw.ScaleUpFactor = des.ScaleUpFactor
-	}
-	if dcl.IsZeroValue(nw.ScaleDownFactor) {
-		nw.ScaleDownFactor = des.ScaleDownFactor
-	}
-	if dcl.IsZeroValue(nw.ScaleUpMinWorkerFraction) {
-		nw.ScaleUpMinWorkerFraction = des.ScaleUpMinWorkerFraction
-	}
-	if dcl.IsZeroValue(nw.ScaleDownMinWorkerFraction) {
-		nw.ScaleDownMinWorkerFraction = des.ScaleDownMinWorkerFraction
 	}
 
 	return nw
@@ -705,32 +791,67 @@ func canonicalizeAutoscalingPolicyWorkerConfig(des, initial *AutoscalingPolicyWo
 		return des
 	}
 
+	cDes := &AutoscalingPolicyWorkerConfig{}
+
 	if dcl.IsZeroValue(des.MinInstances) {
 		des.MinInstances = initial.MinInstances
+	} else {
+		cDes.MinInstances = des.MinInstances
 	}
 	if dcl.IsZeroValue(des.MaxInstances) {
 		des.MaxInstances = initial.MaxInstances
+	} else {
+		cDes.MaxInstances = des.MaxInstances
 	}
 	if dcl.IsZeroValue(des.Weight) {
 		des.Weight = initial.Weight
+	} else {
+		cDes.Weight = des.Weight
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeAutoscalingPolicyWorkerConfigSlice(des, initial []AutoscalingPolicyWorkerConfig, opts ...dcl.ApplyOption) []AutoscalingPolicyWorkerConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]AutoscalingPolicyWorkerConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeAutoscalingPolicyWorkerConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]AutoscalingPolicyWorkerConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeAutoscalingPolicyWorkerConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewAutoscalingPolicyWorkerConfig(c *Client, des, nw *AutoscalingPolicyWorkerConfig) *AutoscalingPolicyWorkerConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.MinInstances) {
-		nw.MinInstances = des.MinInstances
-	}
-	if dcl.IsZeroValue(nw.MaxInstances) {
-		nw.MaxInstances = des.MaxInstances
-	}
-	if dcl.IsZeroValue(nw.Weight) {
-		nw.Weight = des.Weight
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for AutoscalingPolicyWorkerConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -791,32 +912,67 @@ func canonicalizeAutoscalingPolicySecondaryWorkerConfig(des, initial *Autoscalin
 		return des
 	}
 
+	cDes := &AutoscalingPolicySecondaryWorkerConfig{}
+
 	if dcl.IsZeroValue(des.MinInstances) {
 		des.MinInstances = initial.MinInstances
+	} else {
+		cDes.MinInstances = des.MinInstances
 	}
 	if dcl.IsZeroValue(des.MaxInstances) {
 		des.MaxInstances = initial.MaxInstances
+	} else {
+		cDes.MaxInstances = des.MaxInstances
 	}
 	if dcl.IsZeroValue(des.Weight) {
 		des.Weight = initial.Weight
+	} else {
+		cDes.Weight = des.Weight
 	}
 
-	return des
+	return cDes
+}
+
+func canonicalizeAutoscalingPolicySecondaryWorkerConfigSlice(des, initial []AutoscalingPolicySecondaryWorkerConfig, opts ...dcl.ApplyOption) []AutoscalingPolicySecondaryWorkerConfig {
+	if des == nil {
+		return initial
+	}
+
+	if len(des) != len(initial) {
+
+		items := make([]AutoscalingPolicySecondaryWorkerConfig, 0, len(des))
+		for _, d := range des {
+			cd := canonicalizeAutoscalingPolicySecondaryWorkerConfig(&d, nil, opts...)
+			if cd != nil {
+				items = append(items, *cd)
+			}
+		}
+		return items
+	}
+
+	items := make([]AutoscalingPolicySecondaryWorkerConfig, 0, len(des))
+	for i, d := range des {
+		cd := canonicalizeAutoscalingPolicySecondaryWorkerConfig(&d, &initial[i], opts...)
+		if cd != nil {
+			items = append(items, *cd)
+		}
+	}
+	return items
+
 }
 
 func canonicalizeNewAutoscalingPolicySecondaryWorkerConfig(c *Client, des, nw *AutoscalingPolicySecondaryWorkerConfig) *AutoscalingPolicySecondaryWorkerConfig {
-	if des == nil || nw == nil {
+
+	if des == nil {
 		return nw
 	}
 
-	if dcl.IsZeroValue(nw.MinInstances) {
-		nw.MinInstances = des.MinInstances
-	}
-	if dcl.IsZeroValue(nw.MaxInstances) {
-		nw.MaxInstances = des.MaxInstances
-	}
-	if dcl.IsZeroValue(nw.Weight) {
-		nw.Weight = des.Weight
+	if nw == nil {
+		if dcl.IsNotReturnedByServer(des) {
+			c.Config.Logger.Info("Found explicitly empty value for AutoscalingPolicySecondaryWorkerConfig while comparing non-nil desired to nil actual.  Returning desired object.")
+			return des
+		}
+		return nil
 	}
 
 	return nw
@@ -1114,32 +1270,18 @@ func (r *AutoscalingPolicy) urlNormalized() *AutoscalingPolicy {
 	return &normalized
 }
 
-func (r *AutoscalingPolicy) getFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
-func (r *AutoscalingPolicy) createFields() (string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location)
-}
-
-func (r *AutoscalingPolicy) deleteFields() (string, string, string) {
-	n := r.urlNormalized()
-	return dcl.ValueOrEmptyString(n.Project), dcl.ValueOrEmptyString(n.Location), dcl.ValueOrEmptyString(n.Name)
-}
-
 func (r *AutoscalingPolicy) updateURL(userBasePath, updateName string) (string, error) {
-	n := r.urlNormalized()
+	nr := r.urlNormalized()
 	if updateName == "UpdateAutoscalingPolicy" {
 		fields := map[string]interface{}{
-			"project":  dcl.ValueOrEmptyString(n.Project),
-			"location": dcl.ValueOrEmptyString(n.Location),
-			"name":     dcl.ValueOrEmptyString(n.Name),
+			"project":  dcl.ValueOrEmptyString(nr.Project),
+			"location": dcl.ValueOrEmptyString(nr.Location),
+			"name":     dcl.ValueOrEmptyString(nr.Name),
 		}
-		return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}", "https://dataproc.googleapis.com/v1/", userBasePath, fields), nil
+		return dcl.URL("projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}", nr.basePath(), userBasePath, fields), nil
 
 	}
+
 	return "", fmt.Errorf("unknown update name: %s", updateName)
 }
 
@@ -1166,7 +1308,11 @@ func unmarshalAutoscalingPolicy(b []byte, c *Client) (*AutoscalingPolicy, error)
 
 func unmarshalMapAutoscalingPolicy(m map[string]interface{}, c *Client) (*AutoscalingPolicy, error) {
 
-	return flattenAutoscalingPolicy(c, m), nil
+	flattened := flattenAutoscalingPolicy(c, m)
+	if flattened == nil {
+		return nil, fmt.Errorf("attempted to flatten empty json object")
+	}
+	return flattened, nil
 }
 
 // expandAutoscalingPolicy expands AutoscalingPolicy into a JSON request object.
@@ -1768,31 +1914,49 @@ type autoscalingPolicyDiff struct {
 	UpdateOp         autoscalingPolicyApiOperation
 }
 
-func convertFieldDiffToAutoscalingPolicyOp(ops []string, fds []*dcl.FieldDiff, opts []dcl.ApplyOption) ([]autoscalingPolicyDiff, error) {
+func convertFieldDiffsToAutoscalingPolicyDiffs(config *dcl.Config, fds []*dcl.FieldDiff, opts []dcl.ApplyOption) ([]autoscalingPolicyDiff, error) {
+	opNamesToFieldDiffs := make(map[string][]*dcl.FieldDiff)
+	// Map each operation name to the field diffs associated with it.
+	for _, fd := range fds {
+		for _, ro := range fd.ResultingOperation {
+			if fieldDiffs, ok := opNamesToFieldDiffs[ro]; ok {
+				fieldDiffs = append(fieldDiffs, fd)
+				opNamesToFieldDiffs[ro] = fieldDiffs
+			} else {
+				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
+			}
+		}
+	}
 	var diffs []autoscalingPolicyDiff
-	for _, op := range ops {
+	// For each operation name, create a autoscalingPolicyDiff which contains the operation.
+	for opName, fieldDiffs := range opNamesToFieldDiffs {
 		diff := autoscalingPolicyDiff{}
-		if op == "Recreate" {
+		if opName == "Recreate" {
 			diff.RequiresRecreate = true
 		} else {
-			op, err := convertOpNameToautoscalingPolicyApiOperation(op, fds, opts...)
+			apiOp, err := convertOpNameToAutoscalingPolicyApiOperation(opName, fieldDiffs, opts...)
 			if err != nil {
 				return diffs, err
 			}
-			diff.UpdateOp = op
+			diff.UpdateOp = apiOp
 		}
 		diffs = append(diffs, diff)
 	}
 	return diffs, nil
 }
 
-func convertOpNameToautoscalingPolicyApiOperation(op string, diffs []*dcl.FieldDiff, opts ...dcl.ApplyOption) (autoscalingPolicyApiOperation, error) {
-	switch op {
+func convertOpNameToAutoscalingPolicyApiOperation(opName string, fieldDiffs []*dcl.FieldDiff, opts ...dcl.ApplyOption) (autoscalingPolicyApiOperation, error) {
+	switch opName {
 
 	case "updateAutoscalingPolicyUpdateAutoscalingPolicyOperation":
-		return &updateAutoscalingPolicyUpdateAutoscalingPolicyOperation{Diffs: diffs}, nil
+		return &updateAutoscalingPolicyUpdateAutoscalingPolicyOperation{FieldDiffs: fieldDiffs}, nil
 
 	default:
-		return nil, fmt.Errorf("no such operation with name: %v", op)
+		return nil, fmt.Errorf("no such operation with name: %v", opName)
 	}
+}
+
+func extractAutoscalingPolicyFields(r *AutoscalingPolicy) error {
+	return nil
 }

@@ -85,7 +85,7 @@ func (d *FieldDiff) String() string {
 	} else if len(d.ToAdd) != 0 || len(d.ToRemove) != 0 {
 		return fmt.Sprintf("Field %s: add %v, remove %v", d.FieldName, d.ToAdd, d.ToRemove)
 	}
-	return fmt.Sprintf("Field %s: got %s, want %s", d.FieldName, stringValue(d.Actual), stringValue(d.Desired))
+	return fmt.Sprintf("Field %s: got %s, want %s", d.FieldName, SprintResourceCompact(d.Actual), SprintResourceCompact(d.Desired))
 }
 
 func stringValue(i interface{}) string {
@@ -126,6 +126,7 @@ func Diff(desired, actual interface{}, info Info, fn FieldName) ([]*FieldDiff, e
 		if !info.CustomDiff(desired, actual) {
 			diffs = append(diffs, &FieldDiff{FieldName: fn.FieldName, Desired: desired, Actual: actual})
 		}
+		addOperationToDiffs(diffs, info)
 		return diffs, nil
 	}
 
@@ -259,7 +260,11 @@ func Diff(desired, actual interface{}, info Info, fn FieldName) ([]*FieldDiff, e
 		}
 
 		// Want empty value, but non-empty value currrently exists.
-		if IsEmptyValueIndirect(desired) && !IsEmptyValueIndirect(actual) {
+		// Only consider *explicitly* empty values, rather than "some combination
+		// of nils and falses" (as IEVI would do), because of the case comparing
+		// a non-explicitly empty struct with a struct containing only computed fields.
+		// See compute's `validate_test.go` for example.
+		if hasEmptyStructField(desired) && !IsEmptyValueIndirect(actual) {
 			diffs = append(diffs, &FieldDiff{FieldName: fn.FieldName, Desired: desired, Actual: actual})
 			addOperationToDiffs(diffs, info)
 			return diffs, nil
@@ -284,6 +289,23 @@ func Diff(desired, actual interface{}, info Info, fn FieldName) ([]*FieldDiff, e
 		if err != nil {
 			return nil, err
 		}
+		// Replace any nested diffs with a recreate operation with a diff in this field.
+		nonRecreateCount := 0
+		for _, d := range ds {
+			if len(d.ResultingOperation) == 0 {
+				return nil, fmt.Errorf("diff found in field %q with no operation", d.FieldName)
+			}
+			if d.ResultingOperation[0] != "Recreate" {
+				ds[nonRecreateCount] = d
+				nonRecreateCount++
+			}
+		}
+		if nonRecreateCount < len(ds) {
+			// At least one nested diff requires a recreate.
+			ds[nonRecreateCount] = &FieldDiff{FieldName: fn.FieldName, Desired: desired, Actual: actual}
+			nonRecreateCount++
+		}
+		ds = ds[:nonRecreateCount]
 		diffs = append(diffs, ds...)
 	default:
 		return nil, fmt.Errorf("no diffing logic exists for type: %q", desiredType)
@@ -505,7 +527,10 @@ func slice(slice interface{}) ([]interface{}, error) {
 
 func addOperationToDiffs(fds []*FieldDiff, i Info) {
 	for _, fd := range fds {
-		fd.ResultingOperation = i.OperationSelector(fd)
+		// Do not overwrite update operations on nested fields with parent field operations.
+		if len(fd.ResultingOperation) == 0 {
+			fd.ResultingOperation = i.OperationSelector(fd)
+		}
 	}
 }
 

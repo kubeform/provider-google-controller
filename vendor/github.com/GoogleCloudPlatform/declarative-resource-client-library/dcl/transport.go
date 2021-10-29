@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
@@ -45,13 +46,14 @@ func SendRequest(ctx context.Context, c *Config, verb, url string, body *bytes.B
 	hdrs.Set("User-Agent", c.UserAgent())
 	hdrs.Set("Content-Type", c.contentType)
 
-	if c.UserOverrideProject != "" {
-		hdrs.Set("X-Goog-User-Project", c.UserOverrideProject)
-	}
-
 	u, err := AddQueryParams(url, c.queryParams)
 	if err != nil {
 		return nil, err
+	}
+
+	hasUserProjectOverride, billingProject := UserProjectOverride(c, u)
+	if hasUserProjectOverride {
+		hdrs.Set("X-Goog-User-Project", billingProject)
 	}
 
 	mtls, err := GetMTLSEndpoint(u)
@@ -113,6 +115,8 @@ func SendRequest(ctx context.Context, c *Config, verb, url string, body *bytes.B
 		return &RetryDetails{Request: req, Response: res}, nil
 	}
 
+	// The start time of request retries is used to determine if an HTTP error is still retryable.
+	start := time.Now()
 	err = Do(ctx, func(ctx context.Context) (*RetryDetails, error) {
 		// Reset req body before http call.
 		req.Body = ioutil.NopCloser(bytes.NewReader(bodyBytes))
@@ -124,7 +128,7 @@ func SendRequest(ctx context.Context, c *Config, verb, url string, body *bytes.B
 			// If this is an error, we will not be returning the
 			// body, so we should close it.
 			googleapi.CloseBody(res)
-			if IsRetryableRequestError(c, err, false) {
+			if IsRetryableRequestError(c, err, false, start) {
 				return nil, OperationNotDone{Err: err}
 			}
 			return nil, err
@@ -161,14 +165,15 @@ func ParseResponse(resp *http.Response, ptr interface{}) error {
 
 // IsRetryableRequestError returns true if an error is determined to be
 // a common retryable error based on heuristics about GCP API behaviours.
-func IsRetryableRequestError(c *Config, err error, retryNotFound bool) bool {
+// The start time is used to determine if errors with custom timeouts should be retried.
+func IsRetryableRequestError(c *Config, err error, retryNotFound bool, start time.Time) bool {
 	// Return transient errors that should be retried.
-	if IsRetryableHTTPError(err) || (retryNotFound && IsNotFound(err)) {
+	if IsRetryableHTTPError(err, c.codeRetryability, start) || (retryNotFound && IsNotFound(err)) {
 		c.Logger.Infof("Error appears retryable: %s", err)
 		return true
 	}
 
-	if IsNonRetryableHTTPError(err) {
+	if IsNonRetryableHTTPError(err, c.codeRetryability, start) {
 		c.Logger.Infof("Error appears not to be retryable: %s", err)
 		return false
 	}
@@ -190,11 +195,11 @@ func Nprintf(format string, params map[string]interface{}) string {
 		return "error: too many path separators."
 	}
 	for key, val := range params {
-		r := regexp.MustCompile(`{{\s?` + key + `\s?}}`)
+		r := regexp.MustCompile(`{{\s?` + regexp.QuoteMeta(key) + `\s?}}`)
 		path = r.ReplaceAllString(path, fmt.Sprintf("%v", val))
 	}
 	for key, val := range params {
-		r := regexp.MustCompile(`{{\s?` + key + `\s?}}`)
+		r := regexp.MustCompile(`{{\s?` + regexp.QuoteMeta(key) + `\s?}}`)
 		query = r.ReplaceAllString(query, url.QueryEscape(fmt.Sprintf("%v", val)))
 	}
 	if query != "" {
@@ -254,4 +259,25 @@ func GetMTLSEndpoint(baseEndpoint string) (string, error) {
 		u.Host = fmt.Sprintf("%s:%s", u.Host, portParts[1])
 	}
 	return u.String(), nil
+}
+
+// UserProjectOverride returns true if user project override should be used and the project that should be set.
+func UserProjectOverride(c *Config, url string) (bool, string) {
+	if !c.userOverrideProject {
+		return false, ""
+	}
+
+	if c.billingProject != "" {
+		return true, c.billingProject
+	}
+
+	r := regexp.MustCompile(`projects/([a-z0-9A-Z-:_]*)/`)
+	g := r.FindStringSubmatch(url)
+	if g != nil && len(g) > 1 {
+		return true, g[1]
+	}
+
+	// This URL does not contain a project and no project was found in the URL.
+	// This most likely means a non-project resource was used accidentally.
+	return false, ""
 }

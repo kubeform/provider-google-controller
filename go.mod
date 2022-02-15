@@ -31,7 +31,7 @@ require (
 	kmodules.xyz/client-go v0.0.0-20211028120227-48eb36f92a30
 	kmodules.xyz/constants v0.0.0-20210218100002-2c304bfda278
 	kubeform.dev/apimachinery v0.0.0-20210824104859-ba5604d5a1cc
-	kubeform.dev/provider-google-api v0.4.0
+	kubeform.dev/provider-google-api v0.4.1-0.20220126220455-0dcdfc52aff3
 	kubeform.dev/terraform-backend-sdk v0.0.0-20210922115523-21574335f0db
 	sigs.k8s.io/cli-utils v0.25.0
 	sigs.k8s.io/controller-runtime v0.9.0

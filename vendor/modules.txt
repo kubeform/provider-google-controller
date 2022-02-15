@@ -1437,7 +1437,7 @@ kmodules.xyz/resource-metrics/api
 ## explicit
 kubeform.dev/apimachinery/api/v1alpha1
 kubeform.dev/apimachinery/pkg/util
-# kubeform.dev/provider-google-api v0.4.0
+# kubeform.dev/provider-google-api v0.4.1-0.20220126220455-0dcdfc52aff3
 ## explicit
 kubeform.dev/provider-google-api/api/provider
 kubeform.dev/provider-google-api/apis/accesscontext

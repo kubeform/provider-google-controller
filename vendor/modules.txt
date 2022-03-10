@@ -1,6 +1,6 @@
 # bitbucket.org/creachadair/stringset v0.0.8
 bitbucket.org/creachadair/stringset
-# cloud.google.com/go v0.93.3 => cloud.google.com/go v0.84.0
+# cloud.google.com/go v0.93.3
 cloud.google.com/go
 cloud.google.com/go/compute/metadata
 cloud.google.com/go/iam
@@ -10,10 +10,10 @@ cloud.google.com/go/internal/trace
 cloud.google.com/go/internal/version
 cloud.google.com/go/longrunning
 cloud.google.com/go/longrunning/autogen
-# cloud.google.com/go/bigtable v1.10.1 => cloud.google.com/go/bigtable v1.10.1
+# cloud.google.com/go/bigtable v1.10.1
 cloud.google.com/go/bigtable
 cloud.google.com/go/bigtable/internal/option
-# cloud.google.com/go/storage v1.10.0 => cloud.google.com/go/storage v1.6.0
+# cloud.google.com/go/storage v1.10.0
 cloud.google.com/go/storage
 # github.com/Azure/azure-sdk-for-go v52.5.0+incompatible
 github.com/Azure/azure-sdk-for-go/profiles/2017-03-09/resources/mgmt/resources
@@ -205,10 +205,8 @@ github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.5.2 => github.com/golang/protobuf v1.4.3
-github.com/golang/protobuf/internal/gengogrpc
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/protoc-gen-go
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -400,10 +398,6 @@ github.com/jpillora/go-ogle-analytics
 # github.com/json-iterator/go v1.1.11 => github.com/gomodules/json-iterator v1.1.12-0.20210506053207-2a3ea71074bc
 ## explicit
 github.com/json-iterator/go
-# github.com/jstemmer/go-junit-report v0.9.1
-github.com/jstemmer/go-junit-report
-github.com/jstemmer/go-junit-report/formatter
-github.com/jstemmer/go-junit-report/parser
 # github.com/klauspost/compress v1.11.2
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -676,13 +670,7 @@ golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
-golang.org/x/lint
-golang.org/x/lint/golint
 # golang.org/x/mod v0.5.0
-golang.org/x/mod/internal/lazyregexp
-golang.org/x/mod/module
-golang.org/x/mod/semver
 golang.org/x/mod/sumdb/dirhash
 # golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 golang.org/x/net/context
@@ -707,7 +695,6 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sys v0.0.0-20210915083310-ed5796bab164
 golang.org/x/sys/cpu
-golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
@@ -739,23 +726,6 @@ golang.org/x/text/unicode/norm
 golang.org/x/text/width
 # golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 golang.org/x/time/rate
-# golang.org/x/tools v0.1.5
-golang.org/x/tools/cmd/goimports
-golang.org/x/tools/go/ast/astutil
-golang.org/x/tools/go/gcexportdata
-golang.org/x/tools/go/internal/gcimporter
-golang.org/x/tools/internal/event
-golang.org/x/tools/internal/event/core
-golang.org/x/tools/internal/event/keys
-golang.org/x/tools/internal/event/label
-golang.org/x/tools/internal/fastwalk
-golang.org/x/tools/internal/gocommand
-golang.org/x/tools/internal/gopathwalk
-golang.org/x/tools/internal/imports
-golang.org/x/tools/internal/typeparams
-# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-golang.org/x/xerrors
-golang.org/x/xerrors/internal
 # gomodules.xyz/clock v0.0.0-20200817085942-06523dba733f
 gomodules.xyz/clock
 # gomodules.xyz/flags v0.1.2
@@ -866,7 +836,7 @@ google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/type/expr
 google.golang.org/genproto/protobuf/field_mask
-# google.golang.org/grpc v1.40.0 => google.golang.org/grpc v1.38.0
+# google.golang.org/grpc v1.40.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
@@ -928,8 +898,6 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 # google.golang.org/protobuf v1.27.1
-google.golang.org/protobuf/cmd/protoc-gen-go/internal_gengo
-google.golang.org/protobuf/compiler/protogen
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
@@ -953,7 +921,6 @@ google.golang.org/protobuf/internal/set
 google.golang.org/protobuf/internal/strs
 google.golang.org/protobuf/internal/version
 google.golang.org/protobuf/proto
-google.golang.org/protobuf/reflect/protodesc
 google.golang.org/protobuf/reflect/protoreflect
 google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
@@ -965,7 +932,6 @@ google.golang.org/protobuf/types/known/emptypb
 google.golang.org/protobuf/types/known/fieldmaskpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
-google.golang.org/protobuf/types/pluginpb
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
@@ -1827,13 +1793,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/json-iterator/go => github.com/gomodules/json-iterator v1.1.12-0.20210506053207-2a3ea71074bc
 # bitbucket.org/ww/goautoneg => gomodules.xyz/goautoneg v0.0.0-20120707110453-a547fc61f48d
-# cloud.google.com/go => cloud.google.com/go v0.84.0
-# cloud.google.com/go/bigquery => cloud.google.com/go/bigquery v1.4.0
-# cloud.google.com/go/bigtable => cloud.google.com/go/bigtable v1.10.1
-# cloud.google.com/go/datastore => cloud.google.com/go/datastore v1.1.0
-# cloud.google.com/go/firestore => cloud.google.com/go/firestore v1.1.0
-# cloud.google.com/go/pubsub => cloud.google.com/go/pubsub v1.2.0
-# cloud.google.com/go/storage => cloud.google.com/go/storage v1.6.0
 # github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 # github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
 # github.com/go-openapi/analysis => github.com/go-openapi/analysis v0.19.5
@@ -1855,7 +1814,6 @@ sigs.k8s.io/yaml
 # github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.10.0
 # go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
 # google.golang.org/genproto => google.golang.org/genproto v0.0.0-20210630183607-d20f26d13c79
-# google.golang.org/grpc => google.golang.org/grpc v1.38.0
 # helm.sh/helm/v3 => github.com/kubepack/helm/v3 v3.1.0-rc.1.0.20210503022716-7e2d4913a125
 # k8s.io/api => k8s.io/api v0.21.1
 # k8s.io/apimachinery => github.com/kmodules/apimachinery v0.21.2-rc.0.0.20210617231004-332981b97d2d

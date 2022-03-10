@@ -41,20 +41,6 @@ replace github.com/json-iterator/go => github.com/gomodules/json-iterator v1.1.1
 
 replace bitbucket.org/ww/goautoneg => gomodules.xyz/goautoneg v0.0.0-20120707110453-a547fc61f48d
 
-replace cloud.google.com/go => cloud.google.com/go v0.84.0
-
-replace cloud.google.com/go/bigquery => cloud.google.com/go/bigquery v1.4.0
-
-replace cloud.google.com/go/bigtable => cloud.google.com/go/bigtable v1.10.1
-
-replace cloud.google.com/go/datastore => cloud.google.com/go/datastore v1.1.0
-
-replace cloud.google.com/go/firestore => cloud.google.com/go/firestore v1.1.0
-
-replace cloud.google.com/go/pubsub => cloud.google.com/go/pubsub v1.2.0
-
-replace cloud.google.com/go/storage => cloud.google.com/go/storage v1.6.0
-
 replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 
 replace github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
@@ -96,8 +82,6 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 replace go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20210630183607-d20f26d13c79
-
-replace google.golang.org/grpc => google.golang.org/grpc v1.38.0
 
 replace helm.sh/helm/v3 => github.com/kubepack/helm/v3 v3.1.0-rc.1.0.20210503022716-7e2d4913a125
 

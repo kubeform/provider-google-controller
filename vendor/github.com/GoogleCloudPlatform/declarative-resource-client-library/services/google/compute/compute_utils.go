@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
+	"path"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/declarative-resource-client-library/dcl"
@@ -582,4 +584,78 @@ func targetPoolInstances() func(fd *dcl.FieldDiff) []string {
 		}
 		return ops
 	}
+}
+
+func flattenNetworkSelfLinkWithID(r map[string]interface{}, _ interface{}) *string {
+	selfLink, ok := r["selfLink"].(string)
+	if !ok {
+		return nil
+	}
+	id, ok := r["id"].(string)
+	if !ok {
+		return nil
+	}
+	u, err := url.Parse(selfLink)
+	if err != nil {
+		return nil
+	}
+	u.Path = fmt.Sprintf("%s/%s", path.Dir(u.Path), id)
+	selfLinkWithID := u.String()
+	return &selfLinkWithID
+}
+
+// Subnetwork's update operation has a custom method because a separate request must be performed for each field.
+func (op *updateSubnetworkUpdateOperation) do(ctx context.Context, r *Subnetwork, c *Client) error {
+	_, err := c.GetSubnetwork(ctx, r)
+	if err != nil {
+		return err
+	}
+
+	u, err := r.updateURL(c.Config.BasePath, "update")
+	if err != nil {
+		return err
+	}
+
+	req, err := newUpdateSubnetworkUpdateRequest(ctx, r, c)
+	if err != nil {
+		return err
+	}
+
+	fingerprint := req["fingerprint"]
+	for field, value := range req {
+		if field == "fingerprint" {
+			continue
+		}
+		sr := map[string]interface{}{
+			field:         value,
+			"fingerprint": fingerprint,
+		}
+		c.Config.Logger.InfoWithContextf(ctx, "Created update: %#v", sr)
+		body, err := marshalUpdateSubnetworkUpdateRequest(c, sr)
+		if err != nil {
+			return err
+		}
+		resp, err := dcl.SendRequest(ctx, c.Config, "PATCH", u, bytes.NewBuffer(body), c.Config.RetryProvider)
+		if err != nil {
+			return err
+		}
+
+		var o operations.ComputeOperation
+		if err := dcl.ParseResponse(resp.Response, &o); err != nil {
+			return err
+		}
+		err = o.Wait(context.WithValue(ctx, dcl.DoNotLogRequestsKey, true), c.Config, r.basePath(), "GET")
+
+		if err != nil {
+			return err
+		}
+		// Perform a get request to pick up the new fingerprint for the resource.
+		ur, err := c.GetSubnetwork(ctx, r)
+		if err != nil {
+			return err
+		}
+		fingerprint = ur.Fingerprint
+	}
+
+	return nil
 }

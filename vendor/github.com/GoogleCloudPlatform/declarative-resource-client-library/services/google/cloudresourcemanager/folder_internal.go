@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,6 +72,8 @@ type folderApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateFolderMoveFolderRequest(ctx context.Context, f *Folder, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.Parent; !dcl.IsEmptyValueIndirect(v) {
 		req["parent"] = v
@@ -102,6 +104,8 @@ type updateFolderMoveFolderOperation struct {
 // fields based on the intended state of the resource.
 func newUpdateFolderUpdateFolderRequest(ctx context.Context, f *Folder, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.DisplayName; !dcl.IsEmptyValueIndirect(v) {
 		req["displayName"] = v
@@ -376,6 +380,11 @@ func (c *Client) folderDiffsForRawDesired(ctx context.Context, rawDesired *Folde
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Folder: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Folder: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractFolderFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeFolderInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -416,7 +425,8 @@ func canonicalizeFolderDesiredState(rawDesired, rawInitial *Folder, opts ...dcl.
 		return rawDesired, nil
 	}
 	canonicalDesired := &Folder{}
-	if dcl.IsZeroValue(rawDesired.Name) {
+	if dcl.IsZeroValue(rawDesired.Name) || (dcl.IsEmptyValueIndirect(rawDesired.Name) && dcl.IsEmptyValueIndirect(rawInitial.Name)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Name = rawInitial.Name
 	} else {
 		canonicalDesired.Name = rawDesired.Name
@@ -500,6 +510,9 @@ func diffFolder(c *Client, desired, actual *Folder, opts ...dcl.ApplyOption) ([]
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -608,13 +621,15 @@ func unmarshalMapFolder(m map[string]interface{}, c *Client) (*Folder, error) {
 // expandFolder expands Folder into a JSON request object.
 func expandFolder(c *Client, f *Folder) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v := f.Parent; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Parent; dcl.ValueShouldBeSent(v) {
 		m["parent"] = v
 	}
-	if v := f.DisplayName; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.DisplayName; dcl.ValueShouldBeSent(v) {
 		m["displayName"] = v
 	}
 
@@ -690,7 +705,7 @@ func flattenFolderStateEnumSlice(c *Client, i interface{}) []FolderStateEnum {
 func flattenFolderStateEnum(i interface{}) *FolderStateEnum {
 	s, ok := i.(string)
 	if !ok {
-		return FolderStateEnumRef("")
+		return nil
 	}
 
 	return FolderStateEnumRef(s)
@@ -737,7 +752,7 @@ func convertFieldDiffsToFolderDiffs(config *dcl.Config, fds []*dcl.FieldDiff, op
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -775,5 +790,9 @@ func convertOpNameToFolderApiOperation(opName string, fieldDiffs []*dcl.FieldDif
 }
 
 func extractFolderFields(r *Folder) error {
+	return nil
+}
+
+func postReadExtractFolderFields(r *Folder) error {
 	return nil
 }

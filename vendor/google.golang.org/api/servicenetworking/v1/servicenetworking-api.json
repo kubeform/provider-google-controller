@@ -860,7 +860,7 @@
       }
     }
   },
-  "revision": "20210813",
+  "revision": "20211222",
   "rootUrl": "https://servicenetworking.googleapis.com/",
   "schemas": {
     "AddDnsRecordSetMetadata": {
@@ -987,8 +987,16 @@
           "format": "int32",
           "type": "integer"
         },
+        "outsideAllocationPublicIpRange": {
+          "description": "Optional. Enable outside allocation using public IP addresses. Any public IP range may be specified. If this field is provided, we will not use customer reserved ranges for this primary IP range.",
+          "type": "string"
+        },
         "privateIpv6GoogleAccess": {
           "description": "Optional. The private IPv6 google access type for the VMs in this subnet. For information about the access types that can be set using this field, see [subnetwork](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks) in the Compute API documentation.",
+          "type": "string"
+        },
+        "purpose": {
+          "description": "Optional. Defines the purpose field of the subnet, e.g. 'PRIVATE_SERVICE_CONNECT'. For information about the purposes that can be set using this field, see [subnetwork](https://cloud.google.com/compute/docs/reference/rest/v1/subnetworks) in the Compute API documentation.",
           "type": "string"
         },
         "region": {
@@ -1434,11 +1442,11 @@
       "type": "object"
     },
     "Control": {
-      "description": "Selects and configures the service controller used by the service. The service controller handles features like abuse, quota, billing, logging, monitoring, etc.",
+      "description": "Selects and configures the service controller used by the service. The service controller handles two things: - **What is allowed:** for each API request, Chemist checks the project status, activation status, abuse status, billing status, service status, location restrictions, VPC Service Controls, SuperQuota, and other policies. - **What has happened:** for each API response, Chemist reports the telemetry data to analytics, auditing, billing, eventing, logging, monitoring, sawmill, and tracing. Chemist also accepts telemetry data not associated with API traffic, such as billing metrics. Example: control: environment: servicecontrol.googleapis.com",
       "id": "Control",
       "properties": {
         "environment": {
-          "description": "The service control environment to use. If empty, no control plane feature (like quota and billing) will be enabled.",
+          "description": "The service controller environment to use. If empty, no control plane feature (like quota and billing) will be enabled. The recommended value for most services is servicecontrol.googleapis.com",
           "type": "string"
         }
       },
@@ -2822,6 +2830,10 @@
           "format": "int32",
           "type": "integer"
         },
+        "outsideAllocationPublicIpRange": {
+          "description": "Optional. Enable outside allocation using public IP addresses. Any public IP range may be specified. If this field is provided, we will not use customer reserved ranges for this secondary IP range.",
+          "type": "string"
+        },
         "rangeName": {
           "description": "Required. A name for the secondary IP range. The name must be 1-63 characters long, and comply with RFC1035. The name must be unique within the subnetwork.",
           "type": "string"
@@ -3249,6 +3261,10 @@
     "ValidateConsumerConfigRequest": {
       "id": "ValidateConsumerConfigRequest",
       "properties": {
+        "checkServiceNetworkingUsePermission": {
+          "description": "Optional. The IAM permission check determines whether the consumer project has 'servicenetworking.services.use' permission or not.",
+          "type": "boolean"
+        },
         "consumerNetwork": {
           "description": "Required. The network that the consumer is using to connect with services. Must be in the form of projects/{project}/global/networks/{network} {project} is a project number, as in '12345' {network} is network name.",
           "type": "string"
@@ -3298,7 +3314,8 @@
             "RANGES_EXHAUSTED",
             "RANGES_NOT_RESERVED",
             "RANGES_DELETED_LATER",
-            "COMPUTE_API_NOT_ENABLED"
+            "COMPUTE_API_NOT_ENABLED",
+            "USE_PERMISSION_NOT_FOUND"
           ],
           "enumDescriptions": [
             "",
@@ -3314,7 +3331,8 @@
             "The reserved IP ranges do not have enough space to create a subnet of desired size.",
             "The IP ranges were not reserved.",
             "The IP ranges were reserved but deleted later.",
-            "The consumer project does not have the compute api enabled."
+            "The consumer project does not have the compute api enabled.",
+            "The consumer project does not have the permission from the host project."
           ],
           "type": "string"
         }

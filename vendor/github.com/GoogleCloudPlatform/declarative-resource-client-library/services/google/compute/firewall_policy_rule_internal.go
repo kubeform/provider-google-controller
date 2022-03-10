@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -112,11 +112,13 @@ type firewallPolicyRuleApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateFirewallPolicyRulePatchRuleRequest(ctx context.Context, f *FirewallPolicyRule, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
 		req["description"] = v
 	}
-	if v, err := expandFirewallPolicyRuleMatch(c, f.Match); err != nil {
+	if v, err := expandFirewallPolicyRuleMatch(c, f.Match, res); err != nil {
 		return nil, fmt.Errorf("error expanding Match into match: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["match"] = v
@@ -300,6 +302,11 @@ func (c *Client) firewallPolicyRuleDiffsForRawDesired(ctx context.Context, rawDe
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for FirewallPolicyRule: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for FirewallPolicyRule: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractFirewallPolicyRuleFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeFirewallPolicyRuleInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -346,7 +353,8 @@ func canonicalizeFirewallPolicyRuleDesiredState(rawDesired, rawInitial *Firewall
 	} else {
 		canonicalDesired.Description = rawDesired.Description
 	}
-	if dcl.IsZeroValue(rawDesired.Priority) {
+	if dcl.IsZeroValue(rawDesired.Priority) || (dcl.IsEmptyValueIndirect(rawDesired.Priority) && dcl.IsEmptyValueIndirect(rawInitial.Priority)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Priority = rawInitial.Priority
 	} else {
 		canonicalDesired.Priority = rawDesired.Priority
@@ -357,12 +365,13 @@ func canonicalizeFirewallPolicyRuleDesiredState(rawDesired, rawInitial *Firewall
 	} else {
 		canonicalDesired.Action = rawDesired.Action
 	}
-	if dcl.IsZeroValue(rawDesired.Direction) {
+	if dcl.IsZeroValue(rawDesired.Direction) || (dcl.IsEmptyValueIndirect(rawDesired.Direction) && dcl.IsEmptyValueIndirect(rawInitial.Direction)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Direction = rawInitial.Direction
 	} else {
 		canonicalDesired.Direction = rawDesired.Direction
 	}
-	if dcl.IsZeroValue(rawDesired.TargetResources) {
+	if dcl.StringArrayCanonicalize(rawDesired.TargetResources, rawInitial.TargetResources) {
 		canonicalDesired.TargetResources = rawInitial.TargetResources
 	} else {
 		canonicalDesired.TargetResources = rawDesired.TargetResources
@@ -372,7 +381,7 @@ func canonicalizeFirewallPolicyRuleDesiredState(rawDesired, rawInitial *Firewall
 	} else {
 		canonicalDesired.EnableLogging = rawDesired.EnableLogging
 	}
-	if dcl.IsZeroValue(rawDesired.TargetServiceAccounts) {
+	if dcl.StringArrayCanonicalize(rawDesired.TargetServiceAccounts, rawInitial.TargetServiceAccounts) {
 		canonicalDesired.TargetServiceAccounts = rawInitial.TargetServiceAccounts
 	} else {
 		canonicalDesired.TargetServiceAccounts = rawDesired.TargetServiceAccounts
@@ -428,6 +437,9 @@ func canonicalizeFirewallPolicyRuleNewState(c *Client, rawNew, rawDesired *Firew
 	if dcl.IsNotReturnedByServer(rawNew.TargetResources) && dcl.IsNotReturnedByServer(rawDesired.TargetResources) {
 		rawNew.TargetResources = rawDesired.TargetResources
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.TargetResources, rawNew.TargetResources) {
+			rawNew.TargetResources = rawDesired.TargetResources
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.EnableLogging) && dcl.IsNotReturnedByServer(rawDesired.EnableLogging) {
@@ -446,6 +458,9 @@ func canonicalizeFirewallPolicyRuleNewState(c *Client, rawNew, rawDesired *Firew
 	if dcl.IsNotReturnedByServer(rawNew.TargetServiceAccounts) && dcl.IsNotReturnedByServer(rawDesired.TargetServiceAccounts) {
 		rawNew.TargetServiceAccounts = rawDesired.TargetServiceAccounts
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.TargetServiceAccounts, rawNew.TargetServiceAccounts) {
+			rawNew.TargetServiceAccounts = rawDesired.TargetServiceAccounts
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.Disabled) && dcl.IsNotReturnedByServer(rawDesired.Disabled) {
@@ -489,13 +504,13 @@ func canonicalizeFirewallPolicyRuleMatch(des, initial *FirewallPolicyRuleMatch, 
 
 	cDes := &FirewallPolicyRuleMatch{}
 
-	if dcl.IsZeroValue(des.SrcIPRanges) {
-		des.SrcIPRanges = initial.SrcIPRanges
+	if dcl.StringArrayCanonicalize(des.SrcIPRanges, initial.SrcIPRanges) {
+		cDes.SrcIPRanges = initial.SrcIPRanges
 	} else {
 		cDes.SrcIPRanges = des.SrcIPRanges
 	}
-	if dcl.IsZeroValue(des.DestIPRanges) {
-		des.DestIPRanges = initial.DestIPRanges
+	if dcl.StringArrayCanonicalize(des.DestIPRanges, initial.DestIPRanges) {
+		cDes.DestIPRanges = initial.DestIPRanges
 	} else {
 		cDes.DestIPRanges = des.DestIPRanges
 	}
@@ -505,7 +520,7 @@ func canonicalizeFirewallPolicyRuleMatch(des, initial *FirewallPolicyRuleMatch, 
 }
 
 func canonicalizeFirewallPolicyRuleMatchSlice(des, initial []FirewallPolicyRuleMatch, opts ...dcl.ApplyOption) []FirewallPolicyRuleMatch {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -546,6 +561,12 @@ func canonicalizeNewFirewallPolicyRuleMatch(c *Client, des, nw *FirewallPolicyRu
 		return nil
 	}
 
+	if dcl.StringArrayCanonicalize(des.SrcIPRanges, nw.SrcIPRanges) {
+		nw.SrcIPRanges = des.SrcIPRanges
+	}
+	if dcl.StringArrayCanonicalize(des.DestIPRanges, nw.DestIPRanges) {
+		nw.DestIPRanges = des.DestIPRanges
+	}
 	nw.Layer4Configs = canonicalizeNewFirewallPolicyRuleMatchLayer4ConfigsSlice(c, des.Layer4Configs, nw.Layer4Configs)
 
 	return nw
@@ -613,8 +634,8 @@ func canonicalizeFirewallPolicyRuleMatchLayer4Configs(des, initial *FirewallPoli
 	} else {
 		cDes.IPProtocol = des.IPProtocol
 	}
-	if dcl.IsZeroValue(des.Ports) {
-		des.Ports = initial.Ports
+	if dcl.StringArrayCanonicalize(des.Ports, initial.Ports) {
+		cDes.Ports = initial.Ports
 	} else {
 		cDes.Ports = des.Ports
 	}
@@ -666,6 +687,9 @@ func canonicalizeNewFirewallPolicyRuleMatchLayer4Configs(c *Client, des, nw *Fir
 
 	if dcl.StringCanonicalize(des.IPProtocol, nw.IPProtocol) {
 		nw.IPProtocol = des.IPProtocol
+	}
+	if dcl.StringArrayCanonicalize(des.Ports, nw.Ports) {
+		nw.Ports = des.Ports
 	}
 
 	return nw
@@ -725,6 +749,9 @@ func diffFirewallPolicyRule(c *Client, desired, actual *FirewallPolicyRule, opts
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -953,32 +980,38 @@ func unmarshalMapFirewallPolicyRule(m map[string]interface{}, c *Client) (*Firew
 // expandFirewallPolicyRule expands FirewallPolicyRule into a JSON request object.
 func expandFirewallPolicyRule(c *Client, f *FirewallPolicyRule) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v := f.Priority; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Priority; dcl.ValueShouldBeSent(v) {
 		m["priority"] = v
 	}
-	if v, err := expandFirewallPolicyRuleMatch(c, f.Match); err != nil {
+	if v, err := expandFirewallPolicyRuleMatch(c, f.Match, res); err != nil {
 		return nil, fmt.Errorf("error expanding Match into match: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["match"] = v
 	}
-	if v := f.Action; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Action; dcl.ValueShouldBeSent(v) {
 		m["action"] = v
 	}
-	if v := f.Direction; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Direction; dcl.ValueShouldBeSent(v) {
 		m["direction"] = v
 	}
-	m["targetResources"] = f.TargetResources
-	if v := f.EnableLogging; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.TargetResources; v != nil {
+		m["targetResources"] = v
+	}
+	if v := f.EnableLogging; dcl.ValueShouldBeSent(v) {
 		m["enableLogging"] = v
 	}
-	m["targetServiceAccounts"] = f.TargetServiceAccounts
-	if v := f.Disabled; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.TargetServiceAccounts; v != nil {
+		m["targetServiceAccounts"] = v
+	}
+	if v := f.Disabled; dcl.ValueShouldBeSent(v) {
 		m["disabled"] = v
 	}
-	if v := f.FirewallPolicy; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.FirewallPolicy; dcl.ValueShouldBeSent(v) {
 		m["firewallPolicy"] = v
 	}
 
@@ -1015,14 +1048,14 @@ func flattenFirewallPolicyRule(c *Client, i interface{}) *FirewallPolicyRule {
 
 // expandFirewallPolicyRuleMatchMap expands the contents of FirewallPolicyRuleMatch into a JSON
 // request object.
-func expandFirewallPolicyRuleMatchMap(c *Client, f map[string]FirewallPolicyRuleMatch) (map[string]interface{}, error) {
+func expandFirewallPolicyRuleMatchMap(c *Client, f map[string]FirewallPolicyRuleMatch, res *FirewallPolicyRule) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandFirewallPolicyRuleMatch(c, &item)
+		i, err := expandFirewallPolicyRuleMatch(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1036,14 +1069,14 @@ func expandFirewallPolicyRuleMatchMap(c *Client, f map[string]FirewallPolicyRule
 
 // expandFirewallPolicyRuleMatchSlice expands the contents of FirewallPolicyRuleMatch into a JSON
 // request object.
-func expandFirewallPolicyRuleMatchSlice(c *Client, f []FirewallPolicyRuleMatch) ([]map[string]interface{}, error) {
+func expandFirewallPolicyRuleMatchSlice(c *Client, f []FirewallPolicyRuleMatch, res *FirewallPolicyRule) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandFirewallPolicyRuleMatch(c, &item)
+		i, err := expandFirewallPolicyRuleMatch(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1096,7 +1129,7 @@ func flattenFirewallPolicyRuleMatchSlice(c *Client, i interface{}) []FirewallPol
 
 // expandFirewallPolicyRuleMatch expands an instance of FirewallPolicyRuleMatch into a JSON
 // request object.
-func expandFirewallPolicyRuleMatch(c *Client, f *FirewallPolicyRuleMatch) (map[string]interface{}, error) {
+func expandFirewallPolicyRuleMatch(c *Client, f *FirewallPolicyRuleMatch, res *FirewallPolicyRule) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1108,9 +1141,9 @@ func expandFirewallPolicyRuleMatch(c *Client, f *FirewallPolicyRuleMatch) (map[s
 	if v := f.DestIPRanges; v != nil {
 		m["destIpRanges"] = v
 	}
-	if v, err := expandFirewallPolicyRuleMatchLayer4ConfigsSlice(c, f.Layer4Configs); err != nil {
+	if v, err := expandFirewallPolicyRuleMatchLayer4ConfigsSlice(c, f.Layer4Configs, res); err != nil {
 		return nil, fmt.Errorf("error expanding Layer4Configs into layer4Configs: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
+	} else if v != nil {
 		m["layer4Configs"] = v
 	}
 
@@ -1139,14 +1172,14 @@ func flattenFirewallPolicyRuleMatch(c *Client, i interface{}) *FirewallPolicyRul
 
 // expandFirewallPolicyRuleMatchLayer4ConfigsMap expands the contents of FirewallPolicyRuleMatchLayer4Configs into a JSON
 // request object.
-func expandFirewallPolicyRuleMatchLayer4ConfigsMap(c *Client, f map[string]FirewallPolicyRuleMatchLayer4Configs) (map[string]interface{}, error) {
+func expandFirewallPolicyRuleMatchLayer4ConfigsMap(c *Client, f map[string]FirewallPolicyRuleMatchLayer4Configs, res *FirewallPolicyRule) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandFirewallPolicyRuleMatchLayer4Configs(c, &item)
+		i, err := expandFirewallPolicyRuleMatchLayer4Configs(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1160,14 +1193,14 @@ func expandFirewallPolicyRuleMatchLayer4ConfigsMap(c *Client, f map[string]Firew
 
 // expandFirewallPolicyRuleMatchLayer4ConfigsSlice expands the contents of FirewallPolicyRuleMatchLayer4Configs into a JSON
 // request object.
-func expandFirewallPolicyRuleMatchLayer4ConfigsSlice(c *Client, f []FirewallPolicyRuleMatchLayer4Configs) ([]map[string]interface{}, error) {
+func expandFirewallPolicyRuleMatchLayer4ConfigsSlice(c *Client, f []FirewallPolicyRuleMatchLayer4Configs, res *FirewallPolicyRule) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandFirewallPolicyRuleMatchLayer4Configs(c, &item)
+		i, err := expandFirewallPolicyRuleMatchLayer4Configs(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1220,8 +1253,8 @@ func flattenFirewallPolicyRuleMatchLayer4ConfigsSlice(c *Client, i interface{}) 
 
 // expandFirewallPolicyRuleMatchLayer4Configs expands an instance of FirewallPolicyRuleMatchLayer4Configs into a JSON
 // request object.
-func expandFirewallPolicyRuleMatchLayer4Configs(c *Client, f *FirewallPolicyRuleMatchLayer4Configs) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandFirewallPolicyRuleMatchLayer4Configs(c *Client, f *FirewallPolicyRuleMatchLayer4Configs, res *FirewallPolicyRule) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -1300,7 +1333,7 @@ func flattenFirewallPolicyRuleDirectionEnumSlice(c *Client, i interface{}) []Fir
 func flattenFirewallPolicyRuleDirectionEnum(i interface{}) *FirewallPolicyRuleDirectionEnum {
 	s, ok := i.(string)
 	if !ok {
-		return FirewallPolicyRuleDirectionEnumRef("")
+		return nil
 	}
 
 	return FirewallPolicyRuleDirectionEnumRef(s)
@@ -1355,7 +1388,7 @@ func convertFieldDiffsToFirewallPolicyRuleDiffs(config *dcl.Config, fds []*dcl.F
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1390,5 +1423,43 @@ func convertOpNameToFirewallPolicyRuleApiOperation(opName string, fieldDiffs []*
 }
 
 func extractFirewallPolicyRuleFields(r *FirewallPolicyRule) error {
+	vMatch := r.Match
+	if vMatch == nil {
+		// note: explicitly not the empty object.
+		vMatch = &FirewallPolicyRuleMatch{}
+	}
+	if err := extractFirewallPolicyRuleMatchFields(r, vMatch); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vMatch) {
+		r.Match = vMatch
+	}
+	return nil
+}
+func extractFirewallPolicyRuleMatchFields(r *FirewallPolicyRule, o *FirewallPolicyRuleMatch) error {
+	return nil
+}
+func extractFirewallPolicyRuleMatchLayer4ConfigsFields(r *FirewallPolicyRule, o *FirewallPolicyRuleMatchLayer4Configs) error {
+	return nil
+}
+
+func postReadExtractFirewallPolicyRuleFields(r *FirewallPolicyRule) error {
+	vMatch := r.Match
+	if vMatch == nil {
+		// note: explicitly not the empty object.
+		vMatch = &FirewallPolicyRuleMatch{}
+	}
+	if err := postReadExtractFirewallPolicyRuleMatchFields(r, vMatch); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vMatch) {
+		r.Match = vMatch
+	}
+	return nil
+}
+func postReadExtractFirewallPolicyRuleMatchFields(r *FirewallPolicyRule, o *FirewallPolicyRuleMatch) error {
+	return nil
+}
+func postReadExtractFirewallPolicyRuleMatchLayer4ConfigsFields(r *FirewallPolicyRule, o *FirewallPolicyRuleMatchLayer4Configs) error {
 	return nil
 }

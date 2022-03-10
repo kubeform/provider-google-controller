@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC.
+// Copyright 2022 Google LLC.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -79,7 +79,8 @@ const mtlsBasePath = "https://healthcare.mtls.googleapis.com/"
 
 // OAuth2 scopes used by this API.
 const (
-	// See, edit, configure, and delete your Google Cloud Platform data
+	// See, edit, configure, and delete your Google Cloud data and see the
+	// email address for your Google Account.
 	CloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
 )
 
@@ -150,6 +151,7 @@ type ProjectsService struct {
 func NewProjectsLocationsService(s *Service) *ProjectsLocationsService {
 	rs := &ProjectsLocationsService{s: s}
 	rs.Datasets = NewProjectsLocationsDatasetsService(s)
+	rs.Services = NewProjectsLocationsServicesService(s)
 	return rs
 }
 
@@ -157,6 +159,8 @@ type ProjectsLocationsService struct {
 	s *Service
 
 	Datasets *ProjectsLocationsDatasetsService
+
+	Services *ProjectsLocationsServicesService
 }
 
 func NewProjectsLocationsDatasetsService(s *Service) *ProjectsLocationsDatasetsService {
@@ -348,6 +352,27 @@ type ProjectsLocationsDatasetsOperationsService struct {
 	s *Service
 }
 
+func NewProjectsLocationsServicesService(s *Service) *ProjectsLocationsServicesService {
+	rs := &ProjectsLocationsServicesService{s: s}
+	rs.Nlp = NewProjectsLocationsServicesNlpService(s)
+	return rs
+}
+
+type ProjectsLocationsServicesService struct {
+	s *Service
+
+	Nlp *ProjectsLocationsServicesNlpService
+}
+
+func NewProjectsLocationsServicesNlpService(s *Service) *ProjectsLocationsServicesNlpService {
+	rs := &ProjectsLocationsServicesNlpService{s: s}
+	return rs
+}
+
+type ProjectsLocationsServicesNlpService struct {
+	s *Service
+}
+
 // ActivateConsentRequest: Activates the latest revision of the
 // specified Consent by committing a new revision with `state` updated
 // to `ACTIVE`. If the latest revision of the given Consent is in the
@@ -391,6 +416,90 @@ type ActivateConsentRequest struct {
 
 func (s *ActivateConsentRequest) MarshalJSON() ([]byte, error) {
 	type NoMethod ActivateConsentRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// AnalyzeEntitiesRequest: The request to analyze healthcare entities in
+// a document.
+type AnalyzeEntitiesRequest struct {
+	// DocumentContent: document_content is a document to be annotated.
+	DocumentContent string `json:"documentContent,omitempty"`
+
+	// LicensedVocabularies: A list of licensed vocabularies to use in the
+	// request, in addition to the default unlicensed vocabularies.
+	//
+	// Possible values:
+	//   "LICENSED_VOCABULARY_UNSPECIFIED" - No licensed vocabulary
+	// specified.
+	//   "ICD10CM" - ICD-10-CM vocabulary
+	//   "SNOMEDCT_US" - SNOMED CT (US version) vocabulary
+	LicensedVocabularies []string `json:"licensedVocabularies,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "DocumentContent") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "DocumentContent") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AnalyzeEntitiesRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod AnalyzeEntitiesRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// AnalyzeEntitiesResponse: Includes recognized entity mentions and
+// relationships between them.
+type AnalyzeEntitiesResponse struct {
+	// Entities: The union of all the candidate entities that the
+	// entity_mentions in this response could link to. These are UMLS
+	// concepts or normalized mention content.
+	Entities []*Entity `json:"entities,omitempty"`
+
+	// EntityMentions: entity_mentions contains all the annotated medical
+	// entities that were mentioned in the provided document.
+	EntityMentions []*EntityMention `json:"entityMentions,omitempty"`
+
+	// Relationships: relationships contains all the binary relationships
+	// that were identified between entity mentions within the provided
+	// document.
+	Relationships []*EntityMentionRelationship `json:"relationships,omitempty"`
+
+	// ServerResponse contains the HTTP response code and headers from the
+	// server.
+	googleapi.ServerResponse `json:"-"`
+
+	// ForceSendFields is a list of field names (e.g. "Entities") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Entities") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AnalyzeEntitiesResponse) MarshalJSON() ([]byte, error) {
+	type NoMethod AnalyzeEntitiesResponse
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -451,7 +560,7 @@ func (s *Attribute) MarshalJSON() ([]byte, error) {
 // AttributeDefinition: A client-defined consent attribute.
 type AttributeDefinition struct {
 	// AllowedValues: Required. Possible values for the attribute. The
-	// number of allowed values must not exceed 100. An empty list is
+	// number of allowed values must not exceed 500. An empty list is
 	// invalid. The list can only be expanded after creation.
 	AllowedValues []string `json:"allowedValues,omitempty"`
 
@@ -613,19 +722,19 @@ func (s *AuditLogConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Binding: Associates `members` with a `role`.
+// Binding: Associates `members`, or principals, with a `role`.
 type Binding struct {
 	// Condition: The condition that is associated with this binding. If the
 	// condition evaluates to `true`, then this binding applies to the
 	// current request. If the condition evaluates to `false`, then this
 	// binding does not apply to the current request. However, a different
-	// role binding might grant the same role to one or more of the members
-	// in this binding. To learn which resources support conditions in their
-	// IAM policies, see the IAM documentation
+	// role binding might grant the same role to one or more of the
+	// principals in this binding. To learn which resources support
+	// conditions in their IAM policies, see the IAM documentation
 	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	Condition *Expr `json:"condition,omitempty"`
 
-	// Members: Specifies the identities requesting access for a Cloud
+	// Members: Specifies the principals requesting access for a Cloud
 	// Platform resource. `members` can have the following values: *
 	// `allUsers`: A special identifier that represents anyone who is on the
 	// internet; with or without a Google account. *
@@ -659,8 +768,8 @@ type Binding struct {
 	// For example, `google.com` or `example.com`.
 	Members []string `json:"members,omitempty"`
 
-	// Role: Role that is assigned to `members`. For example,
-	// `roles/viewer`, `roles/editor`, or `roles/owner`.
+	// Role: Role that is assigned to the list of `members`, or principals.
+	// For example, `roles/viewer`, `roles/editor`, or `roles/owner`.
 	Role string `json:"role,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Condition") to
@@ -872,9 +981,7 @@ type Consent struct {
 	// the time of resource creation.
 	//   "ACTIVE" - The Consent is active and is considered when evaluating
 	// a user's consent on resources.
-	//   "ARCHIVED" - When a Consent is updated, the current version is
-	// archived and a new one is created with its state set to the updated
-	// Consent's previous state.
+	//   "ARCHIVED" - The archived state is currently not being used.
 	//   "REVOKED" - A revoked Consent is not considered when evaluating a
 	// user's consent on resources.
 	//   "DRAFT" - A draft Consent is not considered when evaluating a
@@ -1577,6 +1684,181 @@ type Empty struct {
 	googleapi.ServerResponse `json:"-"`
 }
 
+// Entity: The candidate entities that an entity mention could link to.
+type Entity struct {
+	// EntityId: entity_id is a first class field entity_id uniquely
+	// identifies this concept and its meta-vocabulary. For example,
+	// "UMLS/C0000970".
+	EntityId string `json:"entityId,omitempty"`
+
+	// PreferredTerm: preferred_term is the preferred term for this concept.
+	// For example, "Acetaminophen". For ad hoc entities formed by
+	// normalization, this is the most popular unnormalized string.
+	PreferredTerm string `json:"preferredTerm,omitempty"`
+
+	// VocabularyCodes: Vocabulary codes are first-class fields and
+	// differentiated from the concept unique identifier (entity_id).
+	// vocabulary_codes contains the representation of this concept in
+	// particular vocabularies, such as ICD-10, SNOMED-CT and RxNORM. These
+	// are prefixed by the name of the vocabulary, followed by the unique
+	// code within that vocabulary. For example, "RXNORM/A10334543".
+	VocabularyCodes []string `json:"vocabularyCodes,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "EntityId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EntityId") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *Entity) MarshalJSON() ([]byte, error) {
+	type NoMethod Entity
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// EntityMention: An entity mention in the document.
+type EntityMention struct {
+	// CertaintyAssessment: The certainty assessment of the entity mention.
+	// Its value is one of: LIKELY, SOMEWHAT_LIKELY, UNCERTAIN,
+	// SOMEWHAT_UNLIKELY, UNLIKELY, CONDITIONAL
+	CertaintyAssessment *Feature `json:"certaintyAssessment,omitempty"`
+
+	// Confidence: The model's confidence in this entity mention annotation.
+	// A number between 0 and 1.
+	Confidence float64 `json:"confidence,omitempty"`
+
+	// LinkedEntities: linked_entities are candidate ontological concepts
+	// that this entity mention may refer to. They are sorted by decreasing
+	// confidence.it
+	LinkedEntities []*LinkedEntity `json:"linkedEntities,omitempty"`
+
+	// MentionId: mention_id uniquely identifies each entity mention in a
+	// single response.
+	MentionId string `json:"mentionId,omitempty"`
+
+	// Subject: The subject this entity mention relates to. Its value is one
+	// of: PATIENT, FAMILY_MEMBER, OTHER
+	Subject *Feature `json:"subject,omitempty"`
+
+	// TemporalAssessment: How this entity mention relates to the subject
+	// temporally. Its value is one of: CURRENT, CLINICAL_HISTORY,
+	// FAMILY_HISTORY, UPCOMING, ALLERGY
+	TemporalAssessment *Feature `json:"temporalAssessment,omitempty"`
+
+	// Text: text is the location of the entity mention in the document.
+	Text *TextSpan `json:"text,omitempty"`
+
+	// Type: The semantic type of the entity: UNKNOWN_ENTITY_TYPE, ALONE,
+	// ANATOMICAL_STRUCTURE, ASSISTED_LIVING, BF_RESULT, BM_RESULT, BM_UNIT,
+	// BM_VALUE, BODY_FUNCTION, BODY_MEASUREMENT, COMPLIANT,
+	// DOESNOT_FOLLOWUP, FAMILY, FOLLOWSUP, LABORATORY_DATA, LAB_RESULT,
+	// LAB_UNIT, LAB_VALUE, MEDICAL_DEVICE, MEDICINE, MED_DOSE,
+	// MED_DURATION, MED_FORM, MED_FREQUENCY, MED_ROUTE, MED_STATUS,
+	// MED_STRENGTH, MED_TOTALDOSE, MED_UNIT, NON_COMPLIANT,
+	// OTHER_LIVINGSTATUS, PROBLEM, PROCEDURE, PROCEDURE_RESULT,
+	// PROC_METHOD, REASON_FOR_NONCOMPLIANCE, SEVERITY, SUBSTANCE_ABUSE,
+	// UNCLEAR_FOLLOWUP.
+	Type string `json:"type,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "CertaintyAssessment")
+	// to unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CertaintyAssessment") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EntityMention) MarshalJSON() ([]byte, error) {
+	type NoMethod EntityMention
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+func (s *EntityMention) UnmarshalJSON(data []byte) error {
+	type NoMethod EntityMention
+	var s1 struct {
+		Confidence gensupport.JSONFloat64 `json:"confidence"`
+		*NoMethod
+	}
+	s1.NoMethod = (*NoMethod)(s)
+	if err := json.Unmarshal(data, &s1); err != nil {
+		return err
+	}
+	s.Confidence = float64(s1.Confidence)
+	return nil
+}
+
+// EntityMentionRelationship: Defines directed relationship from one
+// entity mention to another.
+type EntityMentionRelationship struct {
+	// Confidence: The model's confidence in this annotation. A number
+	// between 0 and 1.
+	Confidence float64 `json:"confidence,omitempty"`
+
+	// ObjectId: object_id is the id of the object entity mention.
+	ObjectId string `json:"objectId,omitempty"`
+
+	// SubjectId: subject_id is the id of the subject entity mention.
+	SubjectId string `json:"subjectId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Confidence") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Confidence") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *EntityMentionRelationship) MarshalJSON() ([]byte, error) {
+	type NoMethod EntityMentionRelationship
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+func (s *EntityMentionRelationship) UnmarshalJSON(data []byte) error {
+	type NoMethod EntityMentionRelationship
+	var s1 struct {
+		Confidence gensupport.JSONFloat64 `json:"confidence"`
+		*NoMethod
+	}
+	s1.NoMethod = (*NoMethod)(s)
+	if err := json.Unmarshal(data, &s1); err != nil {
+		return err
+	}
+	s.Confidence = float64(s1.Confidence)
+	return nil
+}
+
 // EvaluateUserConsentsRequest: Evaluate a user's Consents for all
 // matching User data mappings. Note: User data mappings are indexed
 // asynchronously, causing slight delays between the time mappings are
@@ -1733,6 +2015,56 @@ func (s *ExportDicomDataRequest) MarshalJSON() ([]byte, error) {
 type ExportDicomDataResponse struct {
 }
 
+// ExportMessagesRequest: Request to schedule an export.
+type ExportMessagesRequest struct {
+	// EndTime: The end of the range in `send_time` (MSH.7,
+	// https://www.hl7.org/documentcenter/public_temp_2E58C1F9-1C23-BA17-0C6126475344DA9D/wg/conf/HL7MSH.htm)
+	// to process. If not specified, the time when the export is scheduled
+	// is used. This value has to come after the `start_time` defined below.
+	// Only messages whose `send_time` lies in the range `start_time`
+	// (inclusive) to `end_time` (exclusive) are exported.
+	EndTime string `json:"endTime,omitempty"`
+
+	// GcsDestination: Export to a Cloud Storage destination.
+	GcsDestination *GcsDestination `json:"gcsDestination,omitempty"`
+
+	// StartTime: The start of the range in `send_time` (MSH.7,
+	// https://www.hl7.org/documentcenter/public_temp_2E58C1F9-1C23-BA17-0C6126475344DA9D/wg/conf/HL7MSH.htm)
+	// to process. If not specified, the UNIX epoch (1970-01-01T00:00:00Z)
+	// is used. This value has to come before the `end_time` defined below.
+	// Only messages whose `send_time` lies in the range `start_time`
+	// (inclusive) to `end_time` (exclusive) are exported.
+	StartTime string `json:"startTime,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "EndTime") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EndTime") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ExportMessagesRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod ExportMessagesRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// ExportMessagesResponse: Final response for the export operation. This
+// structure is included in the response to describe the detailed
+// outcome.
+type ExportMessagesResponse struct {
+}
+
 // ExportResourcesRequest: Request to export resources.
 type ExportResourcesRequest struct {
 	// BigqueryDestination: The BigQuery output destination. The Cloud
@@ -1841,24 +2173,79 @@ func (s *Expr) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// FhirConfig: Specifies how to handle de-identification of a FHIR
-// store.
-type FhirConfig struct {
-	// FieldMetadataList: Specifies FHIR paths to match and how to transform
-	// them. Any field that is not matched by a FieldMetadata is passed
-	// through to the output dataset unmodified. All extensions are removed
-	// in the output.
-	FieldMetadataList []*FieldMetadata `json:"fieldMetadataList,omitempty"`
+// Feature: A feature of an entity mention.
+type Feature struct {
+	// Confidence: The model's confidence in this feature annotation. A
+	// number between 0 and 1.
+	Confidence float64 `json:"confidence,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "FieldMetadataList")
-	// to unconditionally include in API requests. By default, fields with
+	// Value: The value of this feature annotation. Its range depends on the
+	// type of the feature.
+	Value string `json:"value,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Confidence") to
+	// unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
 	// non-pointer, non-interface field appearing in ForceSendFields will be
 	// sent to the server regardless of whether the field is empty or not.
 	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "FieldMetadataList") to
+	// NullFields is a list of field names (e.g. "Confidence") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *Feature) MarshalJSON() ([]byte, error) {
+	type NoMethod Feature
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+func (s *Feature) UnmarshalJSON(data []byte) error {
+	type NoMethod Feature
+	var s1 struct {
+		Confidence gensupport.JSONFloat64 `json:"confidence"`
+		*NoMethod
+	}
+	s1.NoMethod = (*NoMethod)(s)
+	if err := json.Unmarshal(data, &s1); err != nil {
+		return err
+	}
+	s.Confidence = float64(s1.Confidence)
+	return nil
+}
+
+// FhirConfig: Specifies how to handle de-identification of a FHIR
+// store.
+type FhirConfig struct {
+	// DefaultKeepExtensions: The behaviour for handling FHIR extensions
+	// that aren't otherwise specified for de-identification. If true, all
+	// extensions are preserved during de-identification by default. If
+	// false or unspecified, all extensions are removed during
+	// de-identification by default.
+	DefaultKeepExtensions bool `json:"defaultKeepExtensions,omitempty"`
+
+	// FieldMetadataList: Specifies FHIR paths to match and how to transform
+	// them. Any field that is not matched by a FieldMetadata is passed
+	// through to the output dataset unmodified. All extensions will be
+	// processed according to `default_keep_extensions`.
+	FieldMetadataList []*FieldMetadata `json:"fieldMetadataList,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "DefaultKeepExtensions") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "DefaultKeepExtensions") to
 	// include in API requests with the JSON null value. By default, fields
 	// with empty values are omitted from API requests. However, any field
 	// with an empty value appearing in NullFields will be sent to the
@@ -1985,6 +2372,10 @@ type FhirStore struct {
 	// the results show up in the streaming destination.
 	StreamConfigs []*StreamConfig `json:"streamConfigs,omitempty"`
 
+	// ValidationConfig: Configuration for how to validate incoming FHIR
+	// resources against configured profiles.
+	ValidationConfig *ValidationConfig `json:"validationConfig,omitempty"`
+
 	// Version: Immutable. The FHIR specification version that this FHIR
 	// store supports natively. This field is immutable after store
 	// creation. Requests are rejected if they contain FHIR resources of a
@@ -2091,9 +2482,9 @@ type FieldMetadata struct {
 	// (those defined in the FHIR spec with the form: field[x]) we use two
 	// separate components. For example, "deceasedAge.unit" is matched by
 	// "Deceased.Age.unit". Supported types are: AdministrativeGenderCode,
-	// Code, Date, DateTime, Decimal, HumanName, Id, LanguageCode, Markdown,
-	// Oid, String, Uri, Uuid, Xhtml. Base64Binary is also supported, but
-	// may only be kept as-is or have all the content removed.
+	// Base64Binary, Boolean, Code, Date, DateTime, Decimal, HumanName, Id,
+	// Instant, Integer, LanguageCode, Markdown, Oid, PositiveInt, String,
+	// UnsignedInt, Uri, Uuid, Xhtml.
 	Paths []string `json:"paths,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Action") to
@@ -2115,6 +2506,106 @@ type FieldMetadata struct {
 
 func (s *FieldMetadata) MarshalJSON() ([]byte, error) {
 	type NoMethod FieldMetadata
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GcsDestination: The Cloud Storage output destination. The Cloud
+// Healthcare Service Agent requires the `roles/storage.objectAdmin`
+// Cloud IAM roles on the Cloud Storage location.
+type GcsDestination struct {
+	// ContentStructure: The format of the exported HL7v2 message files.
+	//
+	// Possible values:
+	//   "CONTENT_STRUCTURE_UNSPECIFIED" - If the content structure is not
+	// specified, the default value `MESSAGE_JSON` will be used.
+	//   "MESSAGE_JSON" - Messages are printed using the JSON format
+	// returned from the `GetMessage` API. Messages are delimited with
+	// newlines.
+	ContentStructure string `json:"contentStructure,omitempty"`
+
+	// MessageView: Specifies the parts of the Message resource to include
+	// in the export. If not specified, FULL is used.
+	//
+	// Possible values:
+	//   "MESSAGE_VIEW_UNSPECIFIED" - Not specified, equivalent to FULL.
+	//   "RAW_ONLY" - Server responses include all the message fields except
+	// parsed_data field, and schematized_data fields.
+	//   "PARSED_ONLY" - Server responses include all the message fields
+	// except data field, and schematized_data fields.
+	//   "FULL" - Server responses include all the message fields.
+	//   "SCHEMATIZED_ONLY" - Server responses include all the message
+	// fields except data and parsed_data fields.
+	//   "BASIC" - Server responses include only the name field.
+	MessageView string `json:"messageView,omitempty"`
+
+	// UriPrefix: URI of an existing Cloud Storage directory where the
+	// server writes result files, in the format
+	// `gs://{bucket-id}/{path/to/destination/dir}`. If there is no trailing
+	// slash, the service appends one when composing the object path.
+	UriPrefix string `json:"uriPrefix,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "ContentStructure") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ContentStructure") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GcsDestination) MarshalJSON() ([]byte, error) {
+	type NoMethod GcsDestination
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// GcsSource: Specifies the configuration for importing data from Cloud
+// Storage.
+type GcsSource struct {
+	// Uri: Points to a Cloud Storage URI containing file(s) to import. The
+	// URI must be in the following format: `gs://{bucket_id}/{object_id}`.
+	// The URI can include wildcards in `object_id` and thus identify
+	// multiple files. Supported wildcards: * `*` to match 0 or more
+	// non-separator characters * `**` to match 0 or more characters
+	// (including separators). Must be used at the end of a path and with no
+	// other wildcards in the path. Can also be used with a file extension
+	// (such as .ndjson), which imports all files with the extension in the
+	// specified directory and its sub-directories. For example,
+	// `gs://my-bucket/my-directory/**.ndjson` imports all files with
+	// `.ndjson` extensions in `my-directory/` and its sub-directories. *
+	// `?` to match 1 character Files matching the wildcard are expected to
+	// contain content only, no metadata.
+	Uri string `json:"uri,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Uri") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Uri") to include in API
+	// requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *GcsSource) MarshalJSON() ([]byte, error) {
+	type NoMethod GcsSource
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -2206,15 +2697,28 @@ type GoogleCloudHealthcareV1DeidentifyDeidentifyFhirStoreSummary struct {
 // GoogleCloudHealthcareV1DicomBigQueryDestination: The BigQuery table
 // where the server writes the output.
 type GoogleCloudHealthcareV1DicomBigQueryDestination struct {
-	// Force: If the destination table already exists and this flag is
-	// `TRUE`, the table is overwritten by the contents of the DICOM store.
-	// If the flag is not set and the destination table already exists, the
-	// export call returns an error.
+	// Force: Use `write_disposition` instead. If `write_disposition` is
+	// specified, this parameter is ignored. force=false is equivalent to
+	// write_disposition=WRITE_EMPTY and force=true is equivalent to
+	// write_disposition=WRITE_TRUNCATE.
 	Force bool `json:"force,omitempty"`
 
 	// TableUri: BigQuery URI to a table, up to 2000 characters long, in the
 	// format `bq://projectId.bqDatasetId.tableId`
 	TableUri string `json:"tableUri,omitempty"`
+
+	// WriteDisposition: Determines whether the existing table in the
+	// destination is to be overwritten or appended to. If a
+	// write_disposition is specified, the `force` parameter is ignored.
+	//
+	// Possible values:
+	//   "WRITE_DISPOSITION_UNSPECIFIED" - Default behavior is the same as
+	// WRITE_EMPTY.
+	//   "WRITE_EMPTY" - Only export data if the destination table is empty.
+	//   "WRITE_TRUNCATE" - Erase all existing data in a table before
+	// writing the instances.
+	//   "WRITE_APPEND" - Append data to the existing table.
+	WriteDisposition string `json:"writeDisposition,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Force") to
 	// unconditionally include in API requests. By default, fields with
@@ -2905,6 +3409,44 @@ func (s *ImportDicomDataRequest) MarshalJSON() ([]byte, error) {
 type ImportDicomDataResponse struct {
 }
 
+// ImportMessagesRequest: Request to import messages.
+type ImportMessagesRequest struct {
+	// GcsSource: Cloud Storage source data location and import
+	// configuration. The Cloud Healthcare Service Agent requires the
+	// `roles/storage.objectViewer` Cloud IAM roles on the Cloud Storage
+	// location.
+	GcsSource *GcsSource `json:"gcsSource,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "GcsSource") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "GcsSource") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ImportMessagesRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod ImportMessagesRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// ImportMessagesResponse: Final response of importing messages. This
+// structure is included in the response to describe the detailed
+// outcome. It is only included when the operation finishes
+// successfully.
+type ImportMessagesResponse struct {
+}
+
 // ImportResourcesRequest: Request to import resources.
 type ImportResourcesRequest struct {
 	// ContentStructure: The content structure in the source location. If
@@ -3068,6 +3610,39 @@ type IngestMessageResponse struct {
 
 func (s *IngestMessageResponse) MarshalJSON() ([]byte, error) {
 	type NoMethod IngestMessageResponse
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// LinkedEntity: EntityMentions can be linked to multiple entities using
+// a LinkedEntity message lets us add other fields, e.g. confidence.
+type LinkedEntity struct {
+	// EntityId: entity_id is a concept unique identifier. These are
+	// prefixed by a string that identifies the entity coding system,
+	// followed by the unique identifier within that system. For example,
+	// "UMLS/C0000970". This also supports ad hoc entities, which are formed
+	// by normalizing entity mention content.
+	EntityId string `json:"entityId,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "EntityId") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "EntityId") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *LinkedEntity) MarshalJSON() ([]byte, error) {
+	type NoMethod LinkedEntity
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -3882,6 +4457,22 @@ type ParserConfig struct {
 	// version 2 specification.
 	SegmentTerminator string `json:"segmentTerminator,omitempty"`
 
+	// Version: Immutable. Determines the version of both the default parser
+	// to be used when `schema` is not given, as well as the schematized
+	// parser used when `schema` is specified. This field is immutable after
+	// HL7v2 store creation.
+	//
+	// Possible values:
+	//   "PARSER_VERSION_UNSPECIFIED" - Unspecified parser version,
+	// equivalent to V1.
+	//   "V1" - The `parsed_data` includes every given non-empty message
+	// field except the Field Separator (MSH-1) field. As a result, the
+	// parsed MSH segment starts with the MSH-2 field and the field numbers
+	// are off-by-one with respect to the HL7 standard.
+	//   "V2" - The `parsed_data` includes every given non-empty message
+	// field.
+	Version string `json:"version,omitempty"`
+
 	// ForceSendFields is a list of field names (e.g. "AllowNullHeader") to
 	// unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
@@ -3939,17 +4530,17 @@ func (s *PatientId) MarshalJSON() ([]byte, error) {
 
 // Policy: An Identity and Access Management (IAM) policy, which
 // specifies access controls for Google Cloud resources. A `Policy` is a
-// collection of `bindings`. A `binding` binds one or more `members` to
-// a single `role`. Members can be user accounts, service accounts,
-// Google groups, and domains (such as G Suite). A `role` is a named
-// list of permissions; each `role` can be an IAM predefined role or a
-// user-created custom role. For some types of Google Cloud resources, a
-// `binding` can also specify a `condition`, which is a logical
-// expression that allows access to a resource only if the expression
-// evaluates to `true`. A condition can add constraints based on
-// attributes of the request, the resource, or both. To learn which
-// resources support conditions in their IAM policies, see the IAM
-// documentation
+// collection of `bindings`. A `binding` binds one or more `members`, or
+// principals, to a single `role`. Principals can be user accounts,
+// service accounts, Google groups, and domains (such as G Suite). A
+// `role` is a named list of permissions; each `role` can be an IAM
+// predefined role or a user-created custom role. For some types of
+// Google Cloud resources, a `binding` can also specify a `condition`,
+// which is a logical expression that allows access to a resource only
+// if the expression evaluates to `true`. A condition can add
+// constraints based on attributes of the request, the resource, or
+// both. To learn which resources support conditions in their IAM
+// policies, see the IAM documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 // **JSON example:** { "bindings": [ { "role":
 // "roles/resourcemanager.organizationAdmin", "members": [
@@ -3968,17 +4559,23 @@ func (s *PatientId) MarshalJSON() ([]byte, error) {
 // user:eve@example.com role: roles/resourcemanager.organizationViewer
 // condition: title: expirable access description: Does not grant access
 // after Sep 2020 expression: request.time <
-// timestamp('2020-10-01T00:00:00.000Z') - etag: BwWWja0YfJA= - version:
-// 3 For a description of IAM and its features, see the IAM
-// documentation (https://cloud.google.com/iam/docs/).
+// timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3
+// For a description of IAM and its features, see the IAM documentation
+// (https://cloud.google.com/iam/docs/).
 type Policy struct {
 	// AuditConfigs: Specifies cloud audit logging configuration for this
 	// policy.
 	AuditConfigs []*AuditConfig `json:"auditConfigs,omitempty"`
 
-	// Bindings: Associates a list of `members` to a `role`. Optionally, may
-	// specify a `condition` that determines how and when the `bindings` are
-	// applied. Each of the `bindings` must contain at least one member.
+	// Bindings: Associates a list of `members`, or principals, with a
+	// `role`. Optionally, may specify a `condition` that determines how and
+	// when the `bindings` are applied. Each of the `bindings` must contain
+	// at least one principal. The `bindings` in a `Policy` can refer to up
+	// to 1,500 principals; up to 250 of these principals can be Google
+	// groups. Each occurrence of a principal counts towards these limits.
+	// For example, if the `bindings` grant 50 different roles to
+	// `user:alice@example.com`, and not to any other principal, then you
+	// can add another 1,450 principals to the `bindings` in the `Policy`.
 	Bindings []*Binding `json:"bindings,omitempty"`
 
 	// Etag: `etag` is used for optimistic concurrency control as a way to
@@ -4432,6 +5029,20 @@ type SchemaPackage struct {
 	// same type name if their VersionSources all match an incoming message.
 	Types []*Hl7TypesConfig `json:"types,omitempty"`
 
+	// UnexpectedSegmentHandling: Determines how unexpected segments
+	// (segments not matched to the schema) are handled.
+	//
+	// Possible values:
+	//   "UNEXPECTED_SEGMENT_HANDLING_MODE_UNSPECIFIED" - Unspecified
+	// handling mode, equivalent to FAIL.
+	//   "FAIL" - Unexpected segments fail to parse and return an error.
+	//   "SKIP" - Unexpected segments do not fail, but are omitted from the
+	// output.
+	//   "PARSE" - Unexpected segments do not fail, but are parsed in place
+	// and added to the current group. If a segment has a type definition,
+	// it is used, otherwise it is parsed as VARIES.
+	UnexpectedSegmentHandling string `json:"unexpectedSegmentHandling,omitempty"`
+
 	// ForceSendFields is a list of field names (e.g. "IgnoreMinOccurs") to
 	// unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
@@ -4738,8 +5349,9 @@ type StreamConfig struct {
 	// not streamed. One resolution in this case is to delete the
 	// incompatible table and let the server recreate one, though the newly
 	// created table only contains data after the table recreation. Results
-	// are appended to the corresponding BigQuery tables. Different versions
-	// of the same resource are distinguishable by the meta.versionId and
+	// are written to BigQuery tables according to the parameters in
+	// BigQueryDestination.WriteDisposition. Different versions of the same
+	// resource are distinguishable by the meta.versionId and
 	// meta.lastUpdated columns. The operation (CREATE/UPDATE/DELETE) that
 	// results in the new version is recorded in the meta.tag. The tables
 	// contain all historical resource versions since streaming was enabled.
@@ -4914,6 +5526,38 @@ func (s *TextConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// TextSpan: A span of text in the provided document.
+type TextSpan struct {
+	// BeginOffset: The unicode codepoint index of the beginning of this
+	// span.
+	BeginOffset int64 `json:"beginOffset,omitempty"`
+
+	// Content: The original text contained in this span.
+	Content string `json:"content,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "BeginOffset") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "BeginOffset") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *TextSpan) MarshalJSON() ([]byte, error) {
+	type NoMethod TextSpan
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // Type: A type definition for some HL7v2 type (incl. Segments and
 // Datatypes).
 type Type struct {
@@ -5015,6 +5659,81 @@ func (s *UserDataMapping) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// ValidationConfig: Contains the configuration for FHIR profiles and
+// validation.
+type ValidationConfig struct {
+	// DisableFhirpathValidation: Whether to disable FHIRPath validation for
+	// incoming resources. Set this to true to disable checking incoming
+	// resources for conformance against FHIRPath requirement defined in the
+	// FHIR specification. This property only affects resource types that do
+	// not have profiles configured for them, any rules in enabled
+	// implementation guides will still be enforced.
+	DisableFhirpathValidation bool `json:"disableFhirpathValidation,omitempty"`
+
+	// DisableProfileValidation: Whether to disable profile validation for
+	// this FHIR store. Set this to true to disable checking incoming
+	// resources for conformance against structure definitions in this FHIR
+	// store.
+	DisableProfileValidation bool `json:"disableProfileValidation,omitempty"`
+
+	// DisableReferenceTypeValidation: Whether to disable reference type
+	// validation for incoming resources. Set this to true to disable
+	// checking incoming resources for conformance against reference type
+	// requirement defined in the FHIR specification. This property only
+	// affects resource types that do not have profiles configured for them,
+	// any rules in enabled implementation guides will still be enforced.
+	DisableReferenceTypeValidation bool `json:"disableReferenceTypeValidation,omitempty"`
+
+	// DisableRequiredFieldValidation: Whether to disable required fields
+	// validation for incoming resources. Set this to true to disable
+	// checking incoming resources for conformance against required fields
+	// requirement defined in the FHIR specification. This property only
+	// affects resource types that do not have profiles configured for them,
+	// any rules in enabled implementation guides will still be enforced.
+	DisableRequiredFieldValidation bool `json:"disableRequiredFieldValidation,omitempty"`
+
+	// EnabledImplementationGuides: A list of implementation guide URLs in
+	// this FHIR store that are used to configure the profiles to use for
+	// validation. For example, to use the US Core profiles for validation,
+	// set `enabled_implementation_guides` to
+	// `["http://hl7.org/fhir/us/core/ImplementationGuide/ig"]`. If
+	// `enabled_implementation_guides` is empty or omitted, then incoming
+	// resources are only required to conform to the base FHIR profiles.
+	// Otherwise, a resource must conform to at least one profile listed in
+	// the `global` property of one of the enabled ImplementationGuides. The
+	// Cloud Healthcare API does not currently enforce all of the rules in a
+	// StructureDefinition. The following rules are supported: - min/max -
+	// minValue/maxValue - maxLength - type - fixed[x] - pattern[x] on
+	// simple types - slicing, when using "value" as the discriminator type
+	// When a URL cannot be resolved (for example, in a type assertion), the
+	// server does not return an error.
+	EnabledImplementationGuides []string `json:"enabledImplementationGuides,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "DisableFhirpathValidation") to unconditionally include in API
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g.
+	// "DisableFhirpathValidation") to include in API requests with the JSON
+	// null value. By default, fields with empty values are omitted from API
+	// requests. However, any field with an empty value appearing in
+	// NullFields will be sent to the server as null. It is an error if a
+	// field in this list has a non-empty value. This may be used to include
+	// null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ValidationConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod ValidationConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // VersionSource: Describes a selector for extracting and matching an
 // MSH field to a value.
 type VersionSource struct {
@@ -5106,7 +5825,7 @@ func (c *ProjectsLocationsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5278,7 +5997,7 @@ func (c *ProjectsLocationsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5465,7 +6184,7 @@ func (c *ProjectsLocationsDatasetsCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5623,7 +6342,7 @@ func (c *ProjectsLocationsDatasetsDeidentifyCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDeidentifyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5767,7 +6486,7 @@ func (c *ProjectsLocationsDatasetsDeleteCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5912,7 +6631,7 @@ func (c *ProjectsLocationsDatasetsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6026,13 +6745,17 @@ func (r *ProjectsLocationsDatasetsService) GetIamPolicy(resource string) *Projec
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned. Valid values are 0, 1, and 3. Requests specifying an
-// invalid value will be rejected. Requests for policies with any
-// conditional bindings must specify version 3. Policies without any
-// conditional bindings may specify any valid value or leave the field
-// unset. To learn which resources support conditions in their IAM
-// policies, see the IAM documentation
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsDatasetsGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsDatasetsGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
@@ -6076,7 +6799,7 @@ func (c *ProjectsLocationsDatasetsGetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6147,7 +6870,7 @@ func (c *ProjectsLocationsDatasetsGetIamPolicyCall) Do(opts ...googleapi.CallOpt
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional bindings must specify version 3. Policies without any conditional bindings may specify any valid value or leave the field unset. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
@@ -6244,7 +6967,7 @@ func (c *ProjectsLocationsDatasetsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6423,7 +7146,7 @@ func (c *ProjectsLocationsDatasetsPatchCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6575,7 +7298,7 @@ func (c *ProjectsLocationsDatasetsSetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6724,7 +7447,7 @@ func (c *ProjectsLocationsDatasetsTestIamPermissionsCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6871,7 +7594,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresCheckDataAccessCall) Header() htt
 
 func (c *ProjectsLocationsDatasetsConsentStoresCheckDataAccessCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7024,7 +7747,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresCreateCall) Header() http.Header 
 
 func (c *ProjectsLocationsDatasetsConsentStoresCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7170,7 +7893,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresDeleteCall) Header() http.Header 
 
 func (c *ProjectsLocationsDatasetsConsentStoresDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7309,7 +8032,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresEvaluateUserConsentsCall) Header(
 
 func (c *ProjectsLocationsDatasetsConsentStoresEvaluateUserConsentsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7481,7 +8204,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsConsentStoresGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7595,13 +8318,17 @@ func (r *ProjectsLocationsDatasetsConsentStoresService) GetIamPolicy(resource st
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned. Valid values are 0, 1, and 3. Requests specifying an
-// invalid value will be rejected. Requests for policies with any
-// conditional bindings must specify version 3. Policies without any
-// conditional bindings may specify any valid value or leave the field
-// unset. To learn which resources support conditions in their IAM
-// policies, see the IAM documentation
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsDatasetsConsentStoresGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsDatasetsConsentStoresGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
@@ -7645,7 +8372,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresGetIamPolicyCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsConsentStoresGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7716,7 +8443,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresGetIamPolicyCall) Do(opts ...goog
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional bindings must specify version 3. Policies without any conditional bindings may specify any valid value or leave the field unset. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
@@ -7820,7 +8547,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresListCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsConsentStoresListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8008,7 +8735,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresPatchCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsConsentStoresPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8185,7 +8912,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresQueryAccessibleDataCall) Header()
 
 func (c *ProjectsLocationsDatasetsConsentStoresQueryAccessibleDataCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8331,7 +9058,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresSetIamPolicyCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsConsentStoresSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8480,7 +9207,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresTestIamPermissionsCall) Header() 
 
 func (c *ProjectsLocationsDatasetsConsentStoresTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8635,7 +9362,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsCreateCall) H
 
 func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8785,7 +9512,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsDeleteCall) H
 
 func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8928,7 +9655,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsGetCall) Head
 
 func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9098,7 +9825,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsListCall) Hea
 
 func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9288,7 +10015,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsPatchCall) He
 
 func (c *ProjectsLocationsDatasetsConsentStoresAttributeDefinitionsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9437,7 +10164,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsCreateCall) Heade
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9580,7 +10307,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsDeleteCall) Heade
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9723,7 +10450,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsGetCall) Header()
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9919,7 +10646,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsListCall) Header(
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentArtifactsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10102,7 +10829,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsActivateCall) Header() ht
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsActivateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10244,7 +10971,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsCreateCall) Header() http
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10391,7 +11118,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsDeleteCall) Header() http
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10530,7 +11257,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsDeleteRevisionCall) Heade
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsDeleteRevisionCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10681,7 +11408,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsGetCall) Header() http.He
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10878,7 +11605,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsListCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11112,7 +11839,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsListRevisionsCall) Header
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsListRevisionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11303,7 +12030,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsPatchCall) Header() http.
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11460,7 +12187,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsRejectCall) Header() http
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsRejectCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11611,7 +12338,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresConsentsRevokeCall) Header() http
 
 func (c *ProjectsLocationsDatasetsConsentStoresConsentsRevokeCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11753,7 +12480,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsArchiveCall) Head
 
 func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsArchiveCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11895,7 +12622,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsCreateCall) Heade
 
 func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12035,7 +12762,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsDeleteCall) Heade
 
 func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12178,7 +12905,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsGetCall) Header()
 
 func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12372,7 +13099,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsListCall) Header(
 
 func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12560,7 +13287,7 @@ func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsPatchCall) Header
 
 func (c *ProjectsLocationsDatasetsConsentStoresUserDataMappingsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12716,7 +13443,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12873,7 +13600,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresDeidentifyCall) Header() http.Heade
 
 func (c *ProjectsLocationsDatasetsDicomStoresDeidentifyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13014,7 +13741,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresDeleteCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13155,7 +13882,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresExportCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresExportCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13306,7 +14033,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13420,13 +14147,17 @@ func (r *ProjectsLocationsDatasetsDicomStoresService) GetIamPolicy(resource stri
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned. Valid values are 0, 1, and 3. Requests specifying an
-// invalid value will be rejected. Requests for policies with any
-// conditional bindings must specify version 3. Policies without any
-// conditional bindings may specify any valid value or leave the field
-// unset. To learn which resources support conditions in their IAM
-// policies, see the IAM documentation
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsDatasetsDicomStoresGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsDatasetsDicomStoresGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
@@ -13470,7 +14201,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresGetIamPolicyCall) Header() http.Hea
 
 func (c *ProjectsLocationsDatasetsDicomStoresGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13541,7 +14272,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresGetIamPolicyCall) Do(opts ...google
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional bindings must specify version 3. Policies without any conditional bindings may specify any valid value or leave the field unset. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
@@ -13620,7 +14351,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresImportCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresImportCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13818,7 +14549,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresListCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14002,7 +14733,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresPatchCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsDicomStoresPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14176,7 +14907,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresSearchForInstancesCall) Header() ht
 
 func (c *ProjectsLocationsDatasetsDicomStoresSearchForInstancesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14314,7 +15045,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresSearchForSeriesCall) Header() http.
 
 func (c *ProjectsLocationsDatasetsDicomStoresSearchForSeriesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14452,7 +15183,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresSearchForStudiesCall) Header() http
 
 func (c *ProjectsLocationsDatasetsDicomStoresSearchForStudiesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14569,7 +15300,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresSetIamPolicyCall) Header() http.Hea
 
 func (c *ProjectsLocationsDatasetsDicomStoresSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14727,7 +15458,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStoreInstancesCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsDicomStoresStoreInstancesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14846,7 +15577,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresTestIamPermissionsCall) Header() ht
 
 func (c *ProjectsLocationsDatasetsDicomStoresTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14997,7 +15728,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesDeleteCall) Header() http.He
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15164,7 +15895,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesRetrieveMetadataCall) Header
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesRetrieveMetadataCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15301,7 +16032,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesRetrieveStudyCall) Header() 
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesRetrieveStudyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15440,7 +16171,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSearchForInstancesCall) Head
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSearchForInstancesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15578,7 +16309,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSearchForSeriesCall) Header(
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSearchForSeriesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15707,7 +16438,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesStoreInstancesCall) Header()
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesStoreInstancesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -15831,7 +16562,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesDeleteCall) Header() h
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16000,7 +16731,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesRetrieveMetadataCall) 
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesRetrieveMetadataCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16137,7 +16868,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesRetrieveSeriesCall) He
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesRetrieveSeriesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16276,7 +17007,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesSearchForInstancesCall
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesSearchForInstancesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16400,7 +17131,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesDeleteCall) H
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16571,7 +17302,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesRetrieveInsta
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesRetrieveInstanceCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16712,7 +17443,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesRetrieveMetad
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesRetrieveMetadataCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16853,7 +17584,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesRetrieveRende
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesRetrieveRenderedCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -16992,7 +17723,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesFramesRetriev
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesFramesRetrieveFramesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17133,7 +17864,7 @@ func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesFramesRetriev
 
 func (c *ProjectsLocationsDatasetsDicomStoresStudiesSeriesInstancesFramesRetrieveRenderedCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17254,7 +17985,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17409,7 +18140,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresDeidentifyCall) Header() http.Header
 
 func (c *ProjectsLocationsDatasetsFhirStoresDeidentifyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17550,7 +18281,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresDeleteCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17695,7 +18426,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresExportCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresExportCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17846,7 +18577,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -17960,13 +18691,17 @@ func (r *ProjectsLocationsDatasetsFhirStoresService) GetIamPolicy(resource strin
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned. Valid values are 0, 1, and 3. Requests specifying an
-// invalid value will be rejected. Requests for policies with any
-// conditional bindings must specify version 3. Policies without any
-// conditional bindings may specify any valid value or leave the field
-// unset. To learn which resources support conditions in their IAM
-// policies, see the IAM documentation
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsDatasetsFhirStoresGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsDatasetsFhirStoresGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
@@ -18010,7 +18745,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresGetIamPolicyCall) Header() http.Head
 
 func (c *ProjectsLocationsDatasetsFhirStoresGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -18081,7 +18816,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresGetIamPolicyCall) Do(opts ...googlea
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional bindings must specify version 3. Policies without any conditional bindings may specify any valid value or leave the field unset. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
@@ -18216,7 +18951,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresImportCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresImportCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -18414,7 +19149,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresListCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -18598,7 +19333,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresPatchCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -18750,7 +19485,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresSetIamPolicyCall) Header() http.Head
 
 func (c *ProjectsLocationsDatasetsFhirStoresSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -18899,7 +19634,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresTestIamPermissionsCall) Header() htt
 
 func (c *ProjectsLocationsDatasetsFhirStoresTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19130,7 +19865,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirPatientEverythingCall) Header() 
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirPatientEverythingCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19270,7 +20005,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirResourcePurgeCall) Header() http
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirResourcePurgeCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19356,6 +20091,158 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirResourcePurgeCall) Do(opts ...go
 
 }
 
+// method id "healthcare.projects.locations.datasets.fhirStores.fhir.Resource-validate":
+
+type ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall struct {
+	s          *Service
+	parent     string
+	type_      string
+	body_      io.Reader
+	urlParams_ gensupport.URLParams
+	ctx_       context.Context
+	header_    http.Header
+}
+
+// ResourceValidate: Validates an input FHIR resource's conformance to
+// its profiles and the profiles configured on the FHIR store.
+// Implements the FHIR extended operation $validate (DSTU2
+// (http://hl7.org/implement/standards/fhir/DSTU2/resource-operations.html#validate),
+// STU3
+// (http://hl7.org/implement/standards/fhir/STU3/resource-operations.html#validate),
+// or R4
+// (http://hl7.org/implement/standards/fhir/R4/resource-operation-validate.html)).
+// The request body must contain a JSON-encoded FHIR resource, and the
+// request headers must contain `Content-Type: application/fhir+json`.
+// The `Parameters` input syntax is not supported. The `profile` query
+// parameter can be used to request that the resource only be validated
+// against a specific profile. If a profile with the given URL cannot be
+// found in the FHIR store then an error is returned. Errors generated
+// by validation contain a JSON-encoded `OperationOutcome` resource
+// describing the reason for the error. If the request cannot be mapped
+// to a valid API method on a FHIR store, a generic GCP error might be
+// returned instead.
+//
+// - parent: The name of the FHIR store that holds the profiles being
+//   used for validation.
+// - type: The FHIR resource type of the resource being validated. For a
+//   complete list, see the FHIR Resource Index (DSTU2
+//   (http://hl7.org/implement/standards/fhir/DSTU2/resourcelist.html),
+//   STU3
+//   (http://hl7.org/implement/standards/fhir/STU3/resourcelist.html),
+//   or R4
+//   (http://hl7.org/implement/standards/fhir/R4/resourcelist.html)).
+//   Must match the resource type in the provided content.
+func (r *ProjectsLocationsDatasetsFhirStoresFhirService) ResourceValidate(parent string, type_ string, body_ io.Reader) *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall {
+	c := &ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.parent = parent
+	c.type_ = type_
+	c.body_ = body_
+	return c
+}
+
+// Profile sets the optional parameter "profile": A profile that this
+// resource should be validated against.
+func (c *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall) Profile(profile string) *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall {
+	c.urlParams_.Set("profile", profile)
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall) Fields(s ...googleapi.Field) *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall) Context(ctx context.Context) *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body = c.body_
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+parent}/fhir/{+type}/$validate")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"parent": c.parent,
+		"type":   c.type_,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "healthcare.projects.locations.datasets.fhirStores.fhir.Resource-validate" call.
+func (c *ProjectsLocationsDatasetsFhirStoresFhirResourceValidateCall) Do(opts ...googleapi.CallOption) (*http.Response, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	return c.doRequest("")
+	// {
+	//   "description": "Validates an input FHIR resource's conformance to its profiles and the profiles configured on the FHIR store. Implements the FHIR extended operation $validate ([DSTU2](http://hl7.org/implement/standards/fhir/DSTU2/resource-operations.html#validate), [STU3](http://hl7.org/implement/standards/fhir/STU3/resource-operations.html#validate), or [R4](http://hl7.org/implement/standards/fhir/R4/resource-operation-validate.html)). The request body must contain a JSON-encoded FHIR resource, and the request headers must contain `Content-Type: application/fhir+json`. The `Parameters` input syntax is not supported. The `profile` query parameter can be used to request that the resource only be validated against a specific profile. If a profile with the given URL cannot be found in the FHIR store then an error is returned. Errors generated by validation contain a JSON-encoded `OperationOutcome` resource describing the reason for the error. If the request cannot be mapped to a valid API method on a FHIR store, a generic GCP error might be returned instead.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/datasets/{datasetsId}/fhirStores/{fhirStoresId}/fhir/{fhirId}/$validate",
+	//   "httpMethod": "POST",
+	//   "id": "healthcare.projects.locations.datasets.fhirStores.fhir.Resource-validate",
+	//   "parameterOrder": [
+	//     "parent",
+	//     "type"
+	//   ],
+	//   "parameters": {
+	//     "parent": {
+	//       "description": "The name of the FHIR store that holds the profiles being used for validation.",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/datasets/[^/]+/fhirStores/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     },
+	//     "profile": {
+	//       "description": "A profile that this resource should be validated against.",
+	//       "location": "query",
+	//       "type": "string"
+	//     },
+	//     "type": {
+	//       "description": "The FHIR resource type of the resource being validated. For a complete list, see the FHIR Resource Index ([DSTU2](http://hl7.org/implement/standards/fhir/DSTU2/resourcelist.html), [STU3](http://hl7.org/implement/standards/fhir/STU3/resourcelist.html), or [R4](http://hl7.org/implement/standards/fhir/R4/resourcelist.html)). Must match the resource type in the provided content.",
+	//       "location": "path",
+	//       "pattern": "^[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+parent}/fhir/{+type}/$validate",
+	//   "request": {
+	//     "$ref": "HttpBody"
+	//   },
+	//   "response": {
+	//     "$ref": "HttpBody"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform"
+	//   ]
+	// }
+
+}
+
 // method id "healthcare.projects.locations.datasets.fhirStores.fhir.capabilities":
 
 type ProjectsLocationsDatasetsFhirStoresFhirCapabilitiesCall struct {
@@ -19428,7 +20315,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirCapabilitiesCall) Header() http.
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirCapabilitiesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19558,7 +20445,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirCreateCall) Header() http.Header
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19679,7 +20566,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirDeleteCall) Header() http.Header
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19812,7 +20699,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirExecuteBundleCall) Header() http
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirExecuteBundleCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -19982,7 +20869,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirHistoryCall) Header() http.Heade
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirHistoryCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20123,7 +21010,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirPatchCall) Header() http.Header 
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20252,7 +21139,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirReadCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirReadCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20407,7 +21294,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirSearchCall) Header() http.Header
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirSearchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20576,7 +21463,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirSearchTypeCall) Header() http.He
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirSearchTypeCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20716,7 +21603,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirUpdateCall) Header() http.Header
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20842,7 +21729,7 @@ func (c *ProjectsLocationsDatasetsFhirStoresFhirVreadCall) Header() http.Header 
 
 func (c *ProjectsLocationsDatasetsFhirStoresFhirVreadCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -20954,7 +21841,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresCreateCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -21100,7 +21987,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresDeleteCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -21186,6 +22073,157 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresDeleteCall) Do(opts ...googleapi.Ca
 
 }
 
+// method id "healthcare.projects.locations.datasets.hl7V2Stores.export":
+
+type ProjectsLocationsDatasetsHl7V2StoresExportCall struct {
+	s                     *Service
+	name                  string
+	exportmessagesrequest *ExportMessagesRequest
+	urlParams_            gensupport.URLParams
+	ctx_                  context.Context
+	header_               http.Header
+}
+
+// Export: Exports the messages to a destination. To filter messages to
+// be exported, define a filter using the start and end time, relative
+// to the message generation time (MSH.7). This API returns an Operation
+// that can be used to track the status of the job by calling
+// GetOperation. Immediate fatal errors appear in the error field.
+// Otherwise, when the operation finishes, a detailed response of type
+// ExportMessagesResponse is returned in the response field. The
+// metadata field type for this operation is OperationMetadata.
+//
+// - name: The name of the source HL7v2 store, in the format
+//   `projects/{project_id}/locations/{location_id}/datasets/{dataset_id}
+//   /hl7v2Stores/{hl7v2_store_id}`.
+func (r *ProjectsLocationsDatasetsHl7V2StoresService) Export(name string, exportmessagesrequest *ExportMessagesRequest) *ProjectsLocationsDatasetsHl7V2StoresExportCall {
+	c := &ProjectsLocationsDatasetsHl7V2StoresExportCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.exportmessagesrequest = exportmessagesrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsDatasetsHl7V2StoresExportCall) Fields(s ...googleapi.Field) *ProjectsLocationsDatasetsHl7V2StoresExportCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsDatasetsHl7V2StoresExportCall) Context(ctx context.Context) *ProjectsLocationsDatasetsHl7V2StoresExportCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsDatasetsHl7V2StoresExportCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsDatasetsHl7V2StoresExportCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.exportmessagesrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:export")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "healthcare.projects.locations.datasets.hl7V2Stores.export" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *ProjectsLocationsDatasetsHl7V2StoresExportCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, &googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, err
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Exports the messages to a destination. To filter messages to be exported, define a filter using the start and end time, relative to the message generation time (MSH.7). This API returns an Operation that can be used to track the status of the job by calling GetOperation. Immediate fatal errors appear in the error field. Otherwise, when the operation finishes, a detailed response of type ExportMessagesResponse is returned in the response field. The metadata field type for this operation is OperationMetadata.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/datasets/{datasetsId}/hl7V2Stores/{hl7V2StoresId}:export",
+	//   "httpMethod": "POST",
+	//   "id": "healthcare.projects.locations.datasets.hl7V2Stores.export",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "The name of the source HL7v2 store, in the format `projects/{project_id}/locations/{location_id}/datasets/{dataset_id}/hl7v2Stores/{hl7v2_store_id}`",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/datasets/[^/]+/hl7V2Stores/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}:export",
+	//   "request": {
+	//     "$ref": "ExportMessagesRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform"
+	//   ]
+	// }
+
+}
+
 // method id "healthcare.projects.locations.datasets.hl7V2Stores.get":
 
 type ProjectsLocationsDatasetsHl7V2StoresGetCall struct {
@@ -21243,7 +22281,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -21357,13 +22395,17 @@ func (r *ProjectsLocationsDatasetsHl7V2StoresService) GetIamPolicy(resource stri
 }
 
 // OptionsRequestedPolicyVersion sets the optional parameter
-// "options.requestedPolicyVersion": The policy format version to be
-// returned. Valid values are 0, 1, and 3. Requests specifying an
-// invalid value will be rejected. Requests for policies with any
-// conditional bindings must specify version 3. Policies without any
-// conditional bindings may specify any valid value or leave the field
-// unset. To learn which resources support conditions in their IAM
-// policies, see the IAM documentation
+// "options.requestedPolicyVersion": The maximum policy version that
+// will be used to format the policy. Valid values are 0, 1, and 3.
+// Requests specifying an invalid value will be rejected. Requests for
+// policies with any conditional role bindings must specify version 3.
+// Policies with no conditional role bindings may specify any valid
+// value or leave the field unset. The policy in the response might use
+// the policy version that you specified, or it might use a lower policy
+// version. For example, if you specify version 3, but the policy has no
+// conditional role bindings, the response uses version 1. To learn
+// which resources support conditions in their IAM policies, see the IAM
+// documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 func (c *ProjectsLocationsDatasetsHl7V2StoresGetIamPolicyCall) OptionsRequestedPolicyVersion(optionsRequestedPolicyVersion int64) *ProjectsLocationsDatasetsHl7V2StoresGetIamPolicyCall {
 	c.urlParams_.Set("options.requestedPolicyVersion", fmt.Sprint(optionsRequestedPolicyVersion))
@@ -21407,7 +22449,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresGetIamPolicyCall) Header() http.Hea
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -21478,7 +22520,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresGetIamPolicyCall) Do(opts ...google
 	//   ],
 	//   "parameters": {
 	//     "options.requestedPolicyVersion": {
-	//       "description": "Optional. The policy format version to be returned. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional bindings must specify version 3. Policies without any conditional bindings may specify any valid value or leave the field unset. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
+	//       "description": "Optional. The maximum policy version that will be used to format the policy. Valid values are 0, 1, and 3. Requests specifying an invalid value will be rejected. Requests for policies with any conditional role bindings must specify version 3. Policies with no conditional role bindings may specify any valid value or leave the field unset. The policy in the response might use the policy version that you specified, or it might use a lower policy version. For example, if you specify version 3, but the policy has no conditional role bindings, the response uses version 1. To learn which resources support conditions in their IAM policies, see the [IAM documentation](https://cloud.google.com/iam/help/conditions/resource-policies).",
 	//       "format": "int32",
 	//       "location": "query",
 	//       "type": "integer"
@@ -21494,6 +22536,176 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresGetIamPolicyCall) Do(opts ...google
 	//   "path": "v1/{+resource}:getIamPolicy",
 	//   "response": {
 	//     "$ref": "Policy"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform"
+	//   ]
+	// }
+
+}
+
+// method id "healthcare.projects.locations.datasets.hl7V2Stores.import":
+
+type ProjectsLocationsDatasetsHl7V2StoresImportCall struct {
+	s                     *Service
+	name                  string
+	importmessagesrequest *ImportMessagesRequest
+	urlParams_            gensupport.URLParams
+	ctx_                  context.Context
+	header_               http.Header
+}
+
+// Import: Import messages to the HL7v2 store by loading data from the
+// specified sources. This method is optimized to load large quantities
+// of data using import semantics that ignore some HL7v2 store
+// configuration options and are not suitable for all use cases. It is
+// primarily intended to load data into an empty HL7v2 store that is not
+// being used by other clients. An existing message will be overwritten
+// if a duplicate message is imported. A duplicate message is a message
+// with the same raw bytes as a message that already exists in this
+// HL7v2 store. When a message is overwritten, its labels will also be
+// overwritten. The import operation is idempotent unless the input data
+// contains multiple valid messages with the same raw bytes but
+// different labels. In that case, after the import completes, the store
+// contains exactly one message with those raw bytes but there is no
+// ordering guarantee on which version of the labels it has. The
+// operation result counters do not count duplicated raw bytes as an
+// error and count one success for each message in the input, which
+// might result in a success count larger than the number of messages in
+// the HL7v2 store. If some messages fail to import, for example due to
+// parsing errors, successfully imported messages are not rolled back.
+// This method returns an Operation that can be used to track the status
+// of the import by calling GetOperation. Immediate fatal errors appear
+// in the error field, errors are also logged to Cloud Logging (see
+// Viewing error logs in Cloud Logging
+// (https://cloud.google.com/healthcare/docs/how-tos/logging)).
+// Otherwise, when the operation finishes, a response of type
+// ImportMessagesResponse is returned in the response field. The
+// metadata field type for this operation is OperationMetadata.
+//
+// - name: The name of the target HL7v2 store, in the format
+//   `projects/{project_id}/locations/{location_id}/datasets/{dataset_id}
+//   /hl7v2Stores/{hl7v2_store_id}`.
+func (r *ProjectsLocationsDatasetsHl7V2StoresService) Import(name string, importmessagesrequest *ImportMessagesRequest) *ProjectsLocationsDatasetsHl7V2StoresImportCall {
+	c := &ProjectsLocationsDatasetsHl7V2StoresImportCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.name = name
+	c.importmessagesrequest = importmessagesrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsDatasetsHl7V2StoresImportCall) Fields(s ...googleapi.Field) *ProjectsLocationsDatasetsHl7V2StoresImportCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsDatasetsHl7V2StoresImportCall) Context(ctx context.Context) *ProjectsLocationsDatasetsHl7V2StoresImportCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsDatasetsHl7V2StoresImportCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsDatasetsHl7V2StoresImportCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.importmessagesrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+name}:import")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"name": c.name,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "healthcare.projects.locations.datasets.hl7V2Stores.import" call.
+// Exactly one of *Operation or error will be non-nil. Any non-2xx
+// status code is an error. Response headers are in either
+// *Operation.ServerResponse.Header or (if a response was returned at
+// all) in error.(*googleapi.Error).Header. Use googleapi.IsNotModified
+// to check whether the returned error was because
+// http.StatusNotModified was returned.
+func (c *ProjectsLocationsDatasetsHl7V2StoresImportCall) Do(opts ...googleapi.CallOption) (*Operation, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, &googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, err
+	}
+	ret := &Operation{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Import messages to the HL7v2 store by loading data from the specified sources. This method is optimized to load large quantities of data using import semantics that ignore some HL7v2 store configuration options and are not suitable for all use cases. It is primarily intended to load data into an empty HL7v2 store that is not being used by other clients. An existing message will be overwritten if a duplicate message is imported. A duplicate message is a message with the same raw bytes as a message that already exists in this HL7v2 store. When a message is overwritten, its labels will also be overwritten. The import operation is idempotent unless the input data contains multiple valid messages with the same raw bytes but different labels. In that case, after the import completes, the store contains exactly one message with those raw bytes but there is no ordering guarantee on which version of the labels it has. The operation result counters do not count duplicated raw bytes as an error and count one success for each message in the input, which might result in a success count larger than the number of messages in the HL7v2 store. If some messages fail to import, for example due to parsing errors, successfully imported messages are not rolled back. This method returns an Operation that can be used to track the status of the import by calling GetOperation. Immediate fatal errors appear in the error field, errors are also logged to Cloud Logging (see [Viewing error logs in Cloud Logging](https://cloud.google.com/healthcare/docs/how-tos/logging)). Otherwise, when the operation finishes, a response of type ImportMessagesResponse is returned in the response field. The metadata field type for this operation is OperationMetadata.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/datasets/{datasetsId}/hl7V2Stores/{hl7V2StoresId}:import",
+	//   "httpMethod": "POST",
+	//   "id": "healthcare.projects.locations.datasets.hl7V2Stores.import",
+	//   "parameterOrder": [
+	//     "name"
+	//   ],
+	//   "parameters": {
+	//     "name": {
+	//       "description": "The name of the target HL7v2 store, in the format `projects/{project_id}/locations/{location_id}/datasets/{dataset_id}/hl7v2Stores/{hl7v2_store_id}`",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/datasets/[^/]+/hl7V2Stores/[^/]+$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+name}:import",
+	//   "request": {
+	//     "$ref": "ImportMessagesRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "Operation"
 	//   },
 	//   "scopes": [
 	//     "https://www.googleapis.com/auth/cloud-platform"
@@ -21606,7 +22818,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresListCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -21790,7 +23002,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresPatchCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -21942,7 +23154,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresSetIamPolicyCall) Header() http.Hea
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -22091,7 +23303,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresTestIamPermissionsCall) Header() ht
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -22238,7 +23450,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesCreateCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -22378,7 +23590,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesDeleteCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -22540,7 +23752,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesGetCall) Header() http.Head
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -22707,7 +23919,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesIngestCall) Header() http.H
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesIngestCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -22955,7 +24167,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesListCall) Header() http.Hea
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -23170,7 +24382,7 @@ func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesPatchCall) Header() http.He
 
 func (c *ProjectsLocationsDatasetsHl7V2StoresMessagesPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -23327,7 +24539,7 @@ func (c *ProjectsLocationsDatasetsOperationsCancelCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsOperationsCancelCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -23480,7 +24692,7 @@ func (c *ProjectsLocationsDatasetsOperationsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsOperationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -23656,7 +24868,7 @@ func (c *ProjectsLocationsDatasetsOperationsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsDatasetsOperationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -23780,4 +24992,149 @@ func (c *ProjectsLocationsDatasetsOperationsListCall) Pages(ctx context.Context,
 		}
 		c.PageToken(x.NextPageToken)
 	}
+}
+
+// method id "healthcare.projects.locations.services.nlp.analyzeEntities":
+
+type ProjectsLocationsServicesNlpAnalyzeEntitiesCall struct {
+	s                      *Service
+	nlpService             string
+	analyzeentitiesrequest *AnalyzeEntitiesRequest
+	urlParams_             gensupport.URLParams
+	ctx_                   context.Context
+	header_                http.Header
+}
+
+// AnalyzeEntities: Analyze heathcare entity in a document. Its response
+// includes the recognized entity mentions and the relationships between
+// them. AnalyzeEntities uses context aware models to detect entities.
+//
+// - nlpService: The resource name of the service of the form:
+//   "projects/{project_id}/locations/{location_id}/services/nlp".
+func (r *ProjectsLocationsServicesNlpService) AnalyzeEntities(nlpService string, analyzeentitiesrequest *AnalyzeEntitiesRequest) *ProjectsLocationsServicesNlpAnalyzeEntitiesCall {
+	c := &ProjectsLocationsServicesNlpAnalyzeEntitiesCall{s: r.s, urlParams_: make(gensupport.URLParams)}
+	c.nlpService = nlpService
+	c.analyzeentitiesrequest = analyzeentitiesrequest
+	return c
+}
+
+// Fields allows partial responses to be retrieved. See
+// https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
+// for more information.
+func (c *ProjectsLocationsServicesNlpAnalyzeEntitiesCall) Fields(s ...googleapi.Field) *ProjectsLocationsServicesNlpAnalyzeEntitiesCall {
+	c.urlParams_.Set("fields", googleapi.CombineFields(s))
+	return c
+}
+
+// Context sets the context to be used in this call's Do method. Any
+// pending HTTP request will be aborted if the provided context is
+// canceled.
+func (c *ProjectsLocationsServicesNlpAnalyzeEntitiesCall) Context(ctx context.Context) *ProjectsLocationsServicesNlpAnalyzeEntitiesCall {
+	c.ctx_ = ctx
+	return c
+}
+
+// Header returns an http.Header that can be modified by the caller to
+// add HTTP headers to the request.
+func (c *ProjectsLocationsServicesNlpAnalyzeEntitiesCall) Header() http.Header {
+	if c.header_ == nil {
+		c.header_ = make(http.Header)
+	}
+	return c.header_
+}
+
+func (c *ProjectsLocationsServicesNlpAnalyzeEntitiesCall) doRequest(alt string) (*http.Response, error) {
+	reqHeaders := make(http.Header)
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
+	for k, v := range c.header_ {
+		reqHeaders[k] = v
+	}
+	reqHeaders.Set("User-Agent", c.s.userAgent())
+	var body io.Reader = nil
+	body, err := googleapi.WithoutDataWrapper.JSONReader(c.analyzeentitiesrequest)
+	if err != nil {
+		return nil, err
+	}
+	reqHeaders.Set("Content-Type", "application/json")
+	c.urlParams_.Set("alt", alt)
+	c.urlParams_.Set("prettyPrint", "false")
+	urls := googleapi.ResolveRelative(c.s.BasePath, "v1/{+nlpService}:analyzeEntities")
+	urls += "?" + c.urlParams_.Encode()
+	req, err := http.NewRequest("POST", urls, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = reqHeaders
+	googleapi.Expand(req.URL, map[string]string{
+		"nlpService": c.nlpService,
+	})
+	return gensupport.SendRequest(c.ctx_, c.s.client, req)
+}
+
+// Do executes the "healthcare.projects.locations.services.nlp.analyzeEntities" call.
+// Exactly one of *AnalyzeEntitiesResponse or error will be non-nil. Any
+// non-2xx status code is an error. Response headers are in either
+// *AnalyzeEntitiesResponse.ServerResponse.Header or (if a response was
+// returned at all) in error.(*googleapi.Error).Header. Use
+// googleapi.IsNotModified to check whether the returned error was
+// because http.StatusNotModified was returned.
+func (c *ProjectsLocationsServicesNlpAnalyzeEntitiesCall) Do(opts ...googleapi.CallOption) (*AnalyzeEntitiesResponse, error) {
+	gensupport.SetOptions(c.urlParams_, opts...)
+	res, err := c.doRequest("json")
+	if res != nil && res.StatusCode == http.StatusNotModified {
+		if res.Body != nil {
+			res.Body.Close()
+		}
+		return nil, &googleapi.Error{
+			Code:   res.StatusCode,
+			Header: res.Header,
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer googleapi.CloseBody(res)
+	if err := googleapi.CheckResponse(res); err != nil {
+		return nil, err
+	}
+	ret := &AnalyzeEntitiesResponse{
+		ServerResponse: googleapi.ServerResponse{
+			Header:         res.Header,
+			HTTPStatusCode: res.StatusCode,
+		},
+	}
+	target := &ret
+	if err := gensupport.DecodeResponse(target, res); err != nil {
+		return nil, err
+	}
+	return ret, nil
+	// {
+	//   "description": "Analyze heathcare entity in a document. Its response includes the recognized entity mentions and the relationships between them. AnalyzeEntities uses context aware models to detect entities.",
+	//   "flatPath": "v1/projects/{projectsId}/locations/{locationsId}/services/nlp:analyzeEntities",
+	//   "httpMethod": "POST",
+	//   "id": "healthcare.projects.locations.services.nlp.analyzeEntities",
+	//   "parameterOrder": [
+	//     "nlpService"
+	//   ],
+	//   "parameters": {
+	//     "nlpService": {
+	//       "description": "The resource name of the service of the form: \"projects/{project_id}/locations/{location_id}/services/nlp\".",
+	//       "location": "path",
+	//       "pattern": "^projects/[^/]+/locations/[^/]+/services/nlp$",
+	//       "required": true,
+	//       "type": "string"
+	//     }
+	//   },
+	//   "path": "v1/{+nlpService}:analyzeEntities",
+	//   "request": {
+	//     "$ref": "AnalyzeEntitiesRequest"
+	//   },
+	//   "response": {
+	//     "$ref": "AnalyzeEntitiesResponse"
+	//   },
+	//   "scopes": [
+	//     "https://www.googleapis.com/auth/cloud-platform"
+	//   ]
+	// }
+
 }

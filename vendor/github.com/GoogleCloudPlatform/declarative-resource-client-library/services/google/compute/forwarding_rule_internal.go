@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -126,6 +126,8 @@ type forwardingRuleApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateForwardingRuleSetLabelsRequest(ctx context.Context, f *ForwardingRule, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
 		req["labels"] = v
@@ -213,6 +215,8 @@ func (op *updateForwardingRuleSetLabelsOperation) do(ctx context.Context, r *For
 // fields based on the intended state of the resource.
 func newUpdateForwardingRuleSetTargetRequest(ctx context.Context, f *ForwardingRule, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.Target; !dcl.IsEmptyValueIndirect(v) {
 		req["target"] = v
@@ -283,6 +287,8 @@ func (op *updateForwardingRuleSetTargetOperation) do(ctx context.Context, r *For
 // fields based on the intended state of the resource.
 func newUpdateForwardingRuleUpdateRequest(ctx context.Context, f *ForwardingRule, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v, err := dcl.FalseToNil(f.AllowGlobalAccess); err != nil {
 		return nil, fmt.Errorf("error expanding AllowGlobalAccess into allowGlobalAccess: %w", err)
@@ -571,6 +577,11 @@ func (c *Client) forwardingRuleDiffsForRawDesired(ctx context.Context, rawDesire
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for ForwardingRule: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for ForwardingRule: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractForwardingRuleFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeForwardingRuleInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -611,7 +622,8 @@ func canonicalizeForwardingRuleDesiredState(rawDesired, rawInitial *ForwardingRu
 		return rawDesired, nil
 	}
 	canonicalDesired := &ForwardingRule{}
-	if dcl.IsZeroValue(rawDesired.Labels) {
+	if dcl.IsZeroValue(rawDesired.Labels) || (dcl.IsEmptyValueIndirect(rawDesired.Labels) && dcl.IsEmptyValueIndirect(rawInitial.Labels)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Labels = rawInitial.Labels
 	} else {
 		canonicalDesired.Labels = rawDesired.Labels
@@ -641,12 +653,14 @@ func canonicalizeForwardingRuleDesiredState(rawDesired, rawInitial *ForwardingRu
 	} else {
 		canonicalDesired.IPAddress = rawDesired.IPAddress
 	}
-	if dcl.IsZeroValue(rawDesired.IPProtocol) {
+	if dcl.IsZeroValue(rawDesired.IPProtocol) || (dcl.IsEmptyValueIndirect(rawDesired.IPProtocol) && dcl.IsEmptyValueIndirect(rawInitial.IPProtocol)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.IPProtocol = rawInitial.IPProtocol
 	} else {
 		canonicalDesired.IPProtocol = rawDesired.IPProtocol
 	}
-	if dcl.IsZeroValue(rawDesired.IPVersion) {
+	if dcl.IsZeroValue(rawDesired.IPVersion) || (dcl.IsEmptyValueIndirect(rawDesired.IPVersion) && dcl.IsEmptyValueIndirect(rawInitial.IPVersion)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.IPVersion = rawInitial.IPVersion
 	} else {
 		canonicalDesired.IPVersion = rawDesired.IPVersion
@@ -656,7 +670,8 @@ func canonicalizeForwardingRuleDesiredState(rawDesired, rawInitial *ForwardingRu
 	} else {
 		canonicalDesired.IsMirroringCollector = rawDesired.IsMirroringCollector
 	}
-	if dcl.IsZeroValue(rawDesired.LoadBalancingScheme) {
+	if dcl.IsZeroValue(rawDesired.LoadBalancingScheme) || (dcl.IsEmptyValueIndirect(rawDesired.LoadBalancingScheme) && dcl.IsEmptyValueIndirect(rawInitial.LoadBalancingScheme)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.LoadBalancingScheme = rawInitial.LoadBalancingScheme
 	} else {
 		canonicalDesired.LoadBalancingScheme = rawDesired.LoadBalancingScheme
@@ -672,7 +687,8 @@ func canonicalizeForwardingRuleDesiredState(rawDesired, rawInitial *ForwardingRu
 	} else {
 		canonicalDesired.Network = rawDesired.Network
 	}
-	if dcl.IsZeroValue(rawDesired.NetworkTier) {
+	if dcl.IsZeroValue(rawDesired.NetworkTier) || (dcl.IsEmptyValueIndirect(rawDesired.NetworkTier) && dcl.IsEmptyValueIndirect(rawInitial.NetworkTier)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.NetworkTier = rawInitial.NetworkTier
 	} else {
 		canonicalDesired.NetworkTier = rawDesired.NetworkTier
@@ -682,7 +698,7 @@ func canonicalizeForwardingRuleDesiredState(rawDesired, rawInitial *ForwardingRu
 	} else {
 		canonicalDesired.PortRange = rawDesired.PortRange
 	}
-	if dcl.IsZeroValue(rawDesired.Ports) {
+	if dcl.StringArrayCanonicalize(rawDesired.Ports, rawInitial.Ports) {
 		canonicalDesired.Ports = rawInitial.Ports
 	} else {
 		canonicalDesired.Ports = rawDesired.Ports
@@ -845,6 +861,9 @@ func canonicalizeForwardingRuleNewState(c *Client, rawNew, rawDesired *Forwardin
 	if dcl.IsNotReturnedByServer(rawNew.Ports) && dcl.IsNotReturnedByServer(rawDesired.Ports) {
 		rawNew.Ports = rawDesired.Ports
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.Ports, rawNew.Ports) {
+			rawNew.Ports = rawDesired.Ports
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.Region) && dcl.IsNotReturnedByServer(rawDesired.Region) {
@@ -922,8 +941,9 @@ func canonicalizeForwardingRuleMetadataFilter(des, initial *ForwardingRuleMetada
 
 	cDes := &ForwardingRuleMetadataFilter{}
 
-	if dcl.IsZeroValue(des.FilterMatchCriteria) {
-		des.FilterMatchCriteria = initial.FilterMatchCriteria
+	if dcl.IsZeroValue(des.FilterMatchCriteria) || (dcl.IsEmptyValueIndirect(des.FilterMatchCriteria) && dcl.IsEmptyValueIndirect(initial.FilterMatchCriteria)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.FilterMatchCriteria = initial.FilterMatchCriteria
 	} else {
 		cDes.FilterMatchCriteria = des.FilterMatchCriteria
 	}
@@ -1156,6 +1176,9 @@ func diffForwardingRule(c *Client, desired, actual *ForwardingRule, opts ...dcl.
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -1518,82 +1541,86 @@ func unmarshalMapForwardingRule(m map[string]interface{}, c *Client) (*Forwardin
 // expandForwardingRule expands ForwardingRule into a JSON request object.
 func expandForwardingRule(c *Client, f *ForwardingRule) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Labels; dcl.ValueShouldBeSent(v) {
 		m["labels"] = v
 	}
 	if v, err := dcl.FalseToNil(f.AllPorts); err != nil {
 		return nil, fmt.Errorf("error expanding AllPorts into allPorts: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["allPorts"] = v
 	}
 	if v, err := dcl.FalseToNil(f.AllowGlobalAccess); err != nil {
 		return nil, fmt.Errorf("error expanding AllowGlobalAccess into allowGlobalAccess: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["allowGlobalAccess"] = v
 	}
-	if v := f.BackendService; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.BackendService; dcl.ValueShouldBeSent(v) {
 		m["backendService"] = v
 	}
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v := f.IPAddress; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.IPAddress; dcl.ValueShouldBeSent(v) {
 		m["IPAddress"] = v
 	}
-	if v := f.IPProtocol; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.IPProtocol; dcl.ValueShouldBeSent(v) {
 		m["IPProtocol"] = v
 	}
-	if v := f.IPVersion; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.IPVersion; dcl.ValueShouldBeSent(v) {
 		m["ipVersion"] = v
 	}
 	if v, err := dcl.FalseToNil(f.IsMirroringCollector); err != nil {
 		return nil, fmt.Errorf("error expanding IsMirroringCollector into isMirroringCollector: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["isMirroringCollector"] = v
 	}
-	if v := f.LoadBalancingScheme; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.LoadBalancingScheme; dcl.ValueShouldBeSent(v) {
 		m["loadBalancingScheme"] = v
 	}
-	if v, err := expandForwardingRuleMetadataFilterSlice(c, f.MetadataFilter); err != nil {
+	if v, err := expandForwardingRuleMetadataFilterSlice(c, f.MetadataFilter, res); err != nil {
 		return nil, fmt.Errorf("error expanding MetadataFilter into metadataFilters: %w", err)
-	} else {
+	} else if v != nil {
 		m["metadataFilters"] = v
 	}
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v, err := dcl.DeriveField("global/networks/%s", f.Network, f.Network); err != nil {
+	if v, err := dcl.DeriveField("global/networks/%s", f.Network, dcl.SelfLinkToName(f.Network)); err != nil {
 		return nil, fmt.Errorf("error expanding Network into network: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["network"] = v
 	}
-	if v := f.NetworkTier; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.NetworkTier; dcl.ValueShouldBeSent(v) {
 		m["networkTier"] = v
 	}
-	if v := f.PortRange; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.PortRange; dcl.ValueShouldBeSent(v) {
 		m["portRange"] = v
 	}
-	m["ports"] = f.Ports
-	if v := f.Region; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Ports; v != nil {
+		m["ports"] = v
+	}
+	if v := f.Region; dcl.ValueShouldBeSent(v) {
 		m["region"] = v
 	}
-	if v := f.ServiceLabel; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ServiceLabel; dcl.ValueShouldBeSent(v) {
 		m["serviceLabel"] = v
 	}
-	if v, err := dcl.DeriveField("projects/%s/regions/%s/subnetworks/%s", f.Subnetwork, f.Project, f.Location, f.Subnetwork); err != nil {
+	if v, err := dcl.DeriveField("projects/%s/regions/%s/subnetworks/%s", f.Subnetwork, dcl.SelfLinkToName(f.Project), dcl.SelfLinkToName(f.Location), dcl.SelfLinkToName(f.Subnetwork)); err != nil {
 		return nil, fmt.Errorf("error expanding Subnetwork into subnetwork: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["subnetwork"] = v
 	}
-	if v := f.Target; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Target; dcl.ValueShouldBeSent(v) {
 		m["target"] = v
 	}
-	if v := f.Project; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Project; dcl.ValueShouldBeSent(v) {
 		m["project"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Location into location: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["location"] = v
 	}
 
@@ -1644,14 +1671,14 @@ func flattenForwardingRule(c *Client, i interface{}) *ForwardingRule {
 
 // expandForwardingRuleMetadataFilterMap expands the contents of ForwardingRuleMetadataFilter into a JSON
 // request object.
-func expandForwardingRuleMetadataFilterMap(c *Client, f map[string]ForwardingRuleMetadataFilter) (map[string]interface{}, error) {
+func expandForwardingRuleMetadataFilterMap(c *Client, f map[string]ForwardingRuleMetadataFilter, res *ForwardingRule) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandForwardingRuleMetadataFilter(c, &item)
+		i, err := expandForwardingRuleMetadataFilter(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1665,14 +1692,14 @@ func expandForwardingRuleMetadataFilterMap(c *Client, f map[string]ForwardingRul
 
 // expandForwardingRuleMetadataFilterSlice expands the contents of ForwardingRuleMetadataFilter into a JSON
 // request object.
-func expandForwardingRuleMetadataFilterSlice(c *Client, f []ForwardingRuleMetadataFilter) ([]map[string]interface{}, error) {
+func expandForwardingRuleMetadataFilterSlice(c *Client, f []ForwardingRuleMetadataFilter, res *ForwardingRule) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandForwardingRuleMetadataFilter(c, &item)
+		i, err := expandForwardingRuleMetadataFilter(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1725,8 +1752,8 @@ func flattenForwardingRuleMetadataFilterSlice(c *Client, i interface{}) []Forwar
 
 // expandForwardingRuleMetadataFilter expands an instance of ForwardingRuleMetadataFilter into a JSON
 // request object.
-func expandForwardingRuleMetadataFilter(c *Client, f *ForwardingRuleMetadataFilter) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandForwardingRuleMetadataFilter(c *Client, f *ForwardingRuleMetadataFilter, res *ForwardingRule) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -1734,9 +1761,9 @@ func expandForwardingRuleMetadataFilter(c *Client, f *ForwardingRuleMetadataFilt
 	if v := f.FilterMatchCriteria; !dcl.IsEmptyValueIndirect(v) {
 		m["filterMatchCriteria"] = v
 	}
-	if v, err := expandForwardingRuleMetadataFilterFilterLabelSlice(c, f.FilterLabel); err != nil {
+	if v, err := expandForwardingRuleMetadataFilterFilterLabelSlice(c, f.FilterLabel, res); err != nil {
 		return nil, fmt.Errorf("error expanding FilterLabel into filterLabels: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
+	} else if v != nil {
 		m["filterLabels"] = v
 	}
 
@@ -1764,14 +1791,14 @@ func flattenForwardingRuleMetadataFilter(c *Client, i interface{}) *ForwardingRu
 
 // expandForwardingRuleMetadataFilterFilterLabelMap expands the contents of ForwardingRuleMetadataFilterFilterLabel into a JSON
 // request object.
-func expandForwardingRuleMetadataFilterFilterLabelMap(c *Client, f map[string]ForwardingRuleMetadataFilterFilterLabel) (map[string]interface{}, error) {
+func expandForwardingRuleMetadataFilterFilterLabelMap(c *Client, f map[string]ForwardingRuleMetadataFilterFilterLabel, res *ForwardingRule) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandForwardingRuleMetadataFilterFilterLabel(c, &item)
+		i, err := expandForwardingRuleMetadataFilterFilterLabel(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1785,14 +1812,14 @@ func expandForwardingRuleMetadataFilterFilterLabelMap(c *Client, f map[string]Fo
 
 // expandForwardingRuleMetadataFilterFilterLabelSlice expands the contents of ForwardingRuleMetadataFilterFilterLabel into a JSON
 // request object.
-func expandForwardingRuleMetadataFilterFilterLabelSlice(c *Client, f []ForwardingRuleMetadataFilterFilterLabel) ([]map[string]interface{}, error) {
+func expandForwardingRuleMetadataFilterFilterLabelSlice(c *Client, f []ForwardingRuleMetadataFilterFilterLabel, res *ForwardingRule) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandForwardingRuleMetadataFilterFilterLabel(c, &item)
+		i, err := expandForwardingRuleMetadataFilterFilterLabel(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1845,8 +1872,8 @@ func flattenForwardingRuleMetadataFilterFilterLabelSlice(c *Client, i interface{
 
 // expandForwardingRuleMetadataFilterFilterLabel expands an instance of ForwardingRuleMetadataFilterFilterLabel into a JSON
 // request object.
-func expandForwardingRuleMetadataFilterFilterLabel(c *Client, f *ForwardingRuleMetadataFilterFilterLabel) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandForwardingRuleMetadataFilterFilterLabel(c *Client, f *ForwardingRuleMetadataFilterFilterLabel, res *ForwardingRule) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -1925,7 +1952,7 @@ func flattenForwardingRuleIPProtocolEnumSlice(c *Client, i interface{}) []Forwar
 func flattenForwardingRuleIPProtocolEnum(i interface{}) *ForwardingRuleIPProtocolEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ForwardingRuleIPProtocolEnumRef("")
+		return nil
 	}
 
 	return ForwardingRuleIPProtocolEnumRef(s)
@@ -1976,7 +2003,7 @@ func flattenForwardingRuleIPVersionEnumSlice(c *Client, i interface{}) []Forward
 func flattenForwardingRuleIPVersionEnum(i interface{}) *ForwardingRuleIPVersionEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ForwardingRuleIPVersionEnumRef("")
+		return nil
 	}
 
 	return ForwardingRuleIPVersionEnumRef(s)
@@ -2027,7 +2054,7 @@ func flattenForwardingRuleLoadBalancingSchemeEnumSlice(c *Client, i interface{})
 func flattenForwardingRuleLoadBalancingSchemeEnum(i interface{}) *ForwardingRuleLoadBalancingSchemeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ForwardingRuleLoadBalancingSchemeEnumRef("")
+		return nil
 	}
 
 	return ForwardingRuleLoadBalancingSchemeEnumRef(s)
@@ -2078,7 +2105,7 @@ func flattenForwardingRuleMetadataFilterFilterMatchCriteriaEnumSlice(c *Client, 
 func flattenForwardingRuleMetadataFilterFilterMatchCriteriaEnum(i interface{}) *ForwardingRuleMetadataFilterFilterMatchCriteriaEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ForwardingRuleMetadataFilterFilterMatchCriteriaEnumRef("")
+		return nil
 	}
 
 	return ForwardingRuleMetadataFilterFilterMatchCriteriaEnumRef(s)
@@ -2129,7 +2156,7 @@ func flattenForwardingRuleNetworkTierEnumSlice(c *Client, i interface{}) []Forwa
 func flattenForwardingRuleNetworkTierEnum(i interface{}) *ForwardingRuleNetworkTierEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ForwardingRuleNetworkTierEnumRef("")
+		return nil
 	}
 
 	return ForwardingRuleNetworkTierEnumRef(s)
@@ -2192,7 +2219,7 @@ func convertFieldDiffsToForwardingRuleDiffs(config *dcl.Config, fds []*dcl.Field
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -2233,5 +2260,21 @@ func convertOpNameToForwardingRuleApiOperation(opName string, fieldDiffs []*dcl.
 }
 
 func extractForwardingRuleFields(r *ForwardingRule) error {
+	return nil
+}
+func extractForwardingRuleMetadataFilterFields(r *ForwardingRule, o *ForwardingRuleMetadataFilter) error {
+	return nil
+}
+func extractForwardingRuleMetadataFilterFilterLabelFields(r *ForwardingRule, o *ForwardingRuleMetadataFilterFilterLabel) error {
+	return nil
+}
+
+func postReadExtractForwardingRuleFields(r *ForwardingRule) error {
+	return nil
+}
+func postReadExtractForwardingRuleMetadataFilterFields(r *ForwardingRule, o *ForwardingRuleMetadataFilter) error {
+	return nil
+}
+func postReadExtractForwardingRuleMetadataFilterFilterLabelFields(r *ForwardingRule, o *ForwardingRuleMetadataFilterFilterLabel) error {
 	return nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -220,6 +220,11 @@ func (c *Client) firewallPolicyAssociationDiffsForRawDesired(ctx context.Context
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for FirewallPolicyAssociation: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for FirewallPolicyAssociation: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractFirewallPolicyAssociationFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeFirewallPolicyAssociationInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -328,6 +333,9 @@ func diffFirewallPolicyAssociation(c *Client, desired, actual *FirewallPolicyAss
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
 
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
+
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
 	// New style diffs.
@@ -411,13 +419,15 @@ func unmarshalMapFirewallPolicyAssociation(m map[string]interface{}, c *Client) 
 // expandFirewallPolicyAssociation expands FirewallPolicyAssociation into a JSON request object.
 func expandFirewallPolicyAssociation(c *Client, f *FirewallPolicyAssociation) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v := f.AttachmentTarget; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.AttachmentTarget; dcl.ValueShouldBeSent(v) {
 		m["attachmentTarget"] = v
 	}
-	if v := f.FirewallPolicy; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.FirewallPolicy; dcl.ValueShouldBeSent(v) {
 		m["firewallPolicyId"] = v
 	}
 
@@ -493,7 +503,7 @@ func convertFieldDiffsToFirewallPolicyAssociationDiffs(config *dcl.Config, fds [
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -525,5 +535,9 @@ func convertOpNameToFirewallPolicyAssociationApiOperation(opName string, fieldDi
 }
 
 func extractFirewallPolicyAssociationFields(r *FirewallPolicyAssociation) error {
+	return nil
+}
+
+func postReadExtractFirewallPolicyAssociationFields(r *FirewallPolicyAssociation) error {
 	return nil
 }

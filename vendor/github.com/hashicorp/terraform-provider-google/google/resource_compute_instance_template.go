@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
-	computeBeta "google.golang.org/api/compute/v0.beta"
+	"google.golang.org/api/compute/v1"
 )
 
 var (
@@ -246,14 +246,6 @@ func resourceComputeInstanceTemplate() *schema.Resource {
 				Description: `A brief description of this resource.`,
 			},
 
-			"enable_display": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				ForceNew:    true,
-				Deprecated:  "This attribute is currently in beta and will be removed from the google provider. Please use the google-beta provider to continue using this attribute.",
-				Description: `Enable Virtual Displays on this instance. Note: allow_stopping_for_update must be set to true in order to update this field.`,
-			},
-
 			"instance_description": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -434,6 +426,12 @@ func resourceComputeInstanceTemplate() *schema.Resource {
 								},
 							},
 						},
+						"queue_count": {
+							Type:        schema.TypeInt,
+							Optional:    true,
+							ForceNew:    true,
+							Description: `The networking queue count that's specified by users for the network interface. Both Rx and Tx queues will be set to this number. It will be empty if not specified.`,
+						},
 					},
 				},
 			},
@@ -611,7 +609,6 @@ func resourceComputeInstanceTemplate() *schema.Resource {
 				Type:        schema.TypeList,
 				MaxItems:    1,
 				Optional:    true,
-				Computed:    true,
 				ForceNew:    true,
 				Description: `Controls for advanced machine-related behavior features.`,
 				Elem: &schema.Resource{
@@ -826,7 +823,7 @@ func resourceComputeInstanceTemplateBootDiskCustomizeDiff(_ context.Context, dif
 	return nil
 }
 
-func buildDisks(d *schema.ResourceData, config *Config) ([]*computeBeta.AttachedDisk, error) {
+func buildDisks(d *schema.ResourceData, config *Config) ([]*compute.AttachedDisk, error) {
 	project, err := getProject(d, config)
 	if err != nil {
 		return nil, err
@@ -839,12 +836,12 @@ func buildDisks(d *schema.ResourceData, config *Config) ([]*computeBeta.Attached
 
 	disksCount := d.Get("disk.#").(int)
 
-	disks := make([]*computeBeta.AttachedDisk, 0, disksCount)
+	disks := make([]*compute.AttachedDisk, 0, disksCount)
 	for i := 0; i < disksCount; i++ {
 		prefix := fmt.Sprintf("disk.%d", i)
 
 		// Build the disk
-		var disk computeBeta.AttachedDisk
+		var disk compute.AttachedDisk
 		disk.Type = "PERSISTENT"
 		disk.Mode = "READ_WRITE"
 		disk.Interface = "SCSI"
@@ -860,7 +857,7 @@ func buildDisks(d *schema.ResourceData, config *Config) ([]*computeBeta.Attached
 		}
 
 		if _, ok := d.GetOk(prefix + ".disk_encryption_key"); ok {
-			disk.DiskEncryptionKey = &computeBeta.CustomerEncryptionKey{}
+			disk.DiskEncryptionKey = &compute.CustomerEncryptionKey{}
 			if v, ok := d.GetOk(prefix + ".disk_encryption_key.0.kms_key_self_link"); ok {
 				disk.DiskEncryptionKey.KmsKeyName = v.(string)
 			}
@@ -875,7 +872,7 @@ func buildDisks(d *schema.ResourceData, config *Config) ([]*computeBeta.Attached
 				}
 			}
 		} else {
-			disk.InitializeParams = &computeBeta.AttachedDiskInitializeParams{}
+			disk.InitializeParams = &compute.AttachedDiskInitializeParams{}
 
 			if v, ok := d.GetOk(prefix + ".disk_name"); ok {
 				disk.InitializeParams.DiskName = v.(string)
@@ -934,19 +931,19 @@ func buildDisks(d *schema.ResourceData, config *Config) ([]*computeBeta.Attached
 // 'zones/us-east1-b/acceleratorTypes/nvidia-tesla-k80'.
 // Accelerator type 'zones/us-east1-b/acceleratorTypes/nvidia-tesla-k80'
 // must be a valid resource name (not an url).
-func expandInstanceTemplateGuestAccelerators(d TerraformResourceData, config *Config) []*computeBeta.AcceleratorConfig {
+func expandInstanceTemplateGuestAccelerators(d TerraformResourceData, config *Config) []*compute.AcceleratorConfig {
 	configs, ok := d.GetOk("guest_accelerator")
 	if !ok {
 		return nil
 	}
 	accels := configs.([]interface{})
-	guestAccelerators := make([]*computeBeta.AcceleratorConfig, 0, len(accels))
+	guestAccelerators := make([]*compute.AcceleratorConfig, 0, len(accels))
 	for _, raw := range accels {
 		data := raw.(map[string]interface{})
 		if data["count"].(int) == 0 {
 			continue
 		}
-		guestAccelerators = append(guestAccelerators, &computeBeta.AcceleratorConfig{
+		guestAccelerators = append(guestAccelerators, &compute.AcceleratorConfig{
 			AcceleratorCount: int64(data["count"].(int)),
 			// We can't use ParseAcceleratorFieldValue here because an instance
 			// template does not have a zone we can use.
@@ -993,7 +990,7 @@ func resourceComputeInstanceTemplateCreate(d *schema.ResourceData, meta interfac
 		return err
 	}
 
-	instanceProperties := &computeBeta.InstanceProperties{
+	instanceProperties := &compute.InstanceProperties{
 		CanIpForward:               d.Get("can_ip_forward").(bool),
 		Description:                d.Get("instance_description").(string),
 		GuestAccelerators:          expandInstanceTemplateGuestAccelerators(d, config),
@@ -1008,7 +1005,6 @@ func resourceComputeInstanceTemplateCreate(d *schema.ResourceData, meta interfac
 		ConfidentialInstanceConfig: expandConfidentialInstanceConfig(d),
 		ShieldedInstanceConfig:     expandShieldedVmConfigs(d),
 		AdvancedMachineFeatures:    expandAdvancedMachineFeatures(d),
-		DisplayDevice:              expandDisplayDevice(d),
 		ReservationAffinity:        reservationAffinity,
 	}
 
@@ -1024,13 +1020,13 @@ func resourceComputeInstanceTemplateCreate(d *schema.ResourceData, meta interfac
 	} else {
 		itName = resource.UniqueId()
 	}
-	instanceTemplate := &computeBeta.InstanceTemplate{
+	instanceTemplate := &compute.InstanceTemplate{
 		Description: d.Get("description").(string),
 		Properties:  instanceProperties,
 		Name:        itName,
 	}
 
-	op, err := config.NewComputeBetaClient(userAgent).InstanceTemplates.Insert(project, instanceTemplate).Do()
+	op, err := config.NewComputeClient(userAgent).InstanceTemplates.Insert(project, instanceTemplate).Do()
 	if err != nil {
 		return fmt.Errorf("Error creating instance template: %s", err)
 	}
@@ -1083,7 +1079,7 @@ func diskCharacteristicsFromMap(m map[string]interface{}) diskCharacteristics {
 	return dc
 }
 
-func flattenDisk(disk *computeBeta.AttachedDisk, defaultProject string) (map[string]interface{}, error) {
+func flattenDisk(disk *compute.AttachedDisk, defaultProject string) (map[string]interface{}, error) {
 	diskMap := make(map[string]interface{})
 	if disk.InitializeParams != nil {
 		if disk.InitializeParams.SourceImage != "" {
@@ -1245,7 +1241,7 @@ func reorderDisks(configDisks []interface{}, apiDisks []map[string]interface{}) 
 	return ds
 }
 
-func flattenDisks(disks []*computeBeta.AttachedDisk, d *schema.ResourceData, defaultProject string) ([]map[string]interface{}, error) {
+func flattenDisks(disks []*compute.AttachedDisk, d *schema.ResourceData, defaultProject string) ([]map[string]interface{}, error) {
 	apiDisks := make([]map[string]interface{}, len(disks))
 
 	for i, disk := range disks {
@@ -1272,7 +1268,7 @@ func resourceComputeInstanceTemplateRead(d *schema.ResourceData, meta interface{
 	}
 
 	splits := strings.Split(d.Id(), "/")
-	instanceTemplate, err := config.NewComputeBetaClient(userAgent).InstanceTemplates.Get(project, splits[len(splits)-1]).Do()
+	instanceTemplate, err := config.NewComputeClient(userAgent).InstanceTemplates.Get(project, splits[len(splits)-1]).Do()
 	if err != nil {
 		return handleNotFoundError(err, d, fmt.Sprintf("Instance Template %q", d.Get("name").(string)))
 	}
@@ -1291,8 +1287,10 @@ func resourceComputeInstanceTemplateRead(d *schema.ResourceData, meta interface{
 			if err = d.Set("metadata_startup_script", script); err != nil {
 				return fmt.Errorf("Error setting metadata_startup_script: %s", err)
 			}
+
 			delete(_md, "startup-script")
 		}
+
 		if err = d.Set("metadata", _md); err != nil {
 			return fmt.Errorf("Error setting metadata: %s", err)
 		}
@@ -1388,7 +1386,7 @@ func resourceComputeInstanceTemplateRead(d *schema.ResourceData, meta interface{
 			return fmt.Errorf("Error setting guest_accelerator: %s", err)
 		}
 	}
-	if instanceTemplate.Properties.ShieldedVmConfig != nil {
+	if instanceTemplate.Properties.ShieldedInstanceConfig != nil {
 		if err = d.Set("shielded_instance_config", flattenShieldedVmConfig(instanceTemplate.Properties.ShieldedInstanceConfig)); err != nil {
 			return fmt.Errorf("Error setting shielded_instance_config: %s", err)
 		}
@@ -1402,11 +1400,6 @@ func resourceComputeInstanceTemplateRead(d *schema.ResourceData, meta interface{
 	if instanceTemplate.Properties.AdvancedMachineFeatures != nil {
 		if err = d.Set("advanced_machine_features", flattenAdvancedMachineFeatures(instanceTemplate.Properties.AdvancedMachineFeatures)); err != nil {
 			return fmt.Errorf("Error setting advanced_machine_features: %s", err)
-		}
-	}
-	if instanceTemplate.Properties.DisplayDevice != nil {
-		if err = d.Set("enable_display", flattenEnableDisplay(instanceTemplate.Properties.DisplayDevice)); err != nil {
-			return fmt.Errorf("Error setting enable_display: %s", err)
 		}
 	}
 
@@ -1450,11 +1443,11 @@ func resourceComputeInstanceTemplateDelete(d *schema.ResourceData, meta interfac
 // This wraps the general compute instance helper expandScheduling.
 // Default value of OnHostMaintenance depends on the value of Preemptible,
 // so we can't set a default in schema
-func expandResourceComputeInstanceTemplateScheduling(d *schema.ResourceData, meta interface{}) (*computeBeta.Scheduling, error) {
+func expandResourceComputeInstanceTemplateScheduling(d *schema.ResourceData, meta interface{}) (*compute.Scheduling, error) {
 	v, ok := d.GetOk("scheduling")
 	if !ok || v == nil {
 		// We can't set defaults for lists (e.g. scheduling)
-		return &computeBeta.Scheduling{
+		return &compute.Scheduling{
 			OnHostMaintenance: "MIGRATE",
 		}, nil
 	}

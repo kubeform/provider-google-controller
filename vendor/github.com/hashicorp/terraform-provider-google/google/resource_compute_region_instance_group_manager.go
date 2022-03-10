@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
-	computeBeta "google.golang.org/api/compute/v0.beta"
+	"google.golang.org/api/compute/v1"
 )
 
 func resourceComputeRegionInstanceGroupManager() *schema.Resource {
@@ -282,13 +282,6 @@ func resourceComputeRegionInstanceGroupManager() *schema.Resource {
 							Description:   `The maximum number of instances(calculated as percentage) that can be unavailable during the update process. Conflicts with max_unavailable_fixed. Percent value is only allowed for regional managed instance groups with size at least 10.`,
 						},
 
-						"min_ready_sec": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							ValidateFunc: validation.IntBetween(0, 3600),
-							Description:  `Minimum number of seconds to wait for after a newly created instance becomes available. This value must be from range [0, 3600].`,
-							Deprecated:   `This attribute is currently in beta and will be removed from the google provider. Please use the google-beta provider to continue using this attribute.`,
-						},
 						"instance_redistribution_type": {
 							Type:             schema.TypeString,
 							Optional:         true,
@@ -408,7 +401,7 @@ func resourceComputeRegionInstanceGroupManagerCreate(d *schema.ResourceData, met
 		return err
 	}
 
-	manager := &computeBeta.InstanceGroupManager{
+	manager := &compute.InstanceGroupManager{
 		Name:                d.Get("name").(string),
 		Description:         d.Get("description").(string),
 		BaseInstanceName:    d.Get("base_instance_name").(string),
@@ -424,7 +417,7 @@ func resourceComputeRegionInstanceGroupManagerCreate(d *schema.ResourceData, met
 		ForceSendFields: []string{"TargetSize"},
 	}
 
-	op, err := config.NewComputeBetaClient(userAgent).RegionInstanceGroupManagers.Insert(project, region, manager).Do()
+	op, err := config.NewComputeClient(userAgent).RegionInstanceGroupManagers.Insert(project, region, manager).Do()
 
 	if err != nil {
 		return fmt.Errorf("Error creating RegionInstanceGroupManager: %s", err)
@@ -467,9 +460,9 @@ func computeRIGMWaitForInstanceStatus(d *schema.ResourceData, meta interface{}) 
 	return nil
 }
 
-type getInstanceManagerFunc func(*schema.ResourceData, interface{}) (*computeBeta.InstanceGroupManager, error)
+type getInstanceManagerFunc func(*schema.ResourceData, interface{}) (*compute.InstanceGroupManager, error)
 
-func getRegionalManager(d *schema.ResourceData, meta interface{}) (*computeBeta.InstanceGroupManager, error) {
+func getRegionalManager(d *schema.ResourceData, meta interface{}) (*compute.InstanceGroupManager, error) {
 	config := meta.(*Config)
 
 	project, err := getProject(d, config)
@@ -488,7 +481,7 @@ func getRegionalManager(d *schema.ResourceData, meta interface{}) (*computeBeta.
 	}
 
 	name := d.Get("name").(string)
-	manager, err := config.NewComputeBetaClient(userAgent).RegionInstanceGroupManagers.Get(project, region, name).Do()
+	manager, err := config.NewComputeClient(userAgent).RegionInstanceGroupManagers.Get(project, region, name).Do()
 	if err != nil {
 		return nil, handleNotFoundError(err, d, fmt.Sprintf("Region Instance Manager %q", name))
 	}
@@ -609,13 +602,6 @@ func resourceComputeRegionInstanceGroupManagerRead(d *schema.ResourceData, meta 
 func resourceComputeRegionInstanceGroupManagerUpdate(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*Config)
 
-	if d.Get("wait_for_instances").(bool) {
-		err := computeRIGMWaitForInstanceStatus(d, meta)
-		if err != nil {
-			return err
-		}
-	}
-
 	userAgent, err := generateUserAgentString(d, config.userAgent)
 	if err != nil {
 		return err
@@ -631,7 +617,7 @@ func resourceComputeRegionInstanceGroupManagerUpdate(d *schema.ResourceData, met
 		return err
 	}
 
-	updatedManager := &computeBeta.InstanceGroupManager{
+	updatedManager := &compute.InstanceGroupManager{
 		Fingerprint: d.Get("fingerprint").(string),
 	}
 	var change bool
@@ -664,7 +650,7 @@ func resourceComputeRegionInstanceGroupManagerUpdate(d *schema.ResourceData, met
 	}
 
 	if change {
-		op, err := config.NewComputeBetaClient(userAgent).RegionInstanceGroupManagers.Patch(project, region, d.Get("name").(string), updatedManager).Do()
+		op, err := config.NewComputeClient(userAgent).RegionInstanceGroupManagers.Patch(project, region, d.Get("name").(string), updatedManager).Do()
 		if err != nil {
 			return fmt.Errorf("Error updating region managed group instances: %s", err)
 		}
@@ -680,11 +666,11 @@ func resourceComputeRegionInstanceGroupManagerUpdate(d *schema.ResourceData, met
 	if d.HasChange("named_port") {
 		d.Partial(true)
 		namedPorts := getNamedPortsBeta(d.Get("named_port").(*schema.Set).List())
-		setNamedPorts := &computeBeta.RegionInstanceGroupsSetNamedPortsRequest{
+		setNamedPorts := &compute.RegionInstanceGroupsSetNamedPortsRequest{
 			NamedPorts: namedPorts,
 		}
 
-		op, err := config.NewComputeBetaClient(userAgent).RegionInstanceGroups.SetNamedPorts(
+		op, err := config.NewComputeClient(userAgent).RegionInstanceGroups.SetNamedPorts(
 			project, region, d.Get("name").(string), setNamedPorts).Do()
 
 		if err != nil {
@@ -701,7 +687,7 @@ func resourceComputeRegionInstanceGroupManagerUpdate(d *schema.ResourceData, met
 	if d.HasChange("target_size") {
 		d.Partial(true)
 		targetSize := int64(d.Get("target_size").(int))
-		op, err := config.NewComputeBetaClient(userAgent).RegionInstanceGroupManagers.Resize(
+		op, err := config.NewComputeClient(userAgent).RegionInstanceGroupManagers.Resize(
 			project, region, d.Get("name").(string), targetSize).Do()
 
 		if err != nil {
@@ -753,7 +739,7 @@ func resourceComputeRegionInstanceGroupManagerDelete(d *schema.ResourceData, met
 
 	name := d.Get("name").(string)
 
-	op, err := config.NewComputeBetaClient(userAgent).RegionInstanceGroupManagers.Delete(project, region, name).Do()
+	op, err := config.NewComputeClient(userAgent).RegionInstanceGroupManagers.Delete(project, region, name).Do()
 
 	if err != nil {
 		return fmt.Errorf("Error deleting region instance group manager: %s", err)
@@ -769,8 +755,8 @@ func resourceComputeRegionInstanceGroupManagerDelete(d *schema.ResourceData, met
 	return nil
 }
 
-func expandRegionUpdatePolicy(configured []interface{}) *computeBeta.InstanceGroupManagerUpdatePolicy {
-	updatePolicy := &computeBeta.InstanceGroupManagerUpdatePolicy{}
+func expandRegionUpdatePolicy(configured []interface{}) *compute.InstanceGroupManagerUpdatePolicy {
+	updatePolicy := &compute.InstanceGroupManagerUpdatePolicy{}
 
 	for _, raw := range configured {
 		data := raw.(map[string]interface{})
@@ -783,12 +769,12 @@ func expandRegionUpdatePolicy(configured []interface{}) *computeBeta.InstanceGro
 		// percent and fixed values are conflicting
 		// when the percent values are set, the fixed values will be ignored
 		if v := data["max_surge_percent"]; v.(int) > 0 {
-			updatePolicy.MaxSurge = &computeBeta.FixedOrPercent{
+			updatePolicy.MaxSurge = &compute.FixedOrPercent{
 				Percent:    int64(v.(int)),
 				NullFields: []string{"Fixed"},
 			}
 		} else {
-			updatePolicy.MaxSurge = &computeBeta.FixedOrPercent{
+			updatePolicy.MaxSurge = &compute.FixedOrPercent{
 				Fixed: int64(data["max_surge_fixed"].(int)),
 				// allow setting this value to 0
 				ForceSendFields: []string{"Fixed"},
@@ -797,27 +783,23 @@ func expandRegionUpdatePolicy(configured []interface{}) *computeBeta.InstanceGro
 		}
 
 		if v := data["max_unavailable_percent"]; v.(int) > 0 {
-			updatePolicy.MaxUnavailable = &computeBeta.FixedOrPercent{
+			updatePolicy.MaxUnavailable = &compute.FixedOrPercent{
 				Percent:    int64(v.(int)),
 				NullFields: []string{"Fixed"},
 			}
 		} else {
-			updatePolicy.MaxUnavailable = &computeBeta.FixedOrPercent{
+			updatePolicy.MaxUnavailable = &compute.FixedOrPercent{
 				Fixed: int64(data["max_unavailable_fixed"].(int)),
 				// allow setting this value to 0
 				ForceSendFields: []string{"Fixed"},
 				NullFields:      []string{"Percent"},
 			}
 		}
-
-		if v, ok := data["min_ready_sec"]; ok {
-			updatePolicy.MinReadySec = int64(v.(int))
-		}
 	}
 	return updatePolicy
 }
 
-func flattenRegionUpdatePolicy(updatePolicy *computeBeta.InstanceGroupManagerUpdatePolicy) []map[string]interface{} {
+func flattenRegionUpdatePolicy(updatePolicy *compute.InstanceGroupManagerUpdatePolicy) []map[string]interface{} {
 	results := []map[string]interface{}{}
 	if updatePolicy != nil {
 		up := map[string]interface{}{}
@@ -835,7 +817,6 @@ func flattenRegionUpdatePolicy(updatePolicy *computeBeta.InstanceGroupManagerUpd
 			up["max_unavailable_fixed"] = 0
 			up["max_unavailable_percent"] = 0
 		}
-		up["min_ready_sec"] = updatePolicy.MinReadySec
 		up["minimal_action"] = updatePolicy.MinimalAction
 		up["type"] = updatePolicy.Type
 		up["instance_redistribution_type"] = updatePolicy.InstanceRedistributionType
@@ -846,27 +827,27 @@ func flattenRegionUpdatePolicy(updatePolicy *computeBeta.InstanceGroupManagerUpd
 	return results
 }
 
-func expandDistributionPolicy(d *schema.ResourceData) *computeBeta.DistributionPolicy {
+func expandDistributionPolicy(d *schema.ResourceData) *compute.DistributionPolicy {
 	dpz := d.Get("distribution_policy_zones").(*schema.Set)
 	dpts := d.Get("distribution_policy_target_shape").(string)
 	if dpz.Len() == 0 && dpts == "" {
 		return nil
 	}
 
-	distributionPolicyZoneConfigs := make([]*computeBeta.DistributionPolicyZoneConfiguration, 0, dpz.Len())
+	distributionPolicyZoneConfigs := make([]*compute.DistributionPolicyZoneConfiguration, 0, dpz.Len())
 	for _, raw := range dpz.List() {
 		data := raw.(string)
-		distributionPolicyZoneConfig := computeBeta.DistributionPolicyZoneConfiguration{
+		distributionPolicyZoneConfig := compute.DistributionPolicyZoneConfiguration{
 			Zone: "zones/" + data,
 		}
 
 		distributionPolicyZoneConfigs = append(distributionPolicyZoneConfigs, &distributionPolicyZoneConfig)
 	}
 
-	return &computeBeta.DistributionPolicy{Zones: distributionPolicyZoneConfigs, TargetShape: dpts}
+	return &compute.DistributionPolicy{Zones: distributionPolicyZoneConfigs, TargetShape: dpts}
 }
 
-func flattenDistributionPolicy(distributionPolicy *computeBeta.DistributionPolicy) []string {
+func flattenDistributionPolicy(distributionPolicy *compute.DistributionPolicy) []string {
 	zones := make([]string, 0)
 
 	if distributionPolicy != nil {

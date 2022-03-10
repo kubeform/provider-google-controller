@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,6 +99,8 @@ type projectApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateProjectUpdateProjectRequest(ctx context.Context, f *Project, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
 		req["labels"] = v
@@ -363,6 +365,11 @@ func (c *Client) projectDiffsForRawDesired(ctx context.Context, rawDesired *Proj
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Project: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Project: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractProjectFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeProjectInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -403,7 +410,8 @@ func canonicalizeProjectDesiredState(rawDesired, rawInitial *Project, opts ...dc
 		return rawDesired, nil
 	}
 	canonicalDesired := &Project{}
-	if dcl.IsZeroValue(rawDesired.Labels) {
+	if dcl.IsZeroValue(rawDesired.Labels) || (dcl.IsEmptyValueIndirect(rawDesired.Labels) && dcl.IsEmptyValueIndirect(rawInitial.Labels)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Labels = rawInitial.Labels
 	} else {
 		canonicalDesired.Labels = rawDesired.Labels
@@ -482,6 +490,9 @@ func diffProject(c *Client, desired, actual *Project, opts ...dcl.ApplyOption) (
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -588,18 +599,20 @@ func unmarshalMapProject(m map[string]interface{}, c *Client) (*Project, error) 
 // expandProject expands Project into a JSON request object.
 func expandProject(c *Client, f *Project) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Labels; dcl.ValueShouldBeSent(v) {
 		m["labels"] = v
 	}
-	if v := f.DisplayName; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.DisplayName; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v, err := expandProjectParent(f, f.Parent); err != nil {
+	if v, err := expandProjectParent(c, f.Parent, res); err != nil {
 		return nil, fmt.Errorf("error expanding Parent into parent: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["parent"] = v
 	}
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["projectId"] = v
 	}
 
@@ -673,7 +686,7 @@ func flattenProjectLifecycleStateEnumSlice(c *Client, i interface{}) []ProjectLi
 func flattenProjectLifecycleStateEnum(i interface{}) *ProjectLifecycleStateEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ProjectLifecycleStateEnumRef("")
+		return nil
 	}
 
 	return ProjectLifecycleStateEnumRef(s)
@@ -720,7 +733,7 @@ func convertFieldDiffsToProjectDiffs(config *dcl.Config, fds []*dcl.FieldDiff, o
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -755,5 +768,9 @@ func convertOpNameToProjectApiOperation(opName string, fieldDiffs []*dcl.FieldDi
 }
 
 func extractProjectFields(r *Project) error {
+	return nil
+}
+
+func postReadExtractProjectFields(r *Project) error {
 	return nil
 }

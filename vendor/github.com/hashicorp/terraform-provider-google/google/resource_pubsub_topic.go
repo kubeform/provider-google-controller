@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourcePubsubTopic() *schema.Resource {
@@ -37,9 +36,9 @@ func resourcePubsubTopic() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(6 * time.Minute),
-			Update: schema.DefaultTimeout(6 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -64,6 +63,17 @@ The expected format is 'projects/*/locations/*/keyRings/*/cryptoKeys/*'`,
 				Optional:    true,
 				Description: `A set of key/value label pairs to assign to this Topic.`,
 				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+			"message_retention_duration": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Description: `Indicates the minimum duration to retain a message after it is published
+to the topic. If this field is set, messages published to the topic in
+the last messageRetentionDuration are always available to subscribers.
+For instance, it allows any attached subscription to seek to a timestamp
+that is up to messageRetentionDuration in the past. If this field is not
+set, message retention is controlled by settings on individual subscriptions.
+Cannot be more than 7 days or less than 10 minutes.`,
 			},
 			"message_storage_policy": {
 				Type:     schema.TypeList,
@@ -110,7 +120,7 @@ if the schema has been deleted.`,
 						"encoding": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"ENCODING_UNSPECIFIED", "JSON", "BINARY", ""}, false),
+							ValidateFunc: validateEnum([]string{"ENCODING_UNSPECIFIED", "JSON", "BINARY", ""}),
 							Description:  `The encoding of messages validated against schema. Default value: "ENCODING_UNSPECIFIED" Possible values: ["ENCODING_UNSPECIFIED", "JSON", "BINARY"]`,
 							Default:      "ENCODING_UNSPECIFIED",
 						},
@@ -165,6 +175,12 @@ func resourcePubsubTopicCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	} else if v, ok := d.GetOkExists("schema_settings"); !isEmptyValue(reflect.ValueOf(schemaSettingsProp)) && (ok || !reflect.DeepEqual(v, schemaSettingsProp)) {
 		obj["schemaSettings"] = schemaSettingsProp
+	}
+	messageRetentionDurationProp, err := expandPubsubTopicMessageRetentionDuration(d.Get("message_retention_duration"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("message_retention_duration"); !isEmptyValue(reflect.ValueOf(messageRetentionDurationProp)) && (ok || !reflect.DeepEqual(v, messageRetentionDurationProp)) {
+		obj["messageRetentionDuration"] = messageRetentionDurationProp
 	}
 
 	obj, err = resourcePubsubTopicEncoder(d, meta, obj)
@@ -297,6 +313,9 @@ func resourcePubsubTopicRead(d *schema.ResourceData, meta interface{}) error {
 	if err := d.Set("schema_settings", flattenPubsubTopicSchemaSettings(res["schemaSettings"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Topic: %s", err)
 	}
+	if err := d.Set("message_retention_duration", flattenPubsubTopicMessageRetentionDuration(res["messageRetentionDuration"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Topic: %s", err)
+	}
 
 	return nil
 }
@@ -341,6 +360,12 @@ func resourcePubsubTopicUpdate(d *schema.ResourceData, meta interface{}) error {
 	} else if v, ok := d.GetOkExists("schema_settings"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, schemaSettingsProp)) {
 		obj["schemaSettings"] = schemaSettingsProp
 	}
+	messageRetentionDurationProp, err := expandPubsubTopicMessageRetentionDuration(d.Get("message_retention_duration"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("message_retention_duration"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, messageRetentionDurationProp)) {
+		obj["messageRetentionDuration"] = messageRetentionDurationProp
+	}
 
 	obj, err = resourcePubsubTopicUpdateEncoder(d, meta, obj)
 	if err != nil {
@@ -369,6 +394,10 @@ func resourcePubsubTopicUpdate(d *schema.ResourceData, meta interface{}) error {
 
 	if d.HasChange("schema_settings") {
 		updateMask = append(updateMask, "schemaSettings")
+	}
+
+	if d.HasChange("message_retention_duration") {
+		updateMask = append(updateMask, "messageRetentionDuration")
 	}
 	// updateMask is a URL parameter but not present in the schema, so replaceVars
 	// won't set it
@@ -505,6 +534,10 @@ func flattenPubsubTopicSchemaSettingsEncoding(v interface{}, d *schema.ResourceD
 	return v
 }
 
+func flattenPubsubTopicMessageRetentionDuration(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
 func expandPubsubTopicName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return GetResourceNameFromSelfLink(v.(string)), nil
 }
@@ -578,6 +611,10 @@ func expandPubsubTopicSchemaSettingsSchema(v interface{}, d TerraformResourceDat
 }
 
 func expandPubsubTopicSchemaSettingsEncoding(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandPubsubTopicMessageRetentionDuration(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 

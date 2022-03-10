@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,8 +66,10 @@ func (r *WorkloadResourceSettings) validate() error {
 	return nil
 }
 func (r *Workload) basePath() string {
-	params := map[string]interface{}{}
-	return dcl.Nprintf("https://us-central1-assuredworkloads.googleapis.com/v1/", params)
+	params := map[string]interface{}{
+		"location": dcl.ValueOrEmptyString(r.Location),
+	}
+	return dcl.Nprintf("https://{{location}}-assuredworkloads.googleapis.com/v1/", params)
 }
 
 func (r *Workload) getURL(userBasePath string) (string, error) {
@@ -121,6 +123,8 @@ type workloadApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateWorkloadUpdateWorkloadRequest(ctx context.Context, f *Workload, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.DisplayName; !dcl.IsEmptyValueIndirect(v) {
 		req["displayName"] = v
@@ -430,6 +434,11 @@ func (c *Client) workloadDiffsForRawDesired(ctx context.Context, rawDesired *Wor
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Workload: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Workload: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractWorkloadFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeWorkloadInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -471,7 +480,8 @@ func canonicalizeWorkloadDesiredState(rawDesired, rawInitial *Workload, opts ...
 		return rawDesired, nil
 	}
 	canonicalDesired := &Workload{}
-	if dcl.IsZeroValue(rawDesired.Name) {
+	if dcl.IsZeroValue(rawDesired.Name) || (dcl.IsEmptyValueIndirect(rawDesired.Name) && dcl.IsEmptyValueIndirect(rawInitial.Name)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Name = rawInitial.Name
 	} else {
 		canonicalDesired.Name = rawDesired.Name
@@ -481,7 +491,8 @@ func canonicalizeWorkloadDesiredState(rawDesired, rawInitial *Workload, opts ...
 	} else {
 		canonicalDesired.DisplayName = rawDesired.DisplayName
 	}
-	if dcl.IsZeroValue(rawDesired.ComplianceRegime) {
+	if dcl.IsZeroValue(rawDesired.ComplianceRegime) || (dcl.IsEmptyValueIndirect(rawDesired.ComplianceRegime) && dcl.IsEmptyValueIndirect(rawInitial.ComplianceRegime)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.ComplianceRegime = rawInitial.ComplianceRegime
 	} else {
 		canonicalDesired.ComplianceRegime = rawDesired.ComplianceRegime
@@ -491,7 +502,8 @@ func canonicalizeWorkloadDesiredState(rawDesired, rawInitial *Workload, opts ...
 	} else {
 		canonicalDesired.BillingAccount = rawDesired.BillingAccount
 	}
-	if dcl.IsZeroValue(rawDesired.Labels) {
+	if dcl.IsZeroValue(rawDesired.Labels) || (dcl.IsEmptyValueIndirect(rawDesired.Labels) && dcl.IsEmptyValueIndirect(rawInitial.Labels)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Labels = rawInitial.Labels
 	} else {
 		canonicalDesired.Labels = rawDesired.Labels
@@ -586,13 +598,15 @@ func canonicalizeWorkloadResources(des, initial *WorkloadResources, opts ...dcl.
 
 	cDes := &WorkloadResources{}
 
-	if dcl.IsZeroValue(des.ResourceId) {
-		des.ResourceId = initial.ResourceId
+	if dcl.IsZeroValue(des.ResourceId) || (dcl.IsEmptyValueIndirect(des.ResourceId) && dcl.IsEmptyValueIndirect(initial.ResourceId)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ResourceId = initial.ResourceId
 	} else {
 		cDes.ResourceId = des.ResourceId
 	}
-	if dcl.IsZeroValue(des.ResourceType) {
-		des.ResourceType = initial.ResourceType
+	if dcl.IsZeroValue(des.ResourceType) || (dcl.IsEmptyValueIndirect(des.ResourceType) && dcl.IsEmptyValueIndirect(initial.ResourceType)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ResourceType = initial.ResourceType
 	} else {
 		cDes.ResourceType = des.ResourceType
 	}
@@ -601,7 +615,7 @@ func canonicalizeWorkloadResources(des, initial *WorkloadResources, opts ...dcl.
 }
 
 func canonicalizeWorkloadResourcesSlice(des, initial []WorkloadResources, opts ...dcl.ApplyOption) []WorkloadResources {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -702,8 +716,9 @@ func canonicalizeWorkloadKmsSettings(des, initial *WorkloadKmsSettings, opts ...
 
 	cDes := &WorkloadKmsSettings{}
 
-	if dcl.IsZeroValue(des.NextRotationTime) {
-		des.NextRotationTime = initial.NextRotationTime
+	if dcl.IsZeroValue(des.NextRotationTime) || (dcl.IsEmptyValueIndirect(des.NextRotationTime) && dcl.IsEmptyValueIndirect(initial.NextRotationTime)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.NextRotationTime = initial.NextRotationTime
 	} else {
 		cDes.NextRotationTime = des.NextRotationTime
 	}
@@ -717,7 +732,7 @@ func canonicalizeWorkloadKmsSettings(des, initial *WorkloadKmsSettings, opts ...
 }
 
 func canonicalizeWorkloadKmsSettingsSlice(des, initial []WorkloadKmsSettings, opts ...dcl.ApplyOption) []WorkloadKmsSettings {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -827,8 +842,9 @@ func canonicalizeWorkloadResourceSettings(des, initial *WorkloadResourceSettings
 	} else {
 		cDes.ResourceId = des.ResourceId
 	}
-	if dcl.IsZeroValue(des.ResourceType) {
-		des.ResourceType = initial.ResourceType
+	if dcl.IsZeroValue(des.ResourceType) || (dcl.IsEmptyValueIndirect(des.ResourceType) && dcl.IsEmptyValueIndirect(initial.ResourceType)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ResourceType = initial.ResourceType
 	} else {
 		cDes.ResourceType = des.ResourceType
 	}
@@ -939,6 +955,9 @@ func diffWorkload(c *Client, desired, actual *Workload, opts ...dcl.ApplyOption)
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -1199,44 +1218,46 @@ func unmarshalMapWorkload(m map[string]interface{}, c *Client) (*Workload, error
 // expandWorkload expands Workload into a JSON request object.
 func expandWorkload(c *Client, f *Workload) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v, err := dcl.DeriveField("organizations/%s/locations/%s/workloads/%s", f.Name, f.Organization, f.Location, f.Name); err != nil {
+	res := f
+	_ = res
+	if v, err := dcl.DeriveField("organizations/%s/locations/%s/workloads/%s", f.Name, dcl.SelfLinkToName(f.Organization), dcl.SelfLinkToName(f.Location), dcl.SelfLinkToName(f.Name)); err != nil {
 		return nil, fmt.Errorf("error expanding Name into name: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["name"] = v
 	}
-	if v := f.DisplayName; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.DisplayName; dcl.ValueShouldBeSent(v) {
 		m["displayName"] = v
 	}
-	if v := f.ComplianceRegime; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ComplianceRegime; dcl.ValueShouldBeSent(v) {
 		m["complianceRegime"] = v
 	}
-	if v := f.BillingAccount; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.BillingAccount; dcl.ValueShouldBeSent(v) {
 		m["billingAccount"] = v
 	}
-	if v := f.Labels; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Labels; dcl.ValueShouldBeSent(v) {
 		m["labels"] = v
 	}
-	if v := f.ProvisionedResourcesParent; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ProvisionedResourcesParent; dcl.ValueShouldBeSent(v) {
 		m["provisionedResourcesParent"] = v
 	}
-	if v, err := expandWorkloadKmsSettings(c, f.KmsSettings); err != nil {
+	if v, err := expandWorkloadKmsSettings(c, f.KmsSettings, res); err != nil {
 		return nil, fmt.Errorf("error expanding KmsSettings into kmsSettings: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["kmsSettings"] = v
 	}
-	if v, err := expandWorkloadResourceSettingsSlice(c, f.ResourceSettings); err != nil {
+	if v, err := expandWorkloadResourceSettingsSlice(c, f.ResourceSettings, res); err != nil {
 		return nil, fmt.Errorf("error expanding ResourceSettings into resourceSettings: %w", err)
-	} else {
+	} else if v != nil {
 		m["resourceSettings"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Organization into organization: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["organization"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Location into location: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["location"] = v
 	}
 
@@ -1273,14 +1294,14 @@ func flattenWorkload(c *Client, i interface{}) *Workload {
 
 // expandWorkloadResourcesMap expands the contents of WorkloadResources into a JSON
 // request object.
-func expandWorkloadResourcesMap(c *Client, f map[string]WorkloadResources) (map[string]interface{}, error) {
+func expandWorkloadResourcesMap(c *Client, f map[string]WorkloadResources, res *Workload) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandWorkloadResources(c, &item)
+		i, err := expandWorkloadResources(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1294,14 +1315,14 @@ func expandWorkloadResourcesMap(c *Client, f map[string]WorkloadResources) (map[
 
 // expandWorkloadResourcesSlice expands the contents of WorkloadResources into a JSON
 // request object.
-func expandWorkloadResourcesSlice(c *Client, f []WorkloadResources) ([]map[string]interface{}, error) {
+func expandWorkloadResourcesSlice(c *Client, f []WorkloadResources, res *Workload) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandWorkloadResources(c, &item)
+		i, err := expandWorkloadResources(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1354,7 +1375,7 @@ func flattenWorkloadResourcesSlice(c *Client, i interface{}) []WorkloadResources
 
 // expandWorkloadResources expands an instance of WorkloadResources into a JSON
 // request object.
-func expandWorkloadResources(c *Client, f *WorkloadResources) (map[string]interface{}, error) {
+func expandWorkloadResources(c *Client, f *WorkloadResources, res *Workload) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1391,14 +1412,14 @@ func flattenWorkloadResources(c *Client, i interface{}) *WorkloadResources {
 
 // expandWorkloadKmsSettingsMap expands the contents of WorkloadKmsSettings into a JSON
 // request object.
-func expandWorkloadKmsSettingsMap(c *Client, f map[string]WorkloadKmsSettings) (map[string]interface{}, error) {
+func expandWorkloadKmsSettingsMap(c *Client, f map[string]WorkloadKmsSettings, res *Workload) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandWorkloadKmsSettings(c, &item)
+		i, err := expandWorkloadKmsSettings(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1412,14 +1433,14 @@ func expandWorkloadKmsSettingsMap(c *Client, f map[string]WorkloadKmsSettings) (
 
 // expandWorkloadKmsSettingsSlice expands the contents of WorkloadKmsSettings into a JSON
 // request object.
-func expandWorkloadKmsSettingsSlice(c *Client, f []WorkloadKmsSettings) ([]map[string]interface{}, error) {
+func expandWorkloadKmsSettingsSlice(c *Client, f []WorkloadKmsSettings, res *Workload) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandWorkloadKmsSettings(c, &item)
+		i, err := expandWorkloadKmsSettings(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1472,7 +1493,7 @@ func flattenWorkloadKmsSettingsSlice(c *Client, i interface{}) []WorkloadKmsSett
 
 // expandWorkloadKmsSettings expands an instance of WorkloadKmsSettings into a JSON
 // request object.
-func expandWorkloadKmsSettings(c *Client, f *WorkloadKmsSettings) (map[string]interface{}, error) {
+func expandWorkloadKmsSettings(c *Client, f *WorkloadKmsSettings, res *Workload) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1509,14 +1530,14 @@ func flattenWorkloadKmsSettings(c *Client, i interface{}) *WorkloadKmsSettings {
 
 // expandWorkloadResourceSettingsMap expands the contents of WorkloadResourceSettings into a JSON
 // request object.
-func expandWorkloadResourceSettingsMap(c *Client, f map[string]WorkloadResourceSettings) (map[string]interface{}, error) {
+func expandWorkloadResourceSettingsMap(c *Client, f map[string]WorkloadResourceSettings, res *Workload) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandWorkloadResourceSettings(c, &item)
+		i, err := expandWorkloadResourceSettings(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1530,14 +1551,14 @@ func expandWorkloadResourceSettingsMap(c *Client, f map[string]WorkloadResourceS
 
 // expandWorkloadResourceSettingsSlice expands the contents of WorkloadResourceSettings into a JSON
 // request object.
-func expandWorkloadResourceSettingsSlice(c *Client, f []WorkloadResourceSettings) ([]map[string]interface{}, error) {
+func expandWorkloadResourceSettingsSlice(c *Client, f []WorkloadResourceSettings, res *Workload) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandWorkloadResourceSettings(c, &item)
+		i, err := expandWorkloadResourceSettings(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1590,8 +1611,8 @@ func flattenWorkloadResourceSettingsSlice(c *Client, i interface{}) []WorkloadRe
 
 // expandWorkloadResourceSettings expands an instance of WorkloadResourceSettings into a JSON
 // request object.
-func expandWorkloadResourceSettings(c *Client, f *WorkloadResourceSettings) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandWorkloadResourceSettings(c *Client, f *WorkloadResourceSettings, res *Workload) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -1670,7 +1691,7 @@ func flattenWorkloadResourcesResourceTypeEnumSlice(c *Client, i interface{}) []W
 func flattenWorkloadResourcesResourceTypeEnum(i interface{}) *WorkloadResourcesResourceTypeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return WorkloadResourcesResourceTypeEnumRef("")
+		return nil
 	}
 
 	return WorkloadResourcesResourceTypeEnumRef(s)
@@ -1721,7 +1742,7 @@ func flattenWorkloadComplianceRegimeEnumSlice(c *Client, i interface{}) []Worklo
 func flattenWorkloadComplianceRegimeEnum(i interface{}) *WorkloadComplianceRegimeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return WorkloadComplianceRegimeEnumRef("")
+		return nil
 	}
 
 	return WorkloadComplianceRegimeEnumRef(s)
@@ -1772,7 +1793,7 @@ func flattenWorkloadResourceSettingsResourceTypeEnumSlice(c *Client, i interface
 func flattenWorkloadResourceSettingsResourceTypeEnum(i interface{}) *WorkloadResourceSettingsResourceTypeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return WorkloadResourceSettingsResourceTypeEnumRef("")
+		return nil
 	}
 
 	return WorkloadResourceSettingsResourceTypeEnumRef(s)
@@ -1835,7 +1856,7 @@ func convertFieldDiffsToWorkloadDiffs(config *dcl.Config, fds []*dcl.FieldDiff, 
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1870,5 +1891,49 @@ func convertOpNameToWorkloadApiOperation(opName string, fieldDiffs []*dcl.FieldD
 }
 
 func extractWorkloadFields(r *Workload) error {
+	vKmsSettings := r.KmsSettings
+	if vKmsSettings == nil {
+		// note: explicitly not the empty object.
+		vKmsSettings = &WorkloadKmsSettings{}
+	}
+	if err := extractWorkloadKmsSettingsFields(r, vKmsSettings); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vKmsSettings) {
+		r.KmsSettings = vKmsSettings
+	}
+	return nil
+}
+func extractWorkloadResourcesFields(r *Workload, o *WorkloadResources) error {
+	return nil
+}
+func extractWorkloadKmsSettingsFields(r *Workload, o *WorkloadKmsSettings) error {
+	return nil
+}
+func extractWorkloadResourceSettingsFields(r *Workload, o *WorkloadResourceSettings) error {
+	return nil
+}
+
+func postReadExtractWorkloadFields(r *Workload) error {
+	vKmsSettings := r.KmsSettings
+	if vKmsSettings == nil {
+		// note: explicitly not the empty object.
+		vKmsSettings = &WorkloadKmsSettings{}
+	}
+	if err := postReadExtractWorkloadKmsSettingsFields(r, vKmsSettings); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vKmsSettings) {
+		r.KmsSettings = vKmsSettings
+	}
+	return nil
+}
+func postReadExtractWorkloadResourcesFields(r *Workload, o *WorkloadResources) error {
+	return nil
+}
+func postReadExtractWorkloadKmsSettingsFields(r *Workload, o *WorkloadKmsSettings) error {
+	return nil
+}
+func postReadExtractWorkloadResourceSettingsFields(r *Workload, o *WorkloadResourceSettings) error {
 	return nil
 }

@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 info:
   title: Compute/HealthCheck
-  description: DCL Specification for the Compute HealthCheck resource
+  description: The Compute HealthCheck resource
+  x-dcl-struct-name: HealthCheck
   x-dcl-has-iam: false
 paths:
   get:
@@ -65,6 +66,7 @@ components:
       - region
       - global
       x-dcl-parent-container: project
+      x-dcl-has-iam: false
       type: object
       required:
       - project

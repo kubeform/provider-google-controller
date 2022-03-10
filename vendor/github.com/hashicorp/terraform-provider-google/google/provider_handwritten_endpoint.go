@@ -28,16 +28,6 @@ var ComposerCustomEndpointEntry = &schema.Schema{
 	}, DefaultBasePaths[ComposerBasePathKey]),
 }
 
-var ComputeBetaCustomEndpointEntryKey = "compute_beta_custom_endpoint"
-var ComputeBetaCustomEndpointEntry = &schema.Schema{
-	Type:         schema.TypeString,
-	Optional:     true,
-	ValidateFunc: validateCustomEndpoint,
-	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
-		"GOOGLE_COMPUTE_BETA_CUSTOM_ENDPOINT",
-	}, DefaultBasePaths[ComputeBetaBasePathKey]),
-}
-
 var ContainerCustomEndpointEntryKey = "container_custom_endpoint"
 var ContainerCustomEndpointEntry = &schema.Schema{
 	Type:         schema.TypeString,
@@ -46,26 +36,6 @@ var ContainerCustomEndpointEntry = &schema.Schema{
 	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
 		"GOOGLE_CONTAINER_CUSTOM_ENDPOINT",
 	}, DefaultBasePaths[ContainerBasePathKey]),
-}
-
-var ContainerBetaCustomEndpointEntryKey = "container_beta_custom_endpoint"
-var ContainerBetaCustomEndpointEntry = &schema.Schema{
-	Type:         schema.TypeString,
-	Optional:     true,
-	ValidateFunc: validateCustomEndpoint,
-	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
-		"GOOGLE_CONTAINER_BETA_CUSTOM_ENDPOINT",
-	}, DefaultBasePaths[ContainerBetaBasePathKey]),
-}
-
-var DataprocBetaCustomEndpointEntryKey = "dataproc_beta_custom_endpoint"
-var DataprocBetaCustomEndpointEntry = &schema.Schema{
-	Type:         schema.TypeString,
-	Optional:     true,
-	ValidateFunc: validateCustomEndpoint,
-	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
-		"GOOGLE_DATAPROC_BETA_CUSTOM_ENDPOINT",
-	}, DefaultBasePaths[DataprocBetaBasePathKey]),
 }
 
 var DataflowCustomEndpointEntryKey = "dataflow_custom_endpoint"
@@ -106,16 +76,6 @@ var ResourceManagerV2CustomEndpointEntry = &schema.Schema{
 	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
 		"GOOGLE_RESOURCE_MANAGER_V2_CUSTOM_ENDPOINT",
 	}, DefaultBasePaths[ResourceManagerV2BasePathKey]),
-}
-
-var RuntimeConfigCustomEndpointEntryKey = "runtimeconfig_custom_endpoint"
-var RuntimeConfigCustomEndpointEntry = &schema.Schema{
-	Type:         schema.TypeString,
-	Optional:     true,
-	ValidateFunc: validateCustomEndpoint,
-	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
-		"GOOGLE_RUNTIMECONFIG_CUSTOM_ENDPOINT",
-	}, DefaultBasePaths[RuntimeConfigBasePathKey]),
 }
 
 var ServiceNetworkingCustomEndpointEntryKey = "service_networking_custom_endpoint"
@@ -177,6 +137,26 @@ var PrivatecaCertificateTemplateCustomEndpointEntry = &schema.Schema{
 	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
 		"GOOGLE_PRIVATECA_CUSTOM_ENDPOINT",
 	}, DefaultBasePaths[PrivatecaBasePathKey]),
+}
+
+var ContainerAwsCustomEndpointEntryKey = "container_aws_custom_endpoint"
+var ContainerAwsCustomEndpointEntry = &schema.Schema{
+	Type:         schema.TypeString,
+	Optional:     true,
+	ValidateFunc: validateCustomEndpoint,
+	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
+		"GOOGLE_CONTAINERAWS_CUSTOM_ENDPOINT",
+	}, DefaultBasePaths[ContainerAwsBasePathKey]),
+}
+
+var ContainerAzureCustomEndpointEntryKey = "container_azure_custom_endpoint"
+var ContainerAzureCustomEndpointEntry = &schema.Schema{
+	Type:         schema.TypeString,
+	Optional:     true,
+	ValidateFunc: validateCustomEndpoint,
+	DefaultFunc: schema.MultiEnvDefaultFunc([]string{
+		"GOOGLE_CONTAINERAZURE_CUSTOM_ENDPOINT",
+	}, DefaultBasePaths[ContainerAzureBasePathKey]),
 }
 
 func validateCustomEndpoint(v interface{}, k string) (ws []string, errors []error) {

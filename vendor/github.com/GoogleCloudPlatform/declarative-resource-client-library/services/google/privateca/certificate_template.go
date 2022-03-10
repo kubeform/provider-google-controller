@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,8 +107,8 @@ func (r *CertificateTemplatePredefinedValues) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValues is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValues *CertificateTemplatePredefinedValues = &CertificateTemplatePredefinedValues{empty: true}
 
 func (r *CertificateTemplatePredefinedValues) Empty() bool {
@@ -159,8 +159,8 @@ func (r *CertificateTemplatePredefinedValuesKeyUsage) UnmarshalJSON(data []byte)
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesKeyUsage is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesKeyUsage *CertificateTemplatePredefinedValuesKeyUsage = &CertificateTemplatePredefinedValuesKeyUsage{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesKeyUsage) Empty() bool {
@@ -229,8 +229,8 @@ func (r *CertificateTemplatePredefinedValuesKeyUsageBaseKeyUsage) UnmarshalJSON(
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesKeyUsageBaseKeyUsage is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesKeyUsageBaseKeyUsage *CertificateTemplatePredefinedValuesKeyUsageBaseKeyUsage = &CertificateTemplatePredefinedValuesKeyUsageBaseKeyUsage{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesKeyUsageBaseKeyUsage) Empty() bool {
@@ -290,8 +290,8 @@ func (r *CertificateTemplatePredefinedValuesKeyUsageExtendedKeyUsage) UnmarshalJ
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesKeyUsageExtendedKeyUsage is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesKeyUsageExtendedKeyUsage *CertificateTemplatePredefinedValuesKeyUsageExtendedKeyUsage = &CertificateTemplatePredefinedValuesKeyUsageExtendedKeyUsage{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesKeyUsageExtendedKeyUsage) Empty() bool {
@@ -336,8 +336,8 @@ func (r *CertificateTemplatePredefinedValuesKeyUsageUnknownExtendedKeyUsages) Un
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesKeyUsageUnknownExtendedKeyUsages is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesKeyUsageUnknownExtendedKeyUsages *CertificateTemplatePredefinedValuesKeyUsageUnknownExtendedKeyUsages = &CertificateTemplatePredefinedValuesKeyUsageUnknownExtendedKeyUsages{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesKeyUsageUnknownExtendedKeyUsages) Empty() bool {
@@ -385,8 +385,8 @@ func (r *CertificateTemplatePredefinedValuesCaOptions) UnmarshalJSON(data []byte
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesCaOptions is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesCaOptions *CertificateTemplatePredefinedValuesCaOptions = &CertificateTemplatePredefinedValuesCaOptions{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesCaOptions) Empty() bool {
@@ -431,8 +431,8 @@ func (r *CertificateTemplatePredefinedValuesPolicyIds) UnmarshalJSON(data []byte
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesPolicyIds is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesPolicyIds *CertificateTemplatePredefinedValuesPolicyIds = &CertificateTemplatePredefinedValuesPolicyIds{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesPolicyIds) Empty() bool {
@@ -483,8 +483,8 @@ func (r *CertificateTemplatePredefinedValuesAdditionalExtensions) UnmarshalJSON(
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesAdditionalExtensions is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesAdditionalExtensions *CertificateTemplatePredefinedValuesAdditionalExtensions = &CertificateTemplatePredefinedValuesAdditionalExtensions{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesAdditionalExtensions) Empty() bool {
@@ -529,8 +529,8 @@ func (r *CertificateTemplatePredefinedValuesAdditionalExtensionsObjectId) Unmars
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePredefinedValuesAdditionalExtensionsObjectId is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePredefinedValuesAdditionalExtensionsObjectId *CertificateTemplatePredefinedValuesAdditionalExtensionsObjectId = &CertificateTemplatePredefinedValuesAdditionalExtensionsObjectId{empty: true}
 
 func (r *CertificateTemplatePredefinedValuesAdditionalExtensionsObjectId) Empty() bool {
@@ -581,8 +581,8 @@ func (r *CertificateTemplateIdentityConstraints) UnmarshalJSON(data []byte) erro
 }
 
 // This object is used to assert a desired state where this CertificateTemplateIdentityConstraints is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplateIdentityConstraints *CertificateTemplateIdentityConstraints = &CertificateTemplateIdentityConstraints{empty: true}
 
 func (r *CertificateTemplateIdentityConstraints) Empty() bool {
@@ -636,8 +636,8 @@ func (r *CertificateTemplateIdentityConstraintsCelExpression) UnmarshalJSON(data
 }
 
 // This object is used to assert a desired state where this CertificateTemplateIdentityConstraintsCelExpression is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplateIdentityConstraintsCelExpression *CertificateTemplateIdentityConstraintsCelExpression = &CertificateTemplateIdentityConstraintsCelExpression{empty: true}
 
 func (r *CertificateTemplateIdentityConstraintsCelExpression) Empty() bool {
@@ -685,8 +685,8 @@ func (r *CertificateTemplatePassthroughExtensions) UnmarshalJSON(data []byte) er
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePassthroughExtensions is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePassthroughExtensions *CertificateTemplatePassthroughExtensions = &CertificateTemplatePassthroughExtensions{empty: true}
 
 func (r *CertificateTemplatePassthroughExtensions) Empty() bool {
@@ -731,8 +731,8 @@ func (r *CertificateTemplatePassthroughExtensionsAdditionalExtensions) Unmarshal
 }
 
 // This object is used to assert a desired state where this CertificateTemplatePassthroughExtensionsAdditionalExtensions is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyCertificateTemplatePassthroughExtensionsAdditionalExtensions *CertificateTemplatePassthroughExtensionsAdditionalExtensions = &CertificateTemplatePassthroughExtensionsAdditionalExtensions{empty: true}
 
 func (r *CertificateTemplatePassthroughExtensionsAdditionalExtensions) Empty() bool {
@@ -876,6 +876,9 @@ func (c *Client) GetCertificateTemplate(ctx context.Context, r *CertificateTempl
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractCertificateTemplateFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -919,6 +922,9 @@ func (c *Client) DeleteAllCertificateTemplate(ctx context.Context, project, loca
 }
 
 func (c *Client) ApplyCertificateTemplate(ctx context.Context, rawDesired *CertificateTemplate, opts ...dcl.ApplyOption) (*CertificateTemplate, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *CertificateTemplate
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
@@ -940,9 +946,6 @@ func (c *Client) ApplyCertificateTemplate(ctx context.Context, rawDesired *Certi
 func applyCertificateTemplateHelper(c *Client, ctx context.Context, rawDesired *CertificateTemplate, opts ...dcl.ApplyOption) (*CertificateTemplate, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyCertificateTemplate...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -1010,7 +1013,10 @@ func applyCertificateTemplateHelper(c *Client, ctx context.Context, rawDesired *
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyCertificateTemplateDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyCertificateTemplateDiff(c *Client, ctx context.Context, desired *CertificateTemplate, rawDesired *CertificateTemplate, ops []certificateTemplateApiOperation, opts ...dcl.ApplyOption) (*CertificateTemplate, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetCertificateTemplate(ctx, desired.urlNormalized())
@@ -1043,7 +1049,7 @@ func applyCertificateTemplateHelper(c *Client, ctx context.Context, rawDesired *
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeCertificateTemplateNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -1051,12 +1057,22 @@ func applyCertificateTemplateHelper(c *Client, ctx context.Context, rawDesired *
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeCertificateTemplateDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractCertificateTemplateFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractCertificateTemplateFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffCertificateTemplate(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

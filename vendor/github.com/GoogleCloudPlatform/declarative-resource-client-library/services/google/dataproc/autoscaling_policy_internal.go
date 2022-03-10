@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -147,18 +147,20 @@ type autoscalingPolicyApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateAutoscalingPolicyUpdateAutoscalingPolicyRequest(ctx context.Context, f *AutoscalingPolicy, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
-	if v, err := expandAutoscalingPolicyBasicAlgorithm(c, f.BasicAlgorithm); err != nil {
+	if v, err := expandAutoscalingPolicyBasicAlgorithm(c, f.BasicAlgorithm, res); err != nil {
 		return nil, fmt.Errorf("error expanding BasicAlgorithm into basicAlgorithm: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["basicAlgorithm"] = v
 	}
-	if v, err := expandAutoscalingPolicyWorkerConfig(c, f.WorkerConfig); err != nil {
+	if v, err := expandAutoscalingPolicyWorkerConfig(c, f.WorkerConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding WorkerConfig into workerConfig: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["workerConfig"] = v
 	}
-	if v, err := expandAutoscalingPolicySecondaryWorkerConfig(c, f.SecondaryWorkerConfig); err != nil {
+	if v, err := expandAutoscalingPolicySecondaryWorkerConfig(c, f.SecondaryWorkerConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding SecondaryWorkerConfig into secondaryWorkerConfig: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["secondaryWorkerConfig"] = v
@@ -427,6 +429,11 @@ func (c *Client) autoscalingPolicyDiffsForRawDesired(ctx context.Context, rawDes
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for AutoscalingPolicy: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for AutoscalingPolicy: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractAutoscalingPolicyFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeAutoscalingPolicyInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -552,7 +559,7 @@ func canonicalizeAutoscalingPolicyBasicAlgorithm(des, initial *AutoscalingPolicy
 }
 
 func canonicalizeAutoscalingPolicyBasicAlgorithmSlice(des, initial []AutoscalingPolicyBasicAlgorithm, opts ...dcl.ApplyOption) []AutoscalingPolicyBasicAlgorithm {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -663,23 +670,27 @@ func canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(des, initial *Autosca
 	} else {
 		cDes.GracefulDecommissionTimeout = des.GracefulDecommissionTimeout
 	}
-	if dcl.IsZeroValue(des.ScaleUpFactor) {
-		des.ScaleUpFactor = initial.ScaleUpFactor
+	if dcl.IsZeroValue(des.ScaleUpFactor) || (dcl.IsEmptyValueIndirect(des.ScaleUpFactor) && dcl.IsEmptyValueIndirect(initial.ScaleUpFactor)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ScaleUpFactor = initial.ScaleUpFactor
 	} else {
 		cDes.ScaleUpFactor = des.ScaleUpFactor
 	}
-	if dcl.IsZeroValue(des.ScaleDownFactor) {
-		des.ScaleDownFactor = initial.ScaleDownFactor
+	if dcl.IsZeroValue(des.ScaleDownFactor) || (dcl.IsEmptyValueIndirect(des.ScaleDownFactor) && dcl.IsEmptyValueIndirect(initial.ScaleDownFactor)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ScaleDownFactor = initial.ScaleDownFactor
 	} else {
 		cDes.ScaleDownFactor = des.ScaleDownFactor
 	}
-	if dcl.IsZeroValue(des.ScaleUpMinWorkerFraction) {
-		des.ScaleUpMinWorkerFraction = initial.ScaleUpMinWorkerFraction
+	if dcl.IsZeroValue(des.ScaleUpMinWorkerFraction) || (dcl.IsEmptyValueIndirect(des.ScaleUpMinWorkerFraction) && dcl.IsEmptyValueIndirect(initial.ScaleUpMinWorkerFraction)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ScaleUpMinWorkerFraction = initial.ScaleUpMinWorkerFraction
 	} else {
 		cDes.ScaleUpMinWorkerFraction = des.ScaleUpMinWorkerFraction
 	}
-	if dcl.IsZeroValue(des.ScaleDownMinWorkerFraction) {
-		des.ScaleDownMinWorkerFraction = initial.ScaleDownMinWorkerFraction
+	if dcl.IsZeroValue(des.ScaleDownMinWorkerFraction) || (dcl.IsEmptyValueIndirect(des.ScaleDownMinWorkerFraction) && dcl.IsEmptyValueIndirect(initial.ScaleDownMinWorkerFraction)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ScaleDownMinWorkerFraction = initial.ScaleDownMinWorkerFraction
 	} else {
 		cDes.ScaleDownMinWorkerFraction = des.ScaleDownMinWorkerFraction
 	}
@@ -688,7 +699,7 @@ func canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfig(des, initial *Autosca
 }
 
 func canonicalizeAutoscalingPolicyBasicAlgorithmYarnConfigSlice(des, initial []AutoscalingPolicyBasicAlgorithmYarnConfig, opts ...dcl.ApplyOption) []AutoscalingPolicyBasicAlgorithmYarnConfig {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -793,18 +804,21 @@ func canonicalizeAutoscalingPolicyWorkerConfig(des, initial *AutoscalingPolicyWo
 
 	cDes := &AutoscalingPolicyWorkerConfig{}
 
-	if dcl.IsZeroValue(des.MinInstances) {
-		des.MinInstances = initial.MinInstances
+	if dcl.IsZeroValue(des.MinInstances) || (dcl.IsEmptyValueIndirect(des.MinInstances) && dcl.IsEmptyValueIndirect(initial.MinInstances)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.MinInstances = initial.MinInstances
 	} else {
 		cDes.MinInstances = des.MinInstances
 	}
-	if dcl.IsZeroValue(des.MaxInstances) {
-		des.MaxInstances = initial.MaxInstances
+	if dcl.IsZeroValue(des.MaxInstances) || (dcl.IsEmptyValueIndirect(des.MaxInstances) && dcl.IsEmptyValueIndirect(initial.MaxInstances)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.MaxInstances = initial.MaxInstances
 	} else {
 		cDes.MaxInstances = des.MaxInstances
 	}
-	if dcl.IsZeroValue(des.Weight) {
-		des.Weight = initial.Weight
+	if dcl.IsZeroValue(des.Weight) || (dcl.IsEmptyValueIndirect(des.Weight) && dcl.IsEmptyValueIndirect(initial.Weight)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Weight = initial.Weight
 	} else {
 		cDes.Weight = des.Weight
 	}
@@ -813,7 +827,7 @@ func canonicalizeAutoscalingPolicyWorkerConfig(des, initial *AutoscalingPolicyWo
 }
 
 func canonicalizeAutoscalingPolicyWorkerConfigSlice(des, initial []AutoscalingPolicyWorkerConfig, opts ...dcl.ApplyOption) []AutoscalingPolicyWorkerConfig {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -914,18 +928,21 @@ func canonicalizeAutoscalingPolicySecondaryWorkerConfig(des, initial *Autoscalin
 
 	cDes := &AutoscalingPolicySecondaryWorkerConfig{}
 
-	if dcl.IsZeroValue(des.MinInstances) {
-		des.MinInstances = initial.MinInstances
+	if dcl.IsZeroValue(des.MinInstances) || (dcl.IsEmptyValueIndirect(des.MinInstances) && dcl.IsEmptyValueIndirect(initial.MinInstances)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.MinInstances = initial.MinInstances
 	} else {
 		cDes.MinInstances = des.MinInstances
 	}
-	if dcl.IsZeroValue(des.MaxInstances) {
-		des.MaxInstances = initial.MaxInstances
+	if dcl.IsZeroValue(des.MaxInstances) || (dcl.IsEmptyValueIndirect(des.MaxInstances) && dcl.IsEmptyValueIndirect(initial.MaxInstances)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.MaxInstances = initial.MaxInstances
 	} else {
 		cDes.MaxInstances = des.MaxInstances
 	}
-	if dcl.IsZeroValue(des.Weight) {
-		des.Weight = initial.Weight
+	if dcl.IsZeroValue(des.Weight) || (dcl.IsEmptyValueIndirect(des.Weight) && dcl.IsEmptyValueIndirect(initial.Weight)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Weight = initial.Weight
 	} else {
 		cDes.Weight = des.Weight
 	}
@@ -934,7 +951,7 @@ func canonicalizeAutoscalingPolicySecondaryWorkerConfig(des, initial *Autoscalin
 }
 
 func canonicalizeAutoscalingPolicySecondaryWorkerConfigSlice(des, initial []AutoscalingPolicySecondaryWorkerConfig, opts ...dcl.ApplyOption) []AutoscalingPolicySecondaryWorkerConfig {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1032,6 +1049,9 @@ func diffAutoscalingPolicy(c *Client, desired, actual *AutoscalingPolicy, opts .
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -1318,32 +1338,34 @@ func unmarshalMapAutoscalingPolicy(m map[string]interface{}, c *Client) (*Autosc
 // expandAutoscalingPolicy expands AutoscalingPolicy into a JSON request object.
 func expandAutoscalingPolicy(c *Client, f *AutoscalingPolicy) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["id"] = v
 	}
-	if v, err := expandAutoscalingPolicyBasicAlgorithm(c, f.BasicAlgorithm); err != nil {
+	if v, err := expandAutoscalingPolicyBasicAlgorithm(c, f.BasicAlgorithm, res); err != nil {
 		return nil, fmt.Errorf("error expanding BasicAlgorithm into basicAlgorithm: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["basicAlgorithm"] = v
 	}
-	if v, err := expandAutoscalingPolicyWorkerConfig(c, f.WorkerConfig); err != nil {
+	if v, err := expandAutoscalingPolicyWorkerConfig(c, f.WorkerConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding WorkerConfig into workerConfig: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["workerConfig"] = v
 	}
-	if v, err := expandAutoscalingPolicySecondaryWorkerConfig(c, f.SecondaryWorkerConfig); err != nil {
+	if v, err := expandAutoscalingPolicySecondaryWorkerConfig(c, f.SecondaryWorkerConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding SecondaryWorkerConfig into secondaryWorkerConfig: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["secondaryWorkerConfig"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Project into project: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["project"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Location into location: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["location"] = v
 	}
 
@@ -1374,14 +1396,14 @@ func flattenAutoscalingPolicy(c *Client, i interface{}) *AutoscalingPolicy {
 
 // expandAutoscalingPolicyBasicAlgorithmMap expands the contents of AutoscalingPolicyBasicAlgorithm into a JSON
 // request object.
-func expandAutoscalingPolicyBasicAlgorithmMap(c *Client, f map[string]AutoscalingPolicyBasicAlgorithm) (map[string]interface{}, error) {
+func expandAutoscalingPolicyBasicAlgorithmMap(c *Client, f map[string]AutoscalingPolicyBasicAlgorithm, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandAutoscalingPolicyBasicAlgorithm(c, &item)
+		i, err := expandAutoscalingPolicyBasicAlgorithm(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1395,14 +1417,14 @@ func expandAutoscalingPolicyBasicAlgorithmMap(c *Client, f map[string]Autoscalin
 
 // expandAutoscalingPolicyBasicAlgorithmSlice expands the contents of AutoscalingPolicyBasicAlgorithm into a JSON
 // request object.
-func expandAutoscalingPolicyBasicAlgorithmSlice(c *Client, f []AutoscalingPolicyBasicAlgorithm) ([]map[string]interface{}, error) {
+func expandAutoscalingPolicyBasicAlgorithmSlice(c *Client, f []AutoscalingPolicyBasicAlgorithm, res *AutoscalingPolicy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandAutoscalingPolicyBasicAlgorithm(c, &item)
+		i, err := expandAutoscalingPolicyBasicAlgorithm(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1455,13 +1477,13 @@ func flattenAutoscalingPolicyBasicAlgorithmSlice(c *Client, i interface{}) []Aut
 
 // expandAutoscalingPolicyBasicAlgorithm expands an instance of AutoscalingPolicyBasicAlgorithm into a JSON
 // request object.
-func expandAutoscalingPolicyBasicAlgorithm(c *Client, f *AutoscalingPolicyBasicAlgorithm) (map[string]interface{}, error) {
+func expandAutoscalingPolicyBasicAlgorithm(c *Client, f *AutoscalingPolicyBasicAlgorithm, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v, err := expandAutoscalingPolicyBasicAlgorithmYarnConfig(c, f.YarnConfig); err != nil {
+	if v, err := expandAutoscalingPolicyBasicAlgorithmYarnConfig(c, f.YarnConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding YarnConfig into yarnConfig: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["yarnConfig"] = v
@@ -1494,14 +1516,14 @@ func flattenAutoscalingPolicyBasicAlgorithm(c *Client, i interface{}) *Autoscali
 
 // expandAutoscalingPolicyBasicAlgorithmYarnConfigMap expands the contents of AutoscalingPolicyBasicAlgorithmYarnConfig into a JSON
 // request object.
-func expandAutoscalingPolicyBasicAlgorithmYarnConfigMap(c *Client, f map[string]AutoscalingPolicyBasicAlgorithmYarnConfig) (map[string]interface{}, error) {
+func expandAutoscalingPolicyBasicAlgorithmYarnConfigMap(c *Client, f map[string]AutoscalingPolicyBasicAlgorithmYarnConfig, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandAutoscalingPolicyBasicAlgorithmYarnConfig(c, &item)
+		i, err := expandAutoscalingPolicyBasicAlgorithmYarnConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1515,14 +1537,14 @@ func expandAutoscalingPolicyBasicAlgorithmYarnConfigMap(c *Client, f map[string]
 
 // expandAutoscalingPolicyBasicAlgorithmYarnConfigSlice expands the contents of AutoscalingPolicyBasicAlgorithmYarnConfig into a JSON
 // request object.
-func expandAutoscalingPolicyBasicAlgorithmYarnConfigSlice(c *Client, f []AutoscalingPolicyBasicAlgorithmYarnConfig) ([]map[string]interface{}, error) {
+func expandAutoscalingPolicyBasicAlgorithmYarnConfigSlice(c *Client, f []AutoscalingPolicyBasicAlgorithmYarnConfig, res *AutoscalingPolicy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandAutoscalingPolicyBasicAlgorithmYarnConfig(c, &item)
+		i, err := expandAutoscalingPolicyBasicAlgorithmYarnConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1575,7 +1597,7 @@ func flattenAutoscalingPolicyBasicAlgorithmYarnConfigSlice(c *Client, i interfac
 
 // expandAutoscalingPolicyBasicAlgorithmYarnConfig expands an instance of AutoscalingPolicyBasicAlgorithmYarnConfig into a JSON
 // request object.
-func expandAutoscalingPolicyBasicAlgorithmYarnConfig(c *Client, f *AutoscalingPolicyBasicAlgorithmYarnConfig) (map[string]interface{}, error) {
+func expandAutoscalingPolicyBasicAlgorithmYarnConfig(c *Client, f *AutoscalingPolicyBasicAlgorithmYarnConfig, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1624,14 +1646,14 @@ func flattenAutoscalingPolicyBasicAlgorithmYarnConfig(c *Client, i interface{}) 
 
 // expandAutoscalingPolicyWorkerConfigMap expands the contents of AutoscalingPolicyWorkerConfig into a JSON
 // request object.
-func expandAutoscalingPolicyWorkerConfigMap(c *Client, f map[string]AutoscalingPolicyWorkerConfig) (map[string]interface{}, error) {
+func expandAutoscalingPolicyWorkerConfigMap(c *Client, f map[string]AutoscalingPolicyWorkerConfig, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandAutoscalingPolicyWorkerConfig(c, &item)
+		i, err := expandAutoscalingPolicyWorkerConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1645,14 +1667,14 @@ func expandAutoscalingPolicyWorkerConfigMap(c *Client, f map[string]AutoscalingP
 
 // expandAutoscalingPolicyWorkerConfigSlice expands the contents of AutoscalingPolicyWorkerConfig into a JSON
 // request object.
-func expandAutoscalingPolicyWorkerConfigSlice(c *Client, f []AutoscalingPolicyWorkerConfig) ([]map[string]interface{}, error) {
+func expandAutoscalingPolicyWorkerConfigSlice(c *Client, f []AutoscalingPolicyWorkerConfig, res *AutoscalingPolicy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandAutoscalingPolicyWorkerConfig(c, &item)
+		i, err := expandAutoscalingPolicyWorkerConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1705,7 +1727,7 @@ func flattenAutoscalingPolicyWorkerConfigSlice(c *Client, i interface{}) []Autos
 
 // expandAutoscalingPolicyWorkerConfig expands an instance of AutoscalingPolicyWorkerConfig into a JSON
 // request object.
-func expandAutoscalingPolicyWorkerConfig(c *Client, f *AutoscalingPolicyWorkerConfig) (map[string]interface{}, error) {
+func expandAutoscalingPolicyWorkerConfig(c *Client, f *AutoscalingPolicyWorkerConfig, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1746,14 +1768,14 @@ func flattenAutoscalingPolicyWorkerConfig(c *Client, i interface{}) *Autoscaling
 
 // expandAutoscalingPolicySecondaryWorkerConfigMap expands the contents of AutoscalingPolicySecondaryWorkerConfig into a JSON
 // request object.
-func expandAutoscalingPolicySecondaryWorkerConfigMap(c *Client, f map[string]AutoscalingPolicySecondaryWorkerConfig) (map[string]interface{}, error) {
+func expandAutoscalingPolicySecondaryWorkerConfigMap(c *Client, f map[string]AutoscalingPolicySecondaryWorkerConfig, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandAutoscalingPolicySecondaryWorkerConfig(c, &item)
+		i, err := expandAutoscalingPolicySecondaryWorkerConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1767,14 +1789,14 @@ func expandAutoscalingPolicySecondaryWorkerConfigMap(c *Client, f map[string]Aut
 
 // expandAutoscalingPolicySecondaryWorkerConfigSlice expands the contents of AutoscalingPolicySecondaryWorkerConfig into a JSON
 // request object.
-func expandAutoscalingPolicySecondaryWorkerConfigSlice(c *Client, f []AutoscalingPolicySecondaryWorkerConfig) ([]map[string]interface{}, error) {
+func expandAutoscalingPolicySecondaryWorkerConfigSlice(c *Client, f []AutoscalingPolicySecondaryWorkerConfig, res *AutoscalingPolicy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandAutoscalingPolicySecondaryWorkerConfig(c, &item)
+		i, err := expandAutoscalingPolicySecondaryWorkerConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1827,7 +1849,7 @@ func flattenAutoscalingPolicySecondaryWorkerConfigSlice(c *Client, i interface{}
 
 // expandAutoscalingPolicySecondaryWorkerConfig expands an instance of AutoscalingPolicySecondaryWorkerConfig into a JSON
 // request object.
-func expandAutoscalingPolicySecondaryWorkerConfig(c *Client, f *AutoscalingPolicySecondaryWorkerConfig) (map[string]interface{}, error) {
+func expandAutoscalingPolicySecondaryWorkerConfig(c *Client, f *AutoscalingPolicySecondaryWorkerConfig, res *AutoscalingPolicy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1923,7 +1945,7 @@ func convertFieldDiffsToAutoscalingPolicyDiffs(config *dcl.Config, fds []*dcl.Fi
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1958,5 +1980,121 @@ func convertOpNameToAutoscalingPolicyApiOperation(opName string, fieldDiffs []*d
 }
 
 func extractAutoscalingPolicyFields(r *AutoscalingPolicy) error {
+	vBasicAlgorithm := r.BasicAlgorithm
+	if vBasicAlgorithm == nil {
+		// note: explicitly not the empty object.
+		vBasicAlgorithm = &AutoscalingPolicyBasicAlgorithm{}
+	}
+	if err := extractAutoscalingPolicyBasicAlgorithmFields(r, vBasicAlgorithm); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vBasicAlgorithm) {
+		r.BasicAlgorithm = vBasicAlgorithm
+	}
+	vWorkerConfig := r.WorkerConfig
+	if vWorkerConfig == nil {
+		// note: explicitly not the empty object.
+		vWorkerConfig = &AutoscalingPolicyWorkerConfig{}
+	}
+	if err := extractAutoscalingPolicyWorkerConfigFields(r, vWorkerConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vWorkerConfig) {
+		r.WorkerConfig = vWorkerConfig
+	}
+	vSecondaryWorkerConfig := r.SecondaryWorkerConfig
+	if vSecondaryWorkerConfig == nil {
+		// note: explicitly not the empty object.
+		vSecondaryWorkerConfig = &AutoscalingPolicySecondaryWorkerConfig{}
+	}
+	if err := extractAutoscalingPolicySecondaryWorkerConfigFields(r, vSecondaryWorkerConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vSecondaryWorkerConfig) {
+		r.SecondaryWorkerConfig = vSecondaryWorkerConfig
+	}
+	return nil
+}
+func extractAutoscalingPolicyBasicAlgorithmFields(r *AutoscalingPolicy, o *AutoscalingPolicyBasicAlgorithm) error {
+	vYarnConfig := o.YarnConfig
+	if vYarnConfig == nil {
+		// note: explicitly not the empty object.
+		vYarnConfig = &AutoscalingPolicyBasicAlgorithmYarnConfig{}
+	}
+	if err := extractAutoscalingPolicyBasicAlgorithmYarnConfigFields(r, vYarnConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vYarnConfig) {
+		o.YarnConfig = vYarnConfig
+	}
+	return nil
+}
+func extractAutoscalingPolicyBasicAlgorithmYarnConfigFields(r *AutoscalingPolicy, o *AutoscalingPolicyBasicAlgorithmYarnConfig) error {
+	return nil
+}
+func extractAutoscalingPolicyWorkerConfigFields(r *AutoscalingPolicy, o *AutoscalingPolicyWorkerConfig) error {
+	return nil
+}
+func extractAutoscalingPolicySecondaryWorkerConfigFields(r *AutoscalingPolicy, o *AutoscalingPolicySecondaryWorkerConfig) error {
+	return nil
+}
+
+func postReadExtractAutoscalingPolicyFields(r *AutoscalingPolicy) error {
+	vBasicAlgorithm := r.BasicAlgorithm
+	if vBasicAlgorithm == nil {
+		// note: explicitly not the empty object.
+		vBasicAlgorithm = &AutoscalingPolicyBasicAlgorithm{}
+	}
+	if err := postReadExtractAutoscalingPolicyBasicAlgorithmFields(r, vBasicAlgorithm); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vBasicAlgorithm) {
+		r.BasicAlgorithm = vBasicAlgorithm
+	}
+	vWorkerConfig := r.WorkerConfig
+	if vWorkerConfig == nil {
+		// note: explicitly not the empty object.
+		vWorkerConfig = &AutoscalingPolicyWorkerConfig{}
+	}
+	if err := postReadExtractAutoscalingPolicyWorkerConfigFields(r, vWorkerConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vWorkerConfig) {
+		r.WorkerConfig = vWorkerConfig
+	}
+	vSecondaryWorkerConfig := r.SecondaryWorkerConfig
+	if vSecondaryWorkerConfig == nil {
+		// note: explicitly not the empty object.
+		vSecondaryWorkerConfig = &AutoscalingPolicySecondaryWorkerConfig{}
+	}
+	if err := postReadExtractAutoscalingPolicySecondaryWorkerConfigFields(r, vSecondaryWorkerConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vSecondaryWorkerConfig) {
+		r.SecondaryWorkerConfig = vSecondaryWorkerConfig
+	}
+	return nil
+}
+func postReadExtractAutoscalingPolicyBasicAlgorithmFields(r *AutoscalingPolicy, o *AutoscalingPolicyBasicAlgorithm) error {
+	vYarnConfig := o.YarnConfig
+	if vYarnConfig == nil {
+		// note: explicitly not the empty object.
+		vYarnConfig = &AutoscalingPolicyBasicAlgorithmYarnConfig{}
+	}
+	if err := extractAutoscalingPolicyBasicAlgorithmYarnConfigFields(r, vYarnConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vYarnConfig) {
+		o.YarnConfig = vYarnConfig
+	}
+	return nil
+}
+func postReadExtractAutoscalingPolicyBasicAlgorithmYarnConfigFields(r *AutoscalingPolicy, o *AutoscalingPolicyBasicAlgorithmYarnConfig) error {
+	return nil
+}
+func postReadExtractAutoscalingPolicyWorkerConfigFields(r *AutoscalingPolicy, o *AutoscalingPolicyWorkerConfig) error {
+	return nil
+}
+func postReadExtractAutoscalingPolicySecondaryWorkerConfigFields(r *AutoscalingPolicy, o *AutoscalingPolicySecondaryWorkerConfig) error {
 	return nil
 }

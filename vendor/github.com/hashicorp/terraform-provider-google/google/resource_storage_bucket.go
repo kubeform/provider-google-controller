@@ -35,6 +35,12 @@ func resourceStorageBucket() *schema.Resource {
 			customdiff.ForceNewIfChange("retention_policy.0.is_locked", isPolicyLocked),
 		),
 
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(4 * time.Minute),
+			Update: schema.DefaultTimeout(4 * time.Minute),
+			Read:   schema.DefaultTimeout(4 * time.Minute),
+		},
+
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:        schema.TypeString,
@@ -81,8 +87,7 @@ func resourceStorageBucket() *schema.Resource {
 
 			"location": {
 				Type:     schema.TypeString,
-				Default:  "US",
-				Optional: true,
+				Required: true,
 				ForceNew: true,
 				StateFunc: func(s interface{}) string {
 					return strings.ToUpper(s.(string))
@@ -313,8 +318,9 @@ func resourceStorageBucket() *schema.Resource {
 			},
 
 			"default_event_based_hold": {
-				Type:     schema.TypeBool,
-				Optional: true,
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: `Whether or not to automatically apply an eventBasedHold to new objects added to the bucket.`,
 			},
 
 			"logging": {
@@ -338,20 +344,11 @@ func resourceStorageBucket() *schema.Resource {
 				},
 				Description: `The bucket's Access & Storage Logs configuration.`,
 			},
-			"bucket_policy_only": {
-				Type:          schema.TypeBool,
-				Optional:      true,
-				Computed:      true,
-				Description:   `Enables Bucket Policy Only access to a bucket.`,
-				Deprecated:    `Please use the uniform_bucket_level_access as this field has been renamed by Google.`,
-				ConflictsWith: []string{"uniform_bucket_level_access"},
-			},
 			"uniform_bucket_level_access": {
-				Type:          schema.TypeBool,
-				Optional:      true,
-				Computed:      true,
-				Description:   `Enables uniform bucket-level access on a bucket.`,
-				ConflictsWith: []string{"bucket_policy_only"},
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Computed:    true,
+				Description: `Enables uniform bucket-level access on a bucket.`,
 			},
 		},
 		UseJSONNumber: true,
@@ -594,15 +591,11 @@ func resourceStorageBucketUpdate(d *schema.ResourceData, meta interface{}) error
 		}
 	}
 
-	if d.HasChange("bucket_policy_only") {
-		sb.IamConfiguration = expandIamConfiguration(d)
-	}
 	if d.HasChange("uniform_bucket_level_access") {
 		sb.IamConfiguration = expandIamConfiguration(d)
 	}
 
 	res, err := config.NewStorageClient(userAgent).Buckets.Patch(d.Get("name").(string), sb).Do()
-
 	if err != nil {
 		return err
 	}
@@ -664,7 +657,7 @@ func resourceStorageBucketRead(d *schema.ResourceData, meta interface{}) error {
 		var retryErr error
 		res, retryErr = config.NewStorageClient(userAgent).Buckets.Get(bucket).Do()
 		return retryErr
-	}, d.Timeout(schema.TimeoutCreate), isNotFoundRetryableError("bucket creation"))
+	}, d.Timeout(schema.TimeoutRead), isNotFoundRetryableError("bucket read"))
 
 	if err != nil {
 		return handleNotFoundError(err, d, fmt.Sprintf("Storage Bucket %q", d.Get("name").(string)))
@@ -738,18 +731,11 @@ func resourceStorageBucketRead(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error setting retention_policy: %s", err)
 	}
 
-	// Delete the bucket_policy_only field in the next major version of the provider.
 	if res.IamConfiguration != nil && res.IamConfiguration.UniformBucketLevelAccess != nil {
 		if err := d.Set("uniform_bucket_level_access", res.IamConfiguration.UniformBucketLevelAccess.Enabled); err != nil {
 			return fmt.Errorf("Error setting uniform_bucket_level_access: %s", err)
 		}
-		if err := d.Set("bucket_policy_only", res.IamConfiguration.BucketPolicyOnly.Enabled); err != nil {
-			return fmt.Errorf("Error setting bucket_policy_only: %s", err)
-		}
 	} else {
-		if err := d.Set("bucket_policy_only", false); err != nil {
-			return fmt.Errorf("Error setting bucket_policy_only: %s", err)
-		}
 		if err := d.Set("uniform_bucket_level_access", false); err != nil {
 			return fmt.Errorf("Error setting uniform_bucket_level_access: %s", err)
 		}
@@ -1138,37 +1124,17 @@ func expandBucketWebsite(v interface{}) *storage.BucketWebsite {
 	return w
 }
 
-// remove this on next major release of the provider.
 func expandIamConfiguration(d *schema.ResourceData) *storage.BucketIamConfiguration {
-	// We are checking for a change because the last else block is only executed on Create.
-	enabled := false
-	if d.HasChange("bucket_policy_only") {
-		enabled = d.Get("bucket_policy_only").(bool)
-	} else if d.HasChange("uniform_bucket_level_access") {
-		enabled = d.Get("uniform_bucket_level_access").(bool)
-	} else {
-		enabled = d.Get("bucket_policy_only").(bool) || d.Get("uniform_bucket_level_access").(bool)
-	}
-
-	return &storage.BucketIamConfiguration{
+	cfg := &storage.BucketIamConfiguration{
 		ForceSendFields: []string{"UniformBucketLevelAccess"},
 		UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{
-			Enabled:         enabled,
+			Enabled:         d.Get("uniform_bucket_level_access").(bool),
 			ForceSendFields: []string{"Enabled"},
 		},
 	}
-}
 
-// Uncomment once the previous function is removed.
-// func expandIamConfiguration(d *schema.ResourceData) *storage.BucketIamConfiguration {
-// 	return &storage.BucketIamConfiguration{
-// 		ForceSendFields: []string{"UniformBucketLevelAccess"},
-// 		UniformBucketLevelAccess: &storage.BucketIamConfigurationUniformBucketLevelAccess{
-// 			Enabled:         d.Get("uniform_bucket_level_access").(bool),
-// 			ForceSendFields: []string{"Enabled"},
-// 		},
-// 	}
-// }
+	return cfg
+}
 
 func expandStorageBucketLifecycle(v interface{}) (*storage.BucketLifecycle, error) {
 	if v == nil {
@@ -1347,6 +1313,10 @@ func resourceGCSBucketLifecycleRuleConditionHash(v interface{}) int {
 	m := v.(map[string]interface{})
 
 	if v, ok := m["age"]; ok {
+		buf.WriteString(fmt.Sprintf("%d-", v.(int)))
+	}
+
+	if v, ok := m["days_since_custom_time"]; ok {
 		buf.WriteString(fmt.Sprintf("%d-", v.(int)))
 	}
 

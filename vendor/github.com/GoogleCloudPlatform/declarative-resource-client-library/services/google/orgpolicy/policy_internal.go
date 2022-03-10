@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,8 +116,10 @@ type policyApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdatePolicyUpdatePolicyRequest(ctx context.Context, f *Policy, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
-	if v, err := expandPolicySpec(c, f.Spec); err != nil {
+	if v, err := expandPolicySpec(c, f.Spec, res); err != nil {
 		return nil, fmt.Errorf("error expanding Spec into spec: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["spec"] = v
@@ -364,6 +366,11 @@ func (c *Client) policyDiffsForRawDesired(ctx context.Context, rawDesired *Polic
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Policy: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Policy: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractPolicyFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizePolicyInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -471,7 +478,7 @@ func canonicalizePolicySpec(des, initial *PolicySpec, opts ...dcl.ApplyOption) *
 }
 
 func canonicalizePolicySpecSlice(des, initial []PolicySpec, opts ...dcl.ApplyOption) []PolicySpec {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -758,13 +765,13 @@ func canonicalizePolicySpecRulesValues(des, initial *PolicySpecRulesValues, opts
 
 	cDes := &PolicySpecRulesValues{}
 
-	if dcl.IsZeroValue(des.AllowedValues) {
-		des.AllowedValues = initial.AllowedValues
+	if dcl.StringArrayCanonicalize(des.AllowedValues, initial.AllowedValues) {
+		cDes.AllowedValues = initial.AllowedValues
 	} else {
 		cDes.AllowedValues = des.AllowedValues
 	}
-	if dcl.IsZeroValue(des.DeniedValues) {
-		des.DeniedValues = initial.DeniedValues
+	if dcl.StringArrayCanonicalize(des.DeniedValues, initial.DeniedValues) {
+		cDes.DeniedValues = initial.DeniedValues
 	} else {
 		cDes.DeniedValues = des.DeniedValues
 	}
@@ -773,7 +780,7 @@ func canonicalizePolicySpecRulesValues(des, initial *PolicySpecRulesValues, opts
 }
 
 func canonicalizePolicySpecRulesValuesSlice(des, initial []PolicySpecRulesValues, opts ...dcl.ApplyOption) []PolicySpecRulesValues {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -812,6 +819,13 @@ func canonicalizeNewPolicySpecRulesValues(c *Client, des, nw *PolicySpecRulesVal
 			return des
 		}
 		return nil
+	}
+
+	if dcl.StringArrayCanonicalize(des.AllowedValues, nw.AllowedValues) {
+		nw.AllowedValues = des.AllowedValues
+	}
+	if dcl.StringArrayCanonicalize(des.DeniedValues, nw.DeniedValues) {
+		nw.DeniedValues = des.DeniedValues
 	}
 
 	return nw
@@ -899,7 +913,7 @@ func canonicalizePolicySpecRulesCondition(des, initial *PolicySpecRulesCondition
 }
 
 func canonicalizePolicySpecRulesConditionSlice(des, initial []PolicySpecRulesCondition, opts ...dcl.ApplyOption) []PolicySpecRulesCondition {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1010,6 +1024,9 @@ func diffPolicy(c *Client, desired, actual *Policy, opts ...dcl.ApplyOption) ([]
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -1294,19 +1311,21 @@ func unmarshalMapPolicy(m map[string]interface{}, c *Client) (*Policy, error) {
 // expandPolicy expands Policy into a JSON request object.
 func expandPolicy(c *Client, f *Policy) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v, err := expandPolicyName(f, f.Name); err != nil {
+	res := f
+	_ = res
+	if v, err := expandPolicyName(c, f.Name, res); err != nil {
 		return nil, fmt.Errorf("error expanding Name into name: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["name"] = v
 	}
-	if v, err := expandPolicySpec(c, f.Spec); err != nil {
+	if v, err := expandPolicySpec(c, f.Spec, res); err != nil {
 		return nil, fmt.Errorf("error expanding Spec into spec: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["spec"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Parent into parent: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["parent"] = v
 	}
 
@@ -1334,14 +1353,14 @@ func flattenPolicy(c *Client, i interface{}) *Policy {
 
 // expandPolicySpecMap expands the contents of PolicySpec into a JSON
 // request object.
-func expandPolicySpecMap(c *Client, f map[string]PolicySpec) (map[string]interface{}, error) {
+func expandPolicySpecMap(c *Client, f map[string]PolicySpec, res *Policy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandPolicySpec(c, &item)
+		i, err := expandPolicySpec(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1355,14 +1374,14 @@ func expandPolicySpecMap(c *Client, f map[string]PolicySpec) (map[string]interfa
 
 // expandPolicySpecSlice expands the contents of PolicySpec into a JSON
 // request object.
-func expandPolicySpecSlice(c *Client, f []PolicySpec) ([]map[string]interface{}, error) {
+func expandPolicySpecSlice(c *Client, f []PolicySpec, res *Policy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandPolicySpec(c, &item)
+		i, err := expandPolicySpec(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1415,15 +1434,15 @@ func flattenPolicySpecSlice(c *Client, i interface{}) []PolicySpec {
 
 // expandPolicySpec expands an instance of PolicySpec into a JSON
 // request object.
-func expandPolicySpec(c *Client, f *PolicySpec) (map[string]interface{}, error) {
+func expandPolicySpec(c *Client, f *PolicySpec, res *Policy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v, err := expandPolicySpecRulesSlice(c, f.Rules); err != nil {
+	if v, err := expandPolicySpecRulesSlice(c, f.Rules, res); err != nil {
 		return nil, fmt.Errorf("error expanding Rules into rules: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
+	} else if v != nil {
 		m["rules"] = v
 	}
 	if v := f.InheritFromParent; !dcl.IsEmptyValueIndirect(v) {
@@ -1460,14 +1479,14 @@ func flattenPolicySpec(c *Client, i interface{}) *PolicySpec {
 
 // expandPolicySpecRulesMap expands the contents of PolicySpecRules into a JSON
 // request object.
-func expandPolicySpecRulesMap(c *Client, f map[string]PolicySpecRules) (map[string]interface{}, error) {
+func expandPolicySpecRulesMap(c *Client, f map[string]PolicySpecRules, res *Policy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandPolicySpecRules(c, &item)
+		i, err := expandPolicySpecRules(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1481,14 +1500,14 @@ func expandPolicySpecRulesMap(c *Client, f map[string]PolicySpecRules) (map[stri
 
 // expandPolicySpecRulesSlice expands the contents of PolicySpecRules into a JSON
 // request object.
-func expandPolicySpecRulesSlice(c *Client, f []PolicySpecRules) ([]map[string]interface{}, error) {
+func expandPolicySpecRulesSlice(c *Client, f []PolicySpecRules, res *Policy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandPolicySpecRules(c, &item)
+		i, err := expandPolicySpecRules(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1541,13 +1560,13 @@ func flattenPolicySpecRulesSlice(c *Client, i interface{}) []PolicySpecRules {
 
 // expandPolicySpecRules expands an instance of PolicySpecRules into a JSON
 // request object.
-func expandPolicySpecRules(c *Client, f *PolicySpecRules) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandPolicySpecRules(c *Client, f *PolicySpecRules, res *Policy) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v, err := expandPolicySpecRulesValues(c, f.Values); err != nil {
+	if v, err := expandPolicySpecRulesValues(c, f.Values, res); err != nil {
 		return nil, fmt.Errorf("error expanding Values into values: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["values"] = v
@@ -1561,7 +1580,7 @@ func expandPolicySpecRules(c *Client, f *PolicySpecRules) (map[string]interface{
 	if v := f.Enforce; !dcl.IsEmptyValueIndirect(v) {
 		m["enforce"] = v
 	}
-	if v, err := expandPolicySpecRulesCondition(c, f.Condition); err != nil {
+	if v, err := expandPolicySpecRulesCondition(c, f.Condition, res); err != nil {
 		return nil, fmt.Errorf("error expanding Condition into condition: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["condition"] = v
@@ -1594,14 +1613,14 @@ func flattenPolicySpecRules(c *Client, i interface{}) *PolicySpecRules {
 
 // expandPolicySpecRulesValuesMap expands the contents of PolicySpecRulesValues into a JSON
 // request object.
-func expandPolicySpecRulesValuesMap(c *Client, f map[string]PolicySpecRulesValues) (map[string]interface{}, error) {
+func expandPolicySpecRulesValuesMap(c *Client, f map[string]PolicySpecRulesValues, res *Policy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandPolicySpecRulesValues(c, &item)
+		i, err := expandPolicySpecRulesValues(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1615,14 +1634,14 @@ func expandPolicySpecRulesValuesMap(c *Client, f map[string]PolicySpecRulesValue
 
 // expandPolicySpecRulesValuesSlice expands the contents of PolicySpecRulesValues into a JSON
 // request object.
-func expandPolicySpecRulesValuesSlice(c *Client, f []PolicySpecRulesValues) ([]map[string]interface{}, error) {
+func expandPolicySpecRulesValuesSlice(c *Client, f []PolicySpecRulesValues, res *Policy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandPolicySpecRulesValues(c, &item)
+		i, err := expandPolicySpecRulesValues(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1675,7 +1694,7 @@ func flattenPolicySpecRulesValuesSlice(c *Client, i interface{}) []PolicySpecRul
 
 // expandPolicySpecRulesValues expands an instance of PolicySpecRulesValues into a JSON
 // request object.
-func expandPolicySpecRulesValues(c *Client, f *PolicySpecRulesValues) (map[string]interface{}, error) {
+func expandPolicySpecRulesValues(c *Client, f *PolicySpecRulesValues, res *Policy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1712,14 +1731,14 @@ func flattenPolicySpecRulesValues(c *Client, i interface{}) *PolicySpecRulesValu
 
 // expandPolicySpecRulesConditionMap expands the contents of PolicySpecRulesCondition into a JSON
 // request object.
-func expandPolicySpecRulesConditionMap(c *Client, f map[string]PolicySpecRulesCondition) (map[string]interface{}, error) {
+func expandPolicySpecRulesConditionMap(c *Client, f map[string]PolicySpecRulesCondition, res *Policy) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandPolicySpecRulesCondition(c, &item)
+		i, err := expandPolicySpecRulesCondition(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1733,14 +1752,14 @@ func expandPolicySpecRulesConditionMap(c *Client, f map[string]PolicySpecRulesCo
 
 // expandPolicySpecRulesConditionSlice expands the contents of PolicySpecRulesCondition into a JSON
 // request object.
-func expandPolicySpecRulesConditionSlice(c *Client, f []PolicySpecRulesCondition) ([]map[string]interface{}, error) {
+func expandPolicySpecRulesConditionSlice(c *Client, f []PolicySpecRulesCondition, res *Policy) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandPolicySpecRulesCondition(c, &item)
+		i, err := expandPolicySpecRulesCondition(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1793,7 +1812,7 @@ func flattenPolicySpecRulesConditionSlice(c *Client, i interface{}) []PolicySpec
 
 // expandPolicySpecRulesCondition expands an instance of PolicySpecRulesCondition into a JSON
 // request object.
-func expandPolicySpecRulesCondition(c *Client, f *PolicySpecRulesCondition) (map[string]interface{}, error) {
+func expandPolicySpecRulesCondition(c *Client, f *PolicySpecRulesCondition, res *Policy) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1885,7 +1904,7 @@ func convertFieldDiffsToPolicyDiffs(config *dcl.Config, fds []*dcl.FieldDiff, op
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1920,5 +1939,99 @@ func convertOpNameToPolicyApiOperation(opName string, fieldDiffs []*dcl.FieldDif
 }
 
 func extractPolicyFields(r *Policy) error {
+	vSpec := r.Spec
+	if vSpec == nil {
+		// note: explicitly not the empty object.
+		vSpec = &PolicySpec{}
+	}
+	if err := extractPolicySpecFields(r, vSpec); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vSpec) {
+		r.Spec = vSpec
+	}
+	return nil
+}
+func extractPolicySpecFields(r *Policy, o *PolicySpec) error {
+	return nil
+}
+func extractPolicySpecRulesFields(r *Policy, o *PolicySpecRules) error {
+	vValues := o.Values
+	if vValues == nil {
+		// note: explicitly not the empty object.
+		vValues = &PolicySpecRulesValues{}
+	}
+	if err := extractPolicySpecRulesValuesFields(r, vValues); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vValues) {
+		o.Values = vValues
+	}
+	vCondition := o.Condition
+	if vCondition == nil {
+		// note: explicitly not the empty object.
+		vCondition = &PolicySpecRulesCondition{}
+	}
+	if err := extractPolicySpecRulesConditionFields(r, vCondition); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vCondition) {
+		o.Condition = vCondition
+	}
+	return nil
+}
+func extractPolicySpecRulesValuesFields(r *Policy, o *PolicySpecRulesValues) error {
+	return nil
+}
+func extractPolicySpecRulesConditionFields(r *Policy, o *PolicySpecRulesCondition) error {
+	return nil
+}
+
+func postReadExtractPolicyFields(r *Policy) error {
+	vSpec := r.Spec
+	if vSpec == nil {
+		// note: explicitly not the empty object.
+		vSpec = &PolicySpec{}
+	}
+	if err := postReadExtractPolicySpecFields(r, vSpec); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vSpec) {
+		r.Spec = vSpec
+	}
+	return nil
+}
+func postReadExtractPolicySpecFields(r *Policy, o *PolicySpec) error {
+	return nil
+}
+func postReadExtractPolicySpecRulesFields(r *Policy, o *PolicySpecRules) error {
+	vValues := o.Values
+	if vValues == nil {
+		// note: explicitly not the empty object.
+		vValues = &PolicySpecRulesValues{}
+	}
+	if err := extractPolicySpecRulesValuesFields(r, vValues); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vValues) {
+		o.Values = vValues
+	}
+	vCondition := o.Condition
+	if vCondition == nil {
+		// note: explicitly not the empty object.
+		vCondition = &PolicySpecRulesCondition{}
+	}
+	if err := extractPolicySpecRulesConditionFields(r, vCondition); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vCondition) {
+		o.Condition = vCondition
+	}
+	return nil
+}
+func postReadExtractPolicySpecRulesValuesFields(r *Policy, o *PolicySpecRulesValues) error {
+	return nil
+}
+func postReadExtractPolicySpecRulesConditionFields(r *Policy, o *PolicySpecRulesCondition) error {
 	return nil
 }

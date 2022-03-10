@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC.
+// Copyright 2022 Google LLC.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -104,10 +104,12 @@ const (
 	// Administer your Cloud Bigtable tables
 	CloudBigtableAdminTableScope = "https://www.googleapis.com/auth/cloud-bigtable.admin.table"
 
-	// See, edit, configure, and delete your Google Cloud Platform data
+	// See, edit, configure, and delete your Google Cloud data and see the
+	// email address for your Google Account.
 	CloudPlatformScope = "https://www.googleapis.com/auth/cloud-platform"
 
-	// View your data across Google Cloud Platform services
+	// View your data across Google Cloud services and see the email address
+	// of your Google Account
 	CloudPlatformReadOnlyScope = "https://www.googleapis.com/auth/cloud-platform.read-only"
 )
 
@@ -438,6 +440,71 @@ func (s *AuditLogConfig) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// AutoscalingLimits: Limits for the number of nodes a Cluster can
+// autoscale up/down to.
+type AutoscalingLimits struct {
+	// MaxServeNodes: Required. Maximum number of nodes to scale up to.
+	MaxServeNodes int64 `json:"maxServeNodes,omitempty"`
+
+	// MinServeNodes: Required. Minimum number of nodes to scale down to.
+	MinServeNodes int64 `json:"minServeNodes,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "MaxServeNodes") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "MaxServeNodes") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AutoscalingLimits) MarshalJSON() ([]byte, error) {
+	type NoMethod AutoscalingLimits
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// AutoscalingTargets: The Autoscaling targets for a Cluster. These
+// determine the recommended nodes.
+type AutoscalingTargets struct {
+	// CpuUtilizationPercent: The cpu utilization that the Autoscaler should
+	// be trying to achieve. This number is on a scale from 0 (no
+	// utilization) to 100 (total utilization).
+	CpuUtilizationPercent int64 `json:"cpuUtilizationPercent,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "CpuUtilizationPercent") to unconditionally include in API requests.
+	// By default, fields with empty or default values are omitted from API
+	// requests. However, any non-pointer, non-interface field appearing in
+	// ForceSendFields will be sent to the server regardless of whether the
+	// field is empty or not. This may be used to include empty fields in
+	// Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "CpuUtilizationPercent") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AutoscalingTargets) MarshalJSON() ([]byte, error) {
+	type NoMethod AutoscalingTargets
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // Backup: A backup of a Cloud Bigtable table.
 type Backup struct {
 	// EncryptionInfo: Output only. The encryption information for the
@@ -557,19 +624,19 @@ func (s *BackupInfo) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// Binding: Associates `members` with a `role`.
+// Binding: Associates `members`, or principals, with a `role`.
 type Binding struct {
 	// Condition: The condition that is associated with this binding. If the
 	// condition evaluates to `true`, then this binding applies to the
 	// current request. If the condition evaluates to `false`, then this
 	// binding does not apply to the current request. However, a different
-	// role binding might grant the same role to one or more of the members
-	// in this binding. To learn which resources support conditions in their
-	// IAM policies, see the IAM documentation
+	// role binding might grant the same role to one or more of the
+	// principals in this binding. To learn which resources support
+	// conditions in their IAM policies, see the IAM documentation
 	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	Condition *Expr `json:"condition,omitempty"`
 
-	// Members: Specifies the identities requesting access for a Cloud
+	// Members: Specifies the principals requesting access for a Cloud
 	// Platform resource. `members` can have the following values: *
 	// `allUsers`: A special identifier that represents anyone who is on the
 	// internet; with or without a Google account. *
@@ -603,8 +670,8 @@ type Binding struct {
 	// For example, `google.com` or `example.com`.
 	Members []string `json:"members,omitempty"`
 
-	// Role: Role that is assigned to `members`. For example,
-	// `roles/viewer`, `roles/editor`, or `roles/owner`.
+	// Role: Role that is assigned to the list of `members`, or principals.
+	// For example, `roles/viewer`, `roles/editor`, or `roles/owner`.
 	Role string `json:"role,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Condition") to
@@ -699,6 +766,9 @@ func (s *CheckConsistencyResponse) MarshalJSON() ([]byte, error) {
 // Cluster: A resizable group of nodes in a particular cloud location,
 // capable of serving all Tables in the parent Instance.
 type Cluster struct {
+	// ClusterConfig: Configuration for this cluster.
+	ClusterConfig *ClusterConfig `json:"clusterConfig,omitempty"`
+
 	// DefaultStorageType: Immutable. The type of storage used by this
 	// cluster to serve its parent instance's tables, unless explicitly
 	// overridden.
@@ -725,8 +795,8 @@ type Cluster struct {
 	// `projects/{project}/instances/{instance}/clusters/a-z*`.
 	Name string `json:"name,omitempty"`
 
-	// ServeNodes: Required. The number of nodes allocated to this cluster.
-	// More nodes enable higher throughput and more consistent performance.
+	// ServeNodes: The number of nodes allocated to this cluster. More nodes
+	// enable higher throughput and more consistent performance.
 	ServeNodes int64 `json:"serveNodes,omitempty"`
 
 	// State: Output only. The current state of the cluster.
@@ -752,7 +822,38 @@ type Cluster struct {
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
-	// ForceSendFields is a list of field names (e.g. "DefaultStorageType")
+	// ForceSendFields is a list of field names (e.g. "ClusterConfig") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ClusterConfig") to include
+	// in API requests with the JSON null value. By default, fields with
+	// empty values are omitted from API requests. However, any field with
+	// an empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *Cluster) MarshalJSON() ([]byte, error) {
+	type NoMethod Cluster
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// ClusterAutoscalingConfig: Autoscaling config for a cluster.
+type ClusterAutoscalingConfig struct {
+	// AutoscalingLimits: Required. Autoscaling limits for this cluster.
+	AutoscalingLimits *AutoscalingLimits `json:"autoscalingLimits,omitempty"`
+
+	// AutoscalingTargets: Required. Autoscaling targets for this cluster.
+	AutoscalingTargets *AutoscalingTargets `json:"autoscalingTargets,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "AutoscalingLimits")
 	// to unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
 	// non-pointer, non-interface field appearing in ForceSendFields will be
@@ -760,7 +861,7 @@ type Cluster struct {
 	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "DefaultStorageType") to
+	// NullFields is a list of field names (e.g. "AutoscalingLimits") to
 	// include in API requests with the JSON null value. By default, fields
 	// with empty values are omitted from API requests. However, any field
 	// with an empty value appearing in NullFields will be sent to the
@@ -770,8 +871,38 @@ type Cluster struct {
 	NullFields []string `json:"-"`
 }
 
-func (s *Cluster) MarshalJSON() ([]byte, error) {
-	type NoMethod Cluster
+func (s *ClusterAutoscalingConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod ClusterAutoscalingConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// ClusterConfig: Configuration for a cluster.
+type ClusterConfig struct {
+	// ClusterAutoscalingConfig: Autoscaling configuration for this cluster.
+	ClusterAutoscalingConfig *ClusterAutoscalingConfig `json:"clusterAutoscalingConfig,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g.
+	// "ClusterAutoscalingConfig") to unconditionally include in API
+	// requests. By default, fields with empty or default values are omitted
+	// from API requests. However, any non-pointer, non-interface field
+	// appearing in ForceSendFields will be sent to the server regardless of
+	// whether the field is empty or not. This may be used to include empty
+	// fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ClusterAutoscalingConfig")
+	// to include in API requests with the JSON null value. By default,
+	// fields with empty values are omitted from API requests. However, any
+	// field with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *ClusterConfig) MarshalJSON() ([]byte, error) {
+	type NoMethod ClusterConfig
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -1325,63 +1456,6 @@ func (s *Expr) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// FailureTrace: Added to the error payload.
-type FailureTrace struct {
-	Frames []*Frame `json:"frames,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "Frames") to
-	// unconditionally include in API requests. By default, fields with
-	// empty or default values are omitted from API requests. However, any
-	// non-pointer, non-interface field appearing in ForceSendFields will be
-	// sent to the server regardless of whether the field is empty or not.
-	// This may be used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "Frames") to include in API
-	// requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *FailureTrace) MarshalJSON() ([]byte, error) {
-	type NoMethod FailureTrace
-	raw := NoMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
-type Frame struct {
-	TargetName string `json:"targetName,omitempty"`
-
-	WorkflowGuid string `json:"workflowGuid,omitempty"`
-
-	ZoneId string `json:"zoneId,omitempty"`
-
-	// ForceSendFields is a list of field names (e.g. "TargetName") to
-	// unconditionally include in API requests. By default, fields with
-	// empty or default values are omitted from API requests. However, any
-	// non-pointer, non-interface field appearing in ForceSendFields will be
-	// sent to the server regardless of whether the field is empty or not.
-	// This may be used to include empty fields in Patch requests.
-	ForceSendFields []string `json:"-"`
-
-	// NullFields is a list of field names (e.g. "TargetName") to include in
-	// API requests with the JSON null value. By default, fields with empty
-	// values are omitted from API requests. However, any field with an
-	// empty value appearing in NullFields will be sent to the server as
-	// null. It is an error if a field in this list has a non-empty value.
-	// This may be used to include null fields in Patch requests.
-	NullFields []string `json:"-"`
-}
-
-func (s *Frame) MarshalJSON() ([]byte, error) {
-	type NoMethod Frame
-	raw := NoMethod(*s)
-	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
-}
-
 // GcRule: Rule for determining which cells to delete during garbage
 // collection.
 type GcRule struct {
@@ -1494,13 +1568,17 @@ func (s *GetIamPolicyRequest) MarshalJSON() ([]byte, error) {
 
 // GetPolicyOptions: Encapsulates settings provided to GetIamPolicy.
 type GetPolicyOptions struct {
-	// RequestedPolicyVersion: Optional. The policy format version to be
-	// returned. Valid values are 0, 1, and 3. Requests specifying an
-	// invalid value will be rejected. Requests for policies with any
-	// conditional bindings must specify version 3. Policies without any
-	// conditional bindings may specify any valid value or leave the field
-	// unset. To learn which resources support conditions in their IAM
-	// policies, see the IAM documentation
+	// RequestedPolicyVersion: Optional. The maximum policy version that
+	// will be used to format the policy. Valid values are 0, 1, and 3.
+	// Requests specifying an invalid value will be rejected. Requests for
+	// policies with any conditional role bindings must specify version 3.
+	// Policies with no conditional role bindings may specify any valid
+	// value or leave the field unset. The policy in the response might use
+	// the policy version that you specified, or it might use a lower policy
+	// version. For example, if you specify version 3, but the policy has no
+	// conditional role bindings, the response uses version 1. To learn
+	// which resources support conditions in their IAM policies, see the IAM
+	// documentation
 	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	RequestedPolicyVersion int64 `json:"requestedPolicyVersion,omitempty"`
 
@@ -1533,6 +1611,11 @@ func (s *GetPolicyOptions) MarshalJSON() ([]byte, error) {
 // serve them. All tables in an instance are served from all Clusters in
 // the instance.
 type Instance struct {
+	// CreateTime: Output only. A server-assigned timestamp representing
+	// when this Instance was created. For instances created before this
+	// field was added (August 2021), this value is `seconds: 0, nanos: 1`.
+	CreateTime string `json:"createTime,omitempty"`
+
 	// DisplayName: Required. The descriptive name for this instance as it
 	// appears in UIs. Can be changed at any time, but should be kept
 	// globally unique to avoid confusion.
@@ -1582,7 +1665,7 @@ type Instance struct {
 	// server.
 	googleapi.ServerResponse `json:"-"`
 
-	// ForceSendFields is a list of field names (e.g. "DisplayName") to
+	// ForceSendFields is a list of field names (e.g. "CreateTime") to
 	// unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
 	// non-pointer, non-interface field appearing in ForceSendFields will be
@@ -1590,10 +1673,10 @@ type Instance struct {
 	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "DisplayName") to include
-	// in API requests with the JSON null value. By default, fields with
-	// empty values are omitted from API requests. However, any field with
-	// an empty value appearing in NullFields will be sent to the server as
+	// NullFields is a list of field names (e.g. "CreateTime") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
 	// null. It is an error if a field in this list has a non-empty value.
 	// This may be used to include null fields in Patch requests.
 	NullFields []string `json:"-"`
@@ -2044,6 +2127,32 @@ func (s *ModifyColumnFamiliesRequest) MarshalJSON() ([]byte, error) {
 // Clusters in a region are considered equidistant. Choosing this option
 // sacrifices read-your-writes consistency to improve availability.
 type MultiClusterRoutingUseAny struct {
+	// ClusterIds: The set of clusters to route to. The order is ignored;
+	// clusters will be tried in order of distance. If left empty, all
+	// clusters are eligible.
+	ClusterIds []string `json:"clusterIds,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "ClusterIds") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "ClusterIds") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MultiClusterRoutingUseAny) MarshalJSON() ([]byte, error) {
+	type NoMethod MultiClusterRoutingUseAny
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
 // Operation: This resource represents a long-running operation that is
@@ -2180,6 +2289,76 @@ func (s *OptimizeRestoredTableMetadata) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+// PartialUpdateClusterMetadata: The metadata for the Operation returned
+// by PartialUpdateCluster.
+type PartialUpdateClusterMetadata struct {
+	// FinishTime: The time at which the operation failed or was completed
+	// successfully.
+	FinishTime string `json:"finishTime,omitempty"`
+
+	// OriginalRequest: The original request for PartialUpdateCluster.
+	OriginalRequest *PartialUpdateClusterRequest `json:"originalRequest,omitempty"`
+
+	// RequestTime: The time at which the original request was received.
+	RequestTime string `json:"requestTime,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "FinishTime") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "FinishTime") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *PartialUpdateClusterMetadata) MarshalJSON() ([]byte, error) {
+	type NoMethod PartialUpdateClusterMetadata
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+// PartialUpdateClusterRequest: Request message for
+// BigtableInstanceAdmin.PartialUpdateCluster.
+type PartialUpdateClusterRequest struct {
+	// Cluster: Required. The Cluster which contains the partial updates to
+	// be applied, subject to the update_mask.
+	Cluster *Cluster `json:"cluster,omitempty"`
+
+	// UpdateMask: Required. The subset of Cluster fields which should be
+	// replaced.
+	UpdateMask string `json:"updateMask,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "Cluster") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "Cluster") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
+	// null. It is an error if a field in this list has a non-empty value.
+	// This may be used to include null fields in Patch requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *PartialUpdateClusterRequest) MarshalJSON() ([]byte, error) {
+	type NoMethod PartialUpdateClusterRequest
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 // PartialUpdateInstanceRequest: Request message for
 // BigtableInstanceAdmin.PartialUpdateInstance.
 type PartialUpdateInstanceRequest struct {
@@ -2216,17 +2395,17 @@ func (s *PartialUpdateInstanceRequest) MarshalJSON() ([]byte, error) {
 
 // Policy: An Identity and Access Management (IAM) policy, which
 // specifies access controls for Google Cloud resources. A `Policy` is a
-// collection of `bindings`. A `binding` binds one or more `members` to
-// a single `role`. Members can be user accounts, service accounts,
-// Google groups, and domains (such as G Suite). A `role` is a named
-// list of permissions; each `role` can be an IAM predefined role or a
-// user-created custom role. For some types of Google Cloud resources, a
-// `binding` can also specify a `condition`, which is a logical
-// expression that allows access to a resource only if the expression
-// evaluates to `true`. A condition can add constraints based on
-// attributes of the request, the resource, or both. To learn which
-// resources support conditions in their IAM policies, see the IAM
-// documentation
+// collection of `bindings`. A `binding` binds one or more `members`, or
+// principals, to a single `role`. Principals can be user accounts,
+// service accounts, Google groups, and domains (such as G Suite). A
+// `role` is a named list of permissions; each `role` can be an IAM
+// predefined role or a user-created custom role. For some types of
+// Google Cloud resources, a `binding` can also specify a `condition`,
+// which is a logical expression that allows access to a resource only
+// if the expression evaluates to `true`. A condition can add
+// constraints based on attributes of the request, the resource, or
+// both. To learn which resources support conditions in their IAM
+// policies, see the IAM documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 // **JSON example:** { "bindings": [ { "role":
 // "roles/resourcemanager.organizationAdmin", "members": [
@@ -2245,17 +2424,23 @@ func (s *PartialUpdateInstanceRequest) MarshalJSON() ([]byte, error) {
 // user:eve@example.com role: roles/resourcemanager.organizationViewer
 // condition: title: expirable access description: Does not grant access
 // after Sep 2020 expression: request.time <
-// timestamp('2020-10-01T00:00:00.000Z') - etag: BwWWja0YfJA= - version:
-// 3 For a description of IAM and its features, see the IAM
-// documentation (https://cloud.google.com/iam/docs/).
+// timestamp('2020-10-01T00:00:00.000Z') etag: BwWWja0YfJA= version: 3
+// For a description of IAM and its features, see the IAM documentation
+// (https://cloud.google.com/iam/docs/).
 type Policy struct {
 	// AuditConfigs: Specifies cloud audit logging configuration for this
 	// policy.
 	AuditConfigs []*AuditConfig `json:"auditConfigs,omitempty"`
 
-	// Bindings: Associates a list of `members` to a `role`. Optionally, may
-	// specify a `condition` that determines how and when the `bindings` are
-	// applied. Each of the `bindings` must contain at least one member.
+	// Bindings: Associates a list of `members`, or principals, with a
+	// `role`. Optionally, may specify a `condition` that determines how and
+	// when the `bindings` are applied. Each of the `bindings` must contain
+	// at least one principal. The `bindings` in a `Policy` can refer to up
+	// to 1,500 principals; up to 250 of these principals can be Google
+	// groups. Each occurrence of a principal counts towards these limits.
+	// For example, if the `bindings` grant 50 different roles to
+	// `user:alice@example.com`, and not to any other principal, then you
+	// can add another 1,450 principals to the `bindings` in the `Policy`.
 	Bindings []*Binding `json:"bindings,omitempty"`
 
 	// Etag: `etag` is used for optimistic concurrency control as a way to
@@ -2926,7 +3111,7 @@ func (c *OperationsCancelCall) Header() http.Header {
 
 func (c *OperationsCancelCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3066,7 +3251,7 @@ func (c *OperationsDeleteCall) Header() http.Header {
 
 func (c *OperationsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3216,7 +3401,7 @@ func (c *OperationsGetCall) Header() http.Header {
 
 func (c *OperationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3398,7 +3583,7 @@ func (c *OperationsProjectsOperationsListCall) Header() http.Header {
 
 func (c *OperationsProjectsOperationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3541,7 +3726,12 @@ type ProjectsInstancesCreateCall struct {
 	header_               http.Header
 }
 
-// Create: Create an instance within a project.
+// Create: Create an instance within a project. Note that exactly one of
+// Cluster.serve_nodes and
+// Cluster.cluster_config.cluster_autoscaling_config can be set. If
+// serve_nodes is set to non-zero, then the cluster is manually scaled.
+// If cluster_config.cluster_autoscaling_config is non-empty, then
+// autoscaling is enabled.
 //
 // - parent: The unique name of the project in which to create the new
 //   instance. Values are of the form `projects/{project}`.
@@ -3579,7 +3769,7 @@ func (c *ProjectsInstancesCreateCall) Header() http.Header {
 
 func (c *ProjectsInstancesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3643,7 +3833,7 @@ func (c *ProjectsInstancesCreateCall) Do(opts ...googleapi.CallOption) (*Operati
 	}
 	return ret, nil
 	// {
-	//   "description": "Create an instance within a project.",
+	//   "description": "Create an instance within a project. Note that exactly one of Cluster.serve_nodes and Cluster.cluster_config.cluster_autoscaling_config can be set. If serve_nodes is set to non-zero, then the cluster is manually scaled. If cluster_config.cluster_autoscaling_config is non-empty, then autoscaling is enabled.",
 	//   "flatPath": "v2/projects/{projectsId}/instances",
 	//   "httpMethod": "POST",
 	//   "id": "bigtableadmin.projects.instances.create",
@@ -3725,7 +3915,7 @@ func (c *ProjectsInstancesDeleteCall) Header() http.Header {
 
 func (c *ProjectsInstancesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -3874,7 +4064,7 @@ func (c *ProjectsInstancesGetCall) Header() http.Header {
 
 func (c *ProjectsInstancesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4021,7 +4211,7 @@ func (c *ProjectsInstancesGetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsInstancesGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4186,7 +4376,7 @@ func (c *ProjectsInstancesListCall) Header() http.Header {
 
 func (c *ProjectsInstancesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4366,7 +4556,7 @@ func (c *ProjectsInstancesPartialUpdateInstanceCall) Header() http.Header {
 
 func (c *ProjectsInstancesPartialUpdateInstanceCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4522,7 +4712,7 @@ func (c *ProjectsInstancesSetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsInstancesSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4672,7 +4862,7 @@ func (c *ProjectsInstancesTestIamPermissionsCall) Header() http.Header {
 
 func (c *ProjectsInstancesTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4822,7 +5012,7 @@ func (c *ProjectsInstancesUpdateCall) Header() http.Header {
 
 func (c *ProjectsInstancesUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -4987,7 +5177,7 @@ func (c *ProjectsInstancesAppProfilesCreateCall) Header() http.Header {
 
 func (c *ProjectsInstancesAppProfilesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5152,7 +5342,7 @@ func (c *ProjectsInstancesAppProfilesDeleteCall) Header() http.Header {
 
 func (c *ProjectsInstancesAppProfilesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5307,7 +5497,7 @@ func (c *ProjectsInstancesAppProfilesGetCall) Header() http.Header {
 
 func (c *ProjectsInstancesAppProfilesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5482,7 +5672,7 @@ func (c *ProjectsInstancesAppProfilesListCall) Header() http.Header {
 
 func (c *ProjectsInstancesAppProfilesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5672,7 +5862,7 @@ func (c *ProjectsInstancesAppProfilesPatchCall) Header() http.Header {
 
 func (c *ProjectsInstancesAppProfilesPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5793,7 +5983,12 @@ type ProjectsInstancesClustersCreateCall struct {
 	header_    http.Header
 }
 
-// Create: Creates a cluster within an instance.
+// Create: Creates a cluster within an instance. Note that exactly one
+// of Cluster.serve_nodes and
+// Cluster.cluster_config.cluster_autoscaling_config can be set. If
+// serve_nodes is set to non-zero, then the cluster is manually scaled.
+// If cluster_config.cluster_autoscaling_config is non-empty, then
+// autoscaling is enabled.
 //
 // - parent: The unique name of the instance in which to create the new
 //   cluster. Values are of the form
@@ -5841,7 +6036,7 @@ func (c *ProjectsInstancesClustersCreateCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -5905,7 +6100,7 @@ func (c *ProjectsInstancesClustersCreateCall) Do(opts ...googleapi.CallOption) (
 	}
 	return ret, nil
 	// {
-	//   "description": "Creates a cluster within an instance.",
+	//   "description": "Creates a cluster within an instance. Note that exactly one of Cluster.serve_nodes and Cluster.cluster_config.cluster_autoscaling_config can be set. If serve_nodes is set to non-zero, then the cluster is manually scaled. If cluster_config.cluster_autoscaling_config is non-empty, then autoscaling is enabled.",
 	//   "flatPath": "v2/projects/{projectsId}/instances/{instancesId}/clusters",
 	//   "httpMethod": "POST",
 	//   "id": "bigtableadmin.projects.instances.clusters.create",
@@ -5993,7 +6188,7 @@ func (c *ProjectsInstancesClustersDeleteCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6142,7 +6337,7 @@ func (c *ProjectsInstancesClustersGetCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6305,7 +6500,7 @@ func (c *ProjectsInstancesClustersListCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6438,7 +6633,15 @@ type ProjectsInstancesClustersPartialUpdateClusterCall struct {
 }
 
 // PartialUpdateCluster: Partially updates a cluster within a project.
-// This method is the preferred way to update a Cluster.
+// This method is the preferred way to update a Cluster. To enable and
+// update autoscaling, set cluster_config.cluster_autoscaling_config.
+// When autoscaling is enabled, serve_nodes is treated as an OUTPUT_ONLY
+// field, meaning that updates to it are ignored. Note that an update
+// cannot simultaneously set serve_nodes to non-zero and
+// cluster_config.cluster_autoscaling_config to non-empty, and also
+// specify both in the update_mask. To disable autoscaling, clear
+// cluster_config.cluster_autoscaling_config, and explicitly set a
+// serve_node count via the update_mask.
 //
 // - name: The unique name of the cluster. Values are of the form
 //   `projects/{project}/instances/{instance}/clusters/a-z*`.
@@ -6450,8 +6653,7 @@ func (r *ProjectsInstancesClustersService) PartialUpdateCluster(name string, clu
 }
 
 // UpdateMask sets the optional parameter "updateMask": Required. The
-// subset of Cluster fields which should be replaced. Must be explicitly
-// set.
+// subset of Cluster fields which should be replaced.
 func (c *ProjectsInstancesClustersPartialUpdateClusterCall) UpdateMask(updateMask string) *ProjectsInstancesClustersPartialUpdateClusterCall {
 	c.urlParams_.Set("updateMask", updateMask)
 	return c
@@ -6484,7 +6686,7 @@ func (c *ProjectsInstancesClustersPartialUpdateClusterCall) Header() http.Header
 
 func (c *ProjectsInstancesClustersPartialUpdateClusterCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6548,7 +6750,7 @@ func (c *ProjectsInstancesClustersPartialUpdateClusterCall) Do(opts ...googleapi
 	}
 	return ret, nil
 	// {
-	//   "description": "Partially updates a cluster within a project. This method is the preferred way to update a Cluster. ",
+	//   "description": "Partially updates a cluster within a project. This method is the preferred way to update a Cluster. To enable and update autoscaling, set cluster_config.cluster_autoscaling_config. When autoscaling is enabled, serve_nodes is treated as an OUTPUT_ONLY field, meaning that updates to it are ignored. Note that an update cannot simultaneously set serve_nodes to non-zero and cluster_config.cluster_autoscaling_config to non-empty, and also specify both in the update_mask. To disable autoscaling, clear cluster_config.cluster_autoscaling_config, and explicitly set a serve_node count via the update_mask.",
 	//   "flatPath": "v2/projects/{projectsId}/instances/{instancesId}/clusters/{clustersId}",
 	//   "httpMethod": "PATCH",
 	//   "id": "bigtableadmin.projects.instances.clusters.partialUpdateCluster",
@@ -6564,7 +6766,7 @@ func (c *ProjectsInstancesClustersPartialUpdateClusterCall) Do(opts ...googleapi
 	//       "type": "string"
 	//     },
 	//     "updateMask": {
-	//       "description": "Required. The subset of Cluster fields which should be replaced. Must be explicitly set.",
+	//       "description": "Required. The subset of Cluster fields which should be replaced.",
 	//       "format": "google-fieldmask",
 	//       "location": "query",
 	//       "type": "string"
@@ -6600,8 +6802,9 @@ type ProjectsInstancesClustersUpdateCall struct {
 	header_    http.Header
 }
 
-// Update: Updates a cluster within an instance. UpdateCluster is
-// deprecated. Please use PartialUpdateCluster instead.
+// Update: Updates a cluster within an instance. Note that UpdateCluster
+// does not support updating cluster_config.cluster_autoscaling_config.
+// In order to update it, you must use PartialUpdateCluster.
 //
 // - name: The unique name of the cluster. Values are of the form
 //   `projects/{project}/instances/{instance}/clusters/a-z*`.
@@ -6639,7 +6842,7 @@ func (c *ProjectsInstancesClustersUpdateCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6703,7 +6906,7 @@ func (c *ProjectsInstancesClustersUpdateCall) Do(opts ...googleapi.CallOption) (
 	}
 	return ret, nil
 	// {
-	//   "description": "Updates a cluster within an instance. UpdateCluster is deprecated. Please use PartialUpdateCluster instead.",
+	//   "description": "Updates a cluster within an instance. Note that UpdateCluster does not support updating cluster_config.cluster_autoscaling_config. In order to update it, you must use PartialUpdateCluster.",
 	//   "flatPath": "v2/projects/{projectsId}/instances/{instancesId}/clusters/{clustersId}",
 	//   "httpMethod": "PUT",
 	//   "id": "bigtableadmin.projects.instances.clusters.update",
@@ -6805,7 +7008,7 @@ func (c *ProjectsInstancesClustersBackupsCreateCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersBackupsCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -6956,7 +7159,7 @@ func (c *ProjectsInstancesClustersBackupsDeleteCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersBackupsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7105,7 +7308,7 @@ func (c *ProjectsInstancesClustersBackupsGetCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersBackupsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7250,7 +7453,7 @@ func (c *ProjectsInstancesClustersBackupsGetIamPolicyCall) Header() http.Header 
 
 func (c *ProjectsInstancesClustersBackupsGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7470,7 +7673,7 @@ func (c *ProjectsInstancesClustersBackupsListCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersBackupsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7670,7 +7873,7 @@ func (c *ProjectsInstancesClustersBackupsPatchCall) Header() http.Header {
 
 func (c *ProjectsInstancesClustersBackupsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7825,7 +8028,7 @@ func (c *ProjectsInstancesClustersBackupsSetIamPolicyCall) Header() http.Header 
 
 func (c *ProjectsInstancesClustersBackupsSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -7974,7 +8177,7 @@ func (c *ProjectsInstancesClustersBackupsTestIamPermissionsCall) Header() http.H
 
 func (c *ProjectsInstancesClustersBackupsTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8124,7 +8327,7 @@ func (c *ProjectsInstancesTablesCheckConsistencyCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesCheckConsistencyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8274,7 +8477,7 @@ func (c *ProjectsInstancesTablesCreateCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesCreateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8419,7 +8622,7 @@ func (c *ProjectsInstancesTablesDeleteCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8561,7 +8764,7 @@ func (c *ProjectsInstancesTablesDropRowRangeCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesDropRowRangeCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8712,7 +8915,7 @@ func (c *ProjectsInstancesTablesGenerateConsistencyTokenCall) Header() http.Head
 
 func (c *ProjectsInstancesTablesGenerateConsistencyTokenCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8888,7 +9091,7 @@ func (c *ProjectsInstancesTablesGetCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9055,7 +9258,7 @@ func (c *ProjectsInstancesTablesGetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9251,7 +9454,7 @@ func (c *ProjectsInstancesTablesListCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9452,7 +9655,7 @@ func (c *ProjectsInstancesTablesModifyColumnFamiliesCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesModifyColumnFamiliesCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9605,7 +9808,7 @@ func (c *ProjectsInstancesTablesRestoreCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesRestoreCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9754,7 +9957,7 @@ func (c *ProjectsInstancesTablesSetIamPolicyCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9903,7 +10106,7 @@ func (c *ProjectsInstancesTablesTestIamPermissionsCall) Header() http.Header {
 
 func (c *ProjectsInstancesTablesTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10058,7 +10261,7 @@ func (c *ProjectsLocationsGetCall) Header() http.Header {
 
 func (c *ProjectsLocationsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10236,7 +10439,7 @@ func (c *ProjectsLocationsListCall) Header() http.Header {
 
 func (c *ProjectsLocationsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}

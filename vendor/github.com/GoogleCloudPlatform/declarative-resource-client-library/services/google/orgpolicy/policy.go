@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,8 +73,8 @@ func (r *PolicySpec) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this PolicySpec is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyPolicySpec *PolicySpec = &PolicySpec{empty: true}
 
 func (r *PolicySpec) Empty() bool {
@@ -131,8 +131,8 @@ func (r *PolicySpecRules) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this PolicySpecRules is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyPolicySpecRules *PolicySpecRules = &PolicySpecRules{empty: true}
 
 func (r *PolicySpecRules) Empty() bool {
@@ -180,8 +180,8 @@ func (r *PolicySpecRulesValues) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this PolicySpecRulesValues is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyPolicySpecRulesValues *PolicySpecRulesValues = &PolicySpecRulesValues{empty: true}
 
 func (r *PolicySpecRulesValues) Empty() bool {
@@ -235,8 +235,8 @@ func (r *PolicySpecRulesCondition) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this PolicySpecRulesCondition is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyPolicySpecRulesCondition *PolicySpecRulesCondition = &PolicySpecRulesCondition{empty: true}
 
 func (r *PolicySpecRulesCondition) Empty() bool {
@@ -385,6 +385,9 @@ func (c *Client) GetPolicy(ctx context.Context, r *Policy) (*Policy, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractPolicyFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -435,6 +438,9 @@ func (c *Client) DeleteAllPolicy(ctx context.Context, parent string, filter func
 }
 
 func (c *Client) ApplyPolicy(ctx context.Context, rawDesired *Policy, opts ...dcl.ApplyOption) (*Policy, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	c = NewClient(c.Config.Clone(dcl.WithCodeRetryability(map[int]dcl.Retryability{
 		403: dcl.Retryability{
@@ -463,9 +469,6 @@ func (c *Client) ApplyPolicy(ctx context.Context, rawDesired *Policy, opts ...dc
 func applyPolicyHelper(c *Client, ctx context.Context, rawDesired *Policy, opts ...dcl.ApplyOption) (*Policy, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyPolicy...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -533,7 +536,10 @@ func applyPolicyHelper(c *Client, ctx context.Context, rawDesired *Policy, opts 
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyPolicyDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyPolicyDiff(c *Client, ctx context.Context, desired *Policy, rawDesired *Policy, ops []policyApiOperation, opts ...dcl.ApplyOption) (*Policy, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetPolicy(ctx, desired.urlNormalized())
@@ -566,7 +572,7 @@ func applyPolicyHelper(c *Client, ctx context.Context, rawDesired *Policy, opts 
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizePolicyNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -574,12 +580,22 @@ func applyPolicyHelper(c *Client, ctx context.Context, rawDesired *Policy, opts 
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizePolicyDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractPolicyFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractPolicyFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffPolicy(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

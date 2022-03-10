@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -154,8 +154,8 @@ func (r *WorkloadResources) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this WorkloadResources is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyWorkloadResources *WorkloadResources = &WorkloadResources{empty: true}
 
 func (r *WorkloadResources) Empty() bool {
@@ -203,8 +203,8 @@ func (r *WorkloadKmsSettings) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this WorkloadKmsSettings is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyWorkloadKmsSettings *WorkloadKmsSettings = &WorkloadKmsSettings{empty: true}
 
 func (r *WorkloadKmsSettings) Empty() bool {
@@ -252,8 +252,8 @@ func (r *WorkloadResourceSettings) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this WorkloadResourceSettings is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyWorkloadResourceSettings *WorkloadResourceSettings = &WorkloadResourceSettings{empty: true}
 
 func (r *WorkloadResourceSettings) Empty() bool {
@@ -399,6 +399,9 @@ func (c *Client) GetWorkload(ctx context.Context, r *Workload) (*Workload, error
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractWorkloadFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -442,6 +445,9 @@ func (c *Client) DeleteAllWorkload(ctx context.Context, organization, location s
 }
 
 func (c *Client) ApplyWorkload(ctx context.Context, rawDesired *Workload, opts ...dcl.ApplyOption) (*Workload, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *Workload
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
@@ -463,9 +469,6 @@ func (c *Client) ApplyWorkload(ctx context.Context, rawDesired *Workload, opts .
 func applyWorkloadHelper(c *Client, ctx context.Context, rawDesired *Workload, opts ...dcl.ApplyOption) (*Workload, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyWorkload...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -533,7 +536,10 @@ func applyWorkloadHelper(c *Client, ctx context.Context, rawDesired *Workload, o
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyWorkloadDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyWorkloadDiff(c *Client, ctx context.Context, desired *Workload, rawDesired *Workload, ops []workloadApiOperation, opts ...dcl.ApplyOption) (*Workload, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetWorkload(ctx, desired.urlNormalized())
@@ -566,7 +572,7 @@ func applyWorkloadHelper(c *Client, ctx context.Context, rawDesired *Workload, o
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeWorkloadNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -574,12 +580,22 @@ func applyWorkloadHelper(c *Client, ctx context.Context, rawDesired *Workload, o
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeWorkloadDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractWorkloadFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractWorkloadFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffWorkload(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

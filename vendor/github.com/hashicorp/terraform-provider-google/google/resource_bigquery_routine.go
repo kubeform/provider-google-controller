@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -40,9 +39,9 @@ func resourceBigQueryRoutine() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Update: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -55,11 +54,13 @@ If language=SQL, it is the substring inside (but excluding) the parentheses.`,
 			"dataset_id": {
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: `The ID of the dataset containing this routine`,
 			},
 			"routine_id": {
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: `The ID of the the routine. The ID must contain only letters (a-z, A-Z), numbers (0-9), or underscores (_). The maximum length is 256 characters.`,
 			},
 
@@ -72,7 +73,7 @@ If language=SQL, it is the substring inside (but excluding) the parentheses.`,
 						"argument_kind": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"FIXED_TYPE", "ANY_TYPE", ""}, false),
+							ValidateFunc: validateEnum([]string{"FIXED_TYPE", "ANY_TYPE", ""}),
 							Description:  `Defaults to FIXED_TYPE. Default value: "FIXED_TYPE" Possible values: ["FIXED_TYPE", "ANY_TYPE"]`,
 							Default:      "FIXED_TYPE",
 						},
@@ -92,7 +93,7 @@ the schema as returned by the API.`,
 						"mode": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"IN", "OUT", "INOUT", ""}, false),
+							ValidateFunc: validateEnum([]string{"IN", "OUT", "INOUT", ""}),
 							Description:  `Specifies whether the argument is input or output. Can be set for procedures only. Possible values: ["IN", "OUT", "INOUT"]`,
 						},
 						"name": {
@@ -111,7 +112,7 @@ the schema as returned by the API.`,
 			"determinism_level": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC", ""}, false),
+				ValidateFunc: validateEnum([]string{"DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC", ""}),
 				Description:  `The determinism level of the JavaScript UDF if defined. Possible values: ["DETERMINISM_LEVEL_UNSPECIFIED", "DETERMINISTIC", "NOT_DETERMINISTIC"]`,
 			},
 			"imported_libraries": {
@@ -126,8 +127,19 @@ imported JAVASCRIPT libraries.`,
 			"language": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"SQL", "JAVASCRIPT", ""}, false),
+				ValidateFunc: validateEnum([]string{"SQL", "JAVASCRIPT", ""}),
 				Description:  `The language of the routine. Possible values: ["SQL", "JAVASCRIPT"]`,
+			},
+			"return_table_type": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validation.StringIsJSON,
+				StateFunc:    func(v interface{}) string { s, _ := structure.NormalizeJsonString(v); return s },
+				Description: `Optional. Can be set only if routineType = "TABLE_VALUED_FUNCTION".
+
+If absent, the return table type is inferred from definitionBody at query time in each query
+that references this routine. If present, then the columns in the evaluated table result will
+be cast to match the column types specificed in return table type, at query time.`,
 			},
 			"return_type": {
 				Type:         schema.TypeString,
@@ -148,8 +160,8 @@ the schema as returned by the API.`,
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"SCALAR_FUNCTION", "PROCEDURE", ""}, false),
-				Description:  `The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE"]`,
+				ValidateFunc: validateEnum([]string{"SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION", ""}),
+				Description:  `The type of routine. Possible values: ["SCALAR_FUNCTION", "PROCEDURE", "TABLE_VALUED_FUNCTION"]`,
 			},
 			"creation_time": {
 				Type:     schema.TypeInt,
@@ -211,6 +223,12 @@ func resourceBigQueryRoutineCreate(d *schema.ResourceData, meta interface{}) err
 		return err
 	} else if v, ok := d.GetOkExists("return_type"); !isEmptyValue(reflect.ValueOf(returnTypeProp)) && (ok || !reflect.DeepEqual(v, returnTypeProp)) {
 		obj["returnType"] = returnTypeProp
+	}
+	returnTableTypeProp, err := expandBigQueryRoutineReturnTableType(d.Get("return_table_type"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("return_table_type"); !isEmptyValue(reflect.ValueOf(returnTableTypeProp)) && (ok || !reflect.DeepEqual(v, returnTableTypeProp)) {
+		obj["returnTableType"] = returnTableTypeProp
 	}
 	importedLibrariesProp, err := expandBigQueryRoutineImportedLibraries(d.Get("imported_libraries"), d, config)
 	if err != nil {
@@ -340,6 +358,9 @@ func resourceBigQueryRoutineRead(d *schema.ResourceData, meta interface{}) error
 	if err := d.Set("return_type", flattenBigQueryRoutineReturnType(res["returnType"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Routine: %s", err)
 	}
+	if err := d.Set("return_table_type", flattenBigQueryRoutineReturnTableType(res["returnTableType"], d, config)); err != nil {
+		return fmt.Errorf("Error reading Routine: %s", err)
+	}
 	if err := d.Set("imported_libraries", flattenBigQueryRoutineImportedLibraries(res["importedLibraries"], d, config)); err != nil {
 		return fmt.Errorf("Error reading Routine: %s", err)
 	}
@@ -401,6 +422,12 @@ func resourceBigQueryRoutineUpdate(d *schema.ResourceData, meta interface{}) err
 		return err
 	} else if v, ok := d.GetOkExists("return_type"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, returnTypeProp)) {
 		obj["returnType"] = returnTypeProp
+	}
+	returnTableTypeProp, err := expandBigQueryRoutineReturnTableType(d.Get("return_table_type"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("return_table_type"); !isEmptyValue(reflect.ValueOf(v)) && (ok || !reflect.DeepEqual(v, returnTableTypeProp)) {
+		obj["returnTableType"] = returnTableTypeProp
 	}
 	importedLibrariesProp, err := expandBigQueryRoutineImportedLibraries(d.Get("imported_libraries"), d, config)
 	if err != nil {
@@ -537,7 +564,7 @@ func flattenBigQueryRoutineRoutineType(v interface{}, d *schema.ResourceData, co
 func flattenBigQueryRoutineCreationTime(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -554,7 +581,7 @@ func flattenBigQueryRoutineCreationTime(v interface{}, d *schema.ResourceData, c
 func flattenBigQueryRoutineLastModifiedTime(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -618,6 +645,18 @@ func flattenBigQueryRoutineArgumentsDataType(v interface{}, d *schema.ResourceDa
 }
 
 func flattenBigQueryRoutineReturnType(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		// TODO: return error once https://github.com/GoogleCloudPlatform/magic-modules/issues/3257 is fixed.
+		log.Printf("[ERROR] failed to marshal schema to JSON: %v", err)
+	}
+	return string(b)
+}
+
+func flattenBigQueryRoutineReturnTableType(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	if v == nil {
 		return nil
 	}
@@ -732,6 +771,18 @@ func expandBigQueryRoutineArgumentsDataType(v interface{}, d TerraformResourceDa
 }
 
 func expandBigQueryRoutineReturnType(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	b := []byte(v.(string))
+	if len(b) == 0 {
+		return nil, nil
+	}
+	m := make(map[string]interface{})
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func expandBigQueryRoutineReturnTableType(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	b := []byte(v.(string))
 	if len(b) == 0 {
 		return nil, nil

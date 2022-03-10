@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,8 +96,10 @@ type networkApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateNetworkUpdateRequest(ctx context.Context, f *Network, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
-	if v, err := expandNetworkRoutingConfig(c, f.RoutingConfig); err != nil {
+	if v, err := expandNetworkRoutingConfig(c, f.RoutingConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding RoutingConfig into routingConfig: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["routingConfig"] = v
@@ -350,6 +352,11 @@ func (c *Client) networkDiffsForRawDesired(ctx context.Context, rawDesired *Netw
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Network: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Network: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractNetworkFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeNetworkInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -411,7 +418,8 @@ func canonicalizeNetworkDesiredState(rawDesired, rawInitial *Network, opts ...dc
 		canonicalDesired.AutoCreateSubnetworks = rawDesired.AutoCreateSubnetworks
 	}
 	canonicalDesired.RoutingConfig = canonicalizeNetworkRoutingConfig(rawDesired.RoutingConfig, rawInitial.RoutingConfig, opts...)
-	if dcl.IsZeroValue(rawDesired.Mtu) {
+	if dcl.IsZeroValue(rawDesired.Mtu) || (dcl.IsEmptyValueIndirect(rawDesired.Mtu) && dcl.IsEmptyValueIndirect(rawInitial.Mtu)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Mtu = rawInitial.Mtu
 	} else {
 		canonicalDesired.Mtu = rawDesired.Mtu
@@ -480,6 +488,14 @@ func canonicalizeNetworkNewState(c *Client, rawNew, rawDesired *Network) (*Netwo
 		}
 	}
 
+	if dcl.IsNotReturnedByServer(rawNew.SelfLinkWithId) && dcl.IsNotReturnedByServer(rawDesired.SelfLinkWithId) {
+		rawNew.SelfLinkWithId = rawDesired.SelfLinkWithId
+	} else {
+		if dcl.StringCanonicalize(rawDesired.SelfLinkWithId, rawNew.SelfLinkWithId) {
+			rawNew.SelfLinkWithId = rawDesired.SelfLinkWithId
+		}
+	}
+
 	return rawNew, nil
 }
 
@@ -497,8 +513,9 @@ func canonicalizeNetworkRoutingConfig(des, initial *NetworkRoutingConfig, opts .
 
 	cDes := &NetworkRoutingConfig{}
 
-	if dcl.IsZeroValue(des.RoutingMode) {
-		des.RoutingMode = initial.RoutingMode
+	if dcl.IsZeroValue(des.RoutingMode) || (dcl.IsEmptyValueIndirect(des.RoutingMode) && dcl.IsEmptyValueIndirect(initial.RoutingMode)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.RoutingMode = initial.RoutingMode
 	} else {
 		cDes.RoutingMode = des.RoutingMode
 	}
@@ -507,7 +524,7 @@ func canonicalizeNetworkRoutingConfig(des, initial *NetworkRoutingConfig, opts .
 }
 
 func canonicalizeNetworkRoutingConfigSlice(des, initial []NetworkRoutingConfig, opts ...dcl.ApplyOption) []NetworkRoutingConfig {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -606,6 +623,9 @@ func diffNetwork(c *Client, desired, actual *Network, opts ...dcl.ApplyOption) (
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
 
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
+
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
 	// New style diffs.
@@ -665,6 +685,13 @@ func diffNetwork(c *Client, desired, actual *Network, opts ...dcl.ApplyOption) (
 		newDiffs = append(newDiffs, ds...)
 	}
 
+	if ds, err := dcl.Diff(desired.SelfLinkWithId, actual.SelfLinkWithId, dcl.Info{OutputOnly: true, OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("SelfLinkWithId")); len(ds) != 0 || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		newDiffs = append(newDiffs, ds...)
+	}
+
 	return newDiffs, nil
 }
 func compareNetworkRoutingConfigNewStyle(d, a interface{}, fn dcl.FieldName) ([]*dcl.FieldDiff, error) {
@@ -706,6 +733,7 @@ func (r *Network) urlNormalized() *Network {
 	normalized.Name = dcl.SelfLinkToName(r.Name)
 	normalized.Project = dcl.SelfLinkToName(r.Project)
 	normalized.SelfLink = dcl.SelfLinkToName(r.SelfLink)
+	normalized.SelfLinkWithId = dcl.SelfLinkToName(r.SelfLinkWithId)
 	return &normalized
 }
 
@@ -756,24 +784,28 @@ func unmarshalMapNetwork(m map[string]interface{}, c *Client) (*Network, error) 
 // expandNetwork expands Network into a JSON request object.
 func expandNetwork(c *Client, f *Network) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	m["autoCreateSubnetworks"] = f.AutoCreateSubnetworks
-	if v, err := expandNetworkRoutingConfig(c, f.RoutingConfig); err != nil {
+	if v := f.AutoCreateSubnetworks; v != nil {
+		m["autoCreateSubnetworks"] = v
+	}
+	if v, err := expandNetworkRoutingConfig(c, f.RoutingConfig, res); err != nil {
 		return nil, fmt.Errorf("error expanding RoutingConfig into routingConfig: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["routingConfig"] = v
 	}
-	if v := f.Mtu; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Mtu; dcl.ValueShouldBeSent(v) {
 		m["mtu"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Project into project: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["project"] = v
 	}
 
@@ -804,20 +836,21 @@ func flattenNetwork(c *Client, i interface{}) *Network {
 	res.Mtu = dcl.FlattenInteger(m["mtu"])
 	res.Project = dcl.FlattenString(m["project"])
 	res.SelfLink = dcl.FlattenString(m["selfLink"])
+	res.SelfLinkWithId = flattenNetworkSelfLinkWithID(m, m["selfLinkWithId"])
 
 	return res
 }
 
 // expandNetworkRoutingConfigMap expands the contents of NetworkRoutingConfig into a JSON
 // request object.
-func expandNetworkRoutingConfigMap(c *Client, f map[string]NetworkRoutingConfig) (map[string]interface{}, error) {
+func expandNetworkRoutingConfigMap(c *Client, f map[string]NetworkRoutingConfig, res *Network) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandNetworkRoutingConfig(c, &item)
+		i, err := expandNetworkRoutingConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -831,14 +864,14 @@ func expandNetworkRoutingConfigMap(c *Client, f map[string]NetworkRoutingConfig)
 
 // expandNetworkRoutingConfigSlice expands the contents of NetworkRoutingConfig into a JSON
 // request object.
-func expandNetworkRoutingConfigSlice(c *Client, f []NetworkRoutingConfig) ([]map[string]interface{}, error) {
+func expandNetworkRoutingConfigSlice(c *Client, f []NetworkRoutingConfig, res *Network) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandNetworkRoutingConfig(c, &item)
+		i, err := expandNetworkRoutingConfig(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -891,7 +924,7 @@ func flattenNetworkRoutingConfigSlice(c *Client, i interface{}) []NetworkRouting
 
 // expandNetworkRoutingConfig expands an instance of NetworkRoutingConfig into a JSON
 // request object.
-func expandNetworkRoutingConfig(c *Client, f *NetworkRoutingConfig) (map[string]interface{}, error) {
+func expandNetworkRoutingConfig(c *Client, f *NetworkRoutingConfig, res *Network) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -967,7 +1000,7 @@ func flattenNetworkRoutingConfigRoutingModeEnumSlice(c *Client, i interface{}) [
 func flattenNetworkRoutingConfigRoutingModeEnum(i interface{}) *NetworkRoutingConfigRoutingModeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return NetworkRoutingConfigRoutingModeEnumRef("")
+		return nil
 	}
 
 	return NetworkRoutingConfigRoutingModeEnumRef(s)
@@ -1022,7 +1055,7 @@ func convertFieldDiffsToNetworkDiffs(config *dcl.Config, fds []*dcl.FieldDiff, o
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1057,5 +1090,37 @@ func convertOpNameToNetworkApiOperation(opName string, fieldDiffs []*dcl.FieldDi
 }
 
 func extractNetworkFields(r *Network) error {
+	vRoutingConfig := r.RoutingConfig
+	if vRoutingConfig == nil {
+		// note: explicitly not the empty object.
+		vRoutingConfig = &NetworkRoutingConfig{}
+	}
+	if err := extractNetworkRoutingConfigFields(r, vRoutingConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vRoutingConfig) {
+		r.RoutingConfig = vRoutingConfig
+	}
+	return nil
+}
+func extractNetworkRoutingConfigFields(r *Network, o *NetworkRoutingConfig) error {
+	return nil
+}
+
+func postReadExtractNetworkFields(r *Network) error {
+	vRoutingConfig := r.RoutingConfig
+	if vRoutingConfig == nil {
+		// note: explicitly not the empty object.
+		vRoutingConfig = &NetworkRoutingConfig{}
+	}
+	if err := postReadExtractNetworkRoutingConfigFields(r, vRoutingConfig); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vRoutingConfig) {
+		r.RoutingConfig = vRoutingConfig
+	}
+	return nil
+}
+func postReadExtractNetworkRoutingConfigFields(r *Network, o *NetworkRoutingConfig) error {
 	return nil
 }

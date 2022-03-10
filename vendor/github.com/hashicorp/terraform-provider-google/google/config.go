@@ -1,16 +1,21 @@
 package google
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 
 	"golang.org/x/oauth2"
@@ -26,11 +31,9 @@ import (
 	"google.golang.org/api/cloudkms/v1"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	resourceManagerV2 "google.golang.org/api/cloudresourcemanager/v2"
-	composer "google.golang.org/api/composer/v1beta1"
-	computeBeta "google.golang.org/api/compute/v0.beta"
+	"google.golang.org/api/composer/v1"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
-	containerBeta "google.golang.org/api/container/v1beta1"
 	dataflow "google.golang.org/api/dataflow/v1b3"
 	"google.golang.org/api/dataproc/v1"
 	"google.golang.org/api/dns/v1"
@@ -39,7 +42,6 @@ import (
 	iamcredentials "google.golang.org/api/iamcredentials/v1"
 	cloudlogging "google.golang.org/api/logging/v2"
 	"google.golang.org/api/pubsub/v1"
-	runtimeconfig "google.golang.org/api/runtimeconfig/v1beta1"
 	"google.golang.org/api/servicemanagement/v1"
 	"google.golang.org/api/servicenetworking/v1"
 	"google.golang.org/api/serviceusage/v1"
@@ -49,10 +51,86 @@ import (
 	"google.golang.org/api/storage/v1"
 	"google.golang.org/api/storagetransfer/v1"
 	"google.golang.org/api/transport"
+	"google.golang.org/grpc"
 )
 
 type providerMeta struct {
 	ModuleName string `cty:"module_name"`
+}
+
+type Formatter struct {
+	TimestampFormat string
+	LogFormat       string
+}
+
+// Borrowed logic from https://github.com/sirupsen/logrus/blob/master/json_formatter.go and https://github.com/t-tomalak/logrus-easy-formatter/blob/master/formatter.go
+func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
+	// Suppress logs if TF_LOG is not DEBUG or TRACE
+	// also suppress frequent transport spam
+	if !logging.IsDebugOrHigher() || strings.Contains(entry.Message, "transport is closing") {
+		return nil, nil
+	}
+	output := f.LogFormat
+	entry.Level = logrus.DebugLevel // Force Entries to be Debug
+
+	timestampFormat := f.TimestampFormat
+
+	output = strings.Replace(output, "%time%", entry.Time.Format(timestampFormat), 1)
+
+	output = strings.Replace(output, "%msg%", entry.Message, 1)
+
+	level := strings.ToUpper(entry.Level.String())
+	output = strings.Replace(output, "%lvl%", level, 1)
+
+	var gRPCMessageFlag bool
+	for k, val := range entry.Data {
+		switch v := val.(type) {
+		case string:
+			output = strings.Replace(output, "%"+k+"%", v, 1)
+		case int:
+			s := strconv.Itoa(v)
+			output = strings.Replace(output, "%"+k+"%", s, 1)
+		case bool:
+			s := strconv.FormatBool(v)
+			output = strings.Replace(output, "%"+k+"%", s, 1)
+		}
+
+		if k != "system" {
+			gRPCMessageFlag = true
+		}
+	}
+
+	if gRPCMessageFlag {
+		data := make(logrus.Fields, len(entry.Data)+4)
+		for k, v := range entry.Data {
+			switch v := v.(type) {
+			case error:
+				// Otherwise errors are ignored by `encoding/json`
+				// https://github.com/sirupsen/logrus/issues/137
+				data[k] = v.Error()
+			default:
+				data[k] = v
+			}
+		}
+
+		var b *bytes.Buffer
+		if entry.Buffer != nil {
+			b = entry.Buffer
+		} else {
+			b = &bytes.Buffer{}
+		}
+
+		encoder := json.NewEncoder(b)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(data); err != nil {
+			return nil, fmt.Errorf("failed to marshal fields to JSON, %w", err)
+		}
+
+		finalOutput := append([]byte(output), b.Bytes()...)
+		return finalOutput, nil
+	}
+
+	return []byte(output), nil
 }
 
 // Config is the configuration structure used to instantiate the Google
@@ -75,9 +153,10 @@ type Config struct {
 	// It controls the interval at which we poll for successful operations
 	PollInterval time.Duration
 
-	client    *http.Client
-	context   context.Context
-	userAgent string
+	client             *http.Client
+	context            context.Context
+	userAgent          string
+	gRPCLoggingOptions []option.ClientOption
 
 	tokenSource oauth2.TokenSource
 
@@ -103,6 +182,7 @@ type Config struct {
 	ComputeBasePath              string
 	ContainerAnalysisBasePath    string
 	DataCatalogBasePath          string
+	DataFusionBasePath           string
 	DataLossPreventionBasePath   string
 	DataprocBasePath             string
 	DatastoreBasePath            string
@@ -133,7 +213,6 @@ type Config struct {
 	PubsubLiteBasePath           string
 	RedisBasePath                string
 	ResourceManagerBasePath      string
-	RuntimeConfigBasePath        string
 	SecretManagerBasePath        string
 	SecurityCenterBasePath       string
 	ServiceManagementBasePath    string
@@ -150,10 +229,7 @@ type Config struct {
 
 	CloudBillingBasePath      string
 	ComposerBasePath          string
-	ComputeBetaBasePath       string
 	ContainerBasePath         string
-	ContainerBetaBasePath     string
-	DataprocBetaBasePath      string
 	DataflowBasePath          string
 	IamCredentialsBasePath    string
 	ResourceManagerV2BasePath string
@@ -172,7 +248,13 @@ type Config struct {
 	CloudResourceManagerBasePath string
 	EventarcBasePath             string
 	GkeHubBasePath               string
+	ContainerAzureBasePath       string
+	ContainerAwsBasePath         string
+	NetworkConnectivityBasePath  string
 	OrgPolicyBasePath            string
+	RecaptchaEnterpriseBasePath  string
+	// CloudBuild WorkerPool uses a different endpoint (v1beta1) than any other CloudBuild resources
+	CloudBuildWorkerPoolBasePath string
 }
 
 const AccessApprovalBasePathKey = "AccessApproval"
@@ -197,6 +279,7 @@ const CloudTasksBasePathKey = "CloudTasks"
 const ComputeBasePathKey = "Compute"
 const ContainerAnalysisBasePathKey = "ContainerAnalysis"
 const DataCatalogBasePathKey = "DataCatalog"
+const DataFusionBasePathKey = "DataFusion"
 const DataLossPreventionBasePathKey = "DataLossPrevention"
 const DataprocBasePathKey = "Dataproc"
 const DatastoreBasePathKey = "Datastore"
@@ -227,7 +310,6 @@ const PubsubBasePathKey = "Pubsub"
 const PubsubLiteBasePathKey = "PubsubLite"
 const RedisBasePathKey = "Redis"
 const ResourceManagerBasePathKey = "ResourceManager"
-const RuntimeConfigBasePathKey = "RuntimeConfig"
 const SecretManagerBasePathKey = "SecretManager"
 const SecurityCenterBasePathKey = "SecurityCenter"
 const ServiceManagementBasePathKey = "ServiceManagement"
@@ -243,10 +325,7 @@ const VPCAccessBasePathKey = "VPCAccess"
 const WorkflowsBasePathKey = "Workflows"
 const CloudBillingBasePathKey = "CloudBilling"
 const ComposerBasePathKey = "Composer"
-const ComputeBetaBasePathKey = "ComputeBeta"
 const ContainerBasePathKey = "Container"
-const DataprocBetaBasePathKey = "DataprocBeta"
-const ContainerBetaBasePathKey = "ContainerBeta"
 const DataflowBasePathKey = "Dataflow"
 const IAMBasePathKey = "IAM"
 const IamCredentialsBasePathKey = "IamCredentials"
@@ -254,7 +333,9 @@ const ResourceManagerV2BasePathKey = "ResourceManagerV2"
 const ServiceNetworkingBasePathKey = "ServiceNetworking"
 const StorageTransferBasePathKey = "StorageTransfer"
 const BigtableAdminBasePathKey = "BigtableAdmin"
-const GkeHubFeatureBasePathKey = "GkeHubFeatureBasePathKey"
+const GkeHubFeatureBasePathKey = "GkeHubFeature"
+const ContainerAwsBasePathKey = "ContainerAws"
+const ContainerAzureBasePathKey = "ContainerAzure"
 
 // Generated product base paths
 var DefaultBasePaths = map[string]string{
@@ -280,6 +361,7 @@ var DefaultBasePaths = map[string]string{
 	ComputeBasePathKey:              "https://compute.googleapis.com/compute/v1/",
 	ContainerAnalysisBasePathKey:    "https://containeranalysis.googleapis.com/v1/",
 	DataCatalogBasePathKey:          "https://datacatalog.googleapis.com/v1/",
+	DataFusionBasePathKey:           "https://datafusion.googleapis.com/v1/",
 	DataLossPreventionBasePathKey:   "https://dlp.googleapis.com/v2/",
 	DataprocBasePathKey:             "https://dataproc.googleapis.com/v1/",
 	DatastoreBasePathKey:            "https://datastore.googleapis.com/v1/",
@@ -310,7 +392,6 @@ var DefaultBasePaths = map[string]string{
 	PubsubLiteBasePathKey:           "https://{{region}}-pubsublite.googleapis.com/v1/admin/",
 	RedisBasePathKey:                "https://redis.googleapis.com/v1/",
 	ResourceManagerBasePathKey:      "https://cloudresourcemanager.googleapis.com/v1/",
-	RuntimeConfigBasePathKey:        "https://runtimeconfig.googleapis.com/v1beta1/",
 	SecretManagerBasePathKey:        "https://secretmanager.googleapis.com/v1/",
 	SecurityCenterBasePathKey:       "https://securitycenter.googleapis.com/v1/",
 	ServiceManagementBasePathKey:    "https://servicemanagement.googleapis.com/v1/",
@@ -326,10 +407,7 @@ var DefaultBasePaths = map[string]string{
 	WorkflowsBasePathKey:            "https://workflows.googleapis.com/v1/",
 	CloudBillingBasePathKey:         "https://cloudbilling.googleapis.com/v1/",
 	ComposerBasePathKey:             "https://composer.googleapis.com/v1/",
-	ComputeBetaBasePathKey:          "https://www.googleapis.com/compute/beta/",
 	ContainerBasePathKey:            "https://container.googleapis.com/v1/",
-	ContainerBetaBasePathKey:        "https://container.googleapis.com/v1beta1/",
-	DataprocBetaBasePathKey:         "https://dataproc.googleapis.com/v1beta2/",
 	DataflowBasePathKey:             "https://dataflow.googleapis.com/v1b3/",
 	IAMBasePathKey:                  "https://iam.googleapis.com/v1/",
 	IamCredentialsBasePathKey:       "https://iamcredentials.googleapis.com/v1/",
@@ -338,14 +416,12 @@ var DefaultBasePaths = map[string]string{
 	StorageTransferBasePathKey:      "https://storagetransfer.googleapis.com/v1/",
 	BigtableAdminBasePathKey:        "https://bigtableadmin.googleapis.com/v2/",
 	GkeHubFeatureBasePathKey:        "https://gkehub.googleapis.com/v1beta/",
+	ContainerAwsBasePathKey:         "https://{{location}}-gkemulticloud.googleapis.com/v1/",
+	ContainerAzureBasePathKey:       "https://{{location}}-gkemulticloud.googleapis.com/v1/",
 }
 
 var DefaultClientScopes = []string{
-	"https://www.googleapis.com/auth/compute",
 	"https://www.googleapis.com/auth/cloud-platform",
-	"https://www.googleapis.com/auth/cloud-identity",
-	"https://www.googleapis.com/auth/ndev.clouddns.readwrite",
-	"https://www.googleapis.com/auth/devstorage.full_control",
 	"https://www.googleapis.com/auth/userinfo.email",
 }
 
@@ -411,6 +487,25 @@ func (c *Config) LoadAndValidate(ctx context.Context) error {
 	c.requestBatcherServiceUsage = NewRequestBatcher("Service Usage", ctx, c.BatchingConfig)
 	c.requestBatcherIam = NewRequestBatcher("IAM", ctx, c.BatchingConfig)
 	c.PollInterval = 10 * time.Second
+
+	// gRPC Logging setup
+	logger := logrus.StandardLogger()
+
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&Formatter{
+		TimestampFormat: "2006/01/02 15:04:05",
+		LogFormat:       "%time% [%lvl%] %msg% \n",
+	})
+
+	alwaysLoggingDeciderClient := func(ctx context.Context, fullMethodName string) bool { return true }
+	grpc_logrus.ReplaceGrpcLogger(logrus.NewEntry(logger))
+
+	c.gRPCLoggingOptions = append(
+		c.gRPCLoggingOptions, option.WithGRPCDialOption(grpc.WithUnaryInterceptor(
+			grpc_logrus.PayloadUnaryClientInterceptor(logrus.NewEntry(logger), alwaysLoggingDeciderClient))),
+		option.WithGRPCDialOption(grpc.WithStreamInterceptor(
+			grpc_logrus.PayloadStreamClientInterceptor(logrus.NewEntry(logger), alwaysLoggingDeciderClient))),
+	)
 
 	return nil
 }
@@ -528,19 +623,6 @@ func (c *Config) NewComputeClient(userAgent string) *compute.Service {
 	return clientCompute
 }
 
-func (c *Config) NewComputeBetaClient(userAgent string) *computeBeta.Service {
-	log.Printf("[INFO] Instantiating GCE Beta client for path %s", c.ComputeBetaBasePath)
-	clientComputeBeta, err := computeBeta.NewService(c.context, option.WithHTTPClient(c.client))
-	if err != nil {
-		log.Printf("[WARN] Error creating client compute beta: %s", err)
-		return nil
-	}
-	clientComputeBeta.UserAgent = userAgent
-	clientComputeBeta.BasePath = c.ComputeBetaBasePath
-
-	return clientComputeBeta
-}
-
 func (c *Config) NewContainerClient(userAgent string) *container.Service {
 	containerClientBasePath := removeBasePathVersion(c.ContainerBasePath)
 	log.Printf("[INFO] Instantiating GKE client for path %s", containerClientBasePath)
@@ -553,20 +635,6 @@ func (c *Config) NewContainerClient(userAgent string) *container.Service {
 	clientContainer.BasePath = containerClientBasePath
 
 	return clientContainer
-}
-
-func (c *Config) NewContainerBetaClient(userAgent string) *containerBeta.Service {
-	containerBetaClientBasePath := removeBasePathVersion(c.ContainerBetaBasePath)
-	log.Printf("[INFO] Instantiating GKE Beta client for path %s", containerBetaClientBasePath)
-	clientContainerBeta, err := containerBeta.NewService(c.context, option.WithHTTPClient(c.client))
-	if err != nil {
-		log.Printf("[WARN] Error creating client container beta: %s", err)
-		return nil
-	}
-	clientContainerBeta.UserAgent = userAgent
-	clientContainerBeta.BasePath = containerBetaClientBasePath
-
-	return clientContainerBeta
 }
 
 func (c *Config) NewDnsClient(userAgent string) *dns.Service {
@@ -723,20 +791,6 @@ func (c *Config) NewResourceManagerV2Client(userAgent string) *resourceManagerV2
 	clientResourceManagerV2.BasePath = resourceManagerV2BasePath
 
 	return clientResourceManagerV2
-}
-
-func (c *Config) NewRuntimeconfigClient(userAgent string) *runtimeconfig.Service {
-	runtimeConfigClientBasePath := removeBasePathVersion(c.RuntimeConfigBasePath)
-	log.Printf("[INFO] Instantiating Google Cloud Runtimeconfig client for path %s", runtimeConfigClientBasePath)
-	clientRuntimeconfig, err := runtimeconfig.NewService(c.context, option.WithHTTPClient(c.client))
-	if err != nil {
-		log.Printf("[WARN] Error creating client runtime config: %s", err)
-		return nil
-	}
-	clientRuntimeconfig.UserAgent = userAgent
-	clientRuntimeconfig.BasePath = runtimeConfigClientBasePath
-
-	return clientRuntimeconfig
 }
 
 func (c *Config) NewIamClient(userAgent string) *iam.Service {
@@ -996,6 +1050,7 @@ func (c *Config) BigTableClientFactory(userAgent string) *BigtableClientFactory 
 	bigtableClientFactory := &BigtableClientFactory{
 		UserAgent:           userAgent,
 		TokenSource:         c.tokenSource,
+		gRPCLoggingOptions:  c.gRPCLoggingOptions,
 		BillingProject:      c.BillingProject,
 		UserProjectOverride: c.UserProjectOverride,
 	}
@@ -1047,14 +1102,13 @@ type staticTokenSource struct {
 // If initialCredentialsOnly is true, don't follow the impersonation settings and return the initial set of creds
 // instead.
 func (c *Config) GetCredentials(clientScopes []string, initialCredentialsOnly bool) (googleoauth.Credentials, error) {
-
 	if c.AccessToken != "" {
 		contents, _, err := pathOrContents(c.AccessToken)
 		if err != nil {
 			return googleoauth.Credentials{}, fmt.Errorf("Error loading access token: %s", err)
 		}
-		token := &oauth2.Token{AccessToken: contents}
 
+		token := &oauth2.Token{AccessToken: contents}
 		if c.ImpersonateServiceAccount != "" && !initialCredentialsOnly {
 			opts := []option.ClientOption{option.WithTokenSource(oauth2.StaticTokenSource(token)), option.ImpersonateCredentials(c.ImpersonateServiceAccount, c.ImpersonateServiceAccountDelegates...), option.WithScopes(clientScopes...)}
 			creds, err := transport.Creds(context.TODO(), opts...)
@@ -1066,7 +1120,6 @@ func (c *Config) GetCredentials(clientScopes []string, initialCredentialsOnly bo
 
 		log.Printf("[INFO] Authenticating using configured Google JSON 'access_token'...")
 		log.Printf("[INFO]   -- Scopes: %s", clientScopes)
-
 		return googleoauth.Credentials{
 			TokenSource: staticTokenSource{oauth2.StaticTokenSource(token)},
 		}, nil
@@ -1077,6 +1130,7 @@ func (c *Config) GetCredentials(clientScopes []string, initialCredentialsOnly bo
 		if err != nil {
 			return googleoauth.Credentials{}, fmt.Errorf("error loading credentials: %s", err)
 		}
+
 		if c.ImpersonateServiceAccount != "" && !initialCredentialsOnly {
 			opts := []option.ClientOption{option.WithCredentialsJSON([]byte(contents)), option.ImpersonateCredentials(c.ImpersonateServiceAccount, c.ImpersonateServiceAccountDelegates...), option.WithScopes(clientScopes...)}
 			creds, err := transport.Creds(context.TODO(), opts...)
@@ -1085,6 +1139,7 @@ func (c *Config) GetCredentials(clientScopes []string, initialCredentialsOnly bo
 			}
 			return *creds, nil
 		}
+
 		creds, err := googleoauth.CredentialsFromJSON(c.context, []byte(contents), clientScopes...)
 		if err != nil {
 			return googleoauth.Credentials{}, fmt.Errorf("unable to parse credentials from '%s': %s", contents, err)
@@ -1101,17 +1156,17 @@ func (c *Config) GetCredentials(clientScopes []string, initialCredentialsOnly bo
 		if err != nil {
 			return googleoauth.Credentials{}, err
 		}
-		return *creds, nil
 
+		return *creds, nil
 	}
 
 	log.Printf("[INFO] Authenticating using DefaultClient...")
 	log.Printf("[INFO]   -- Scopes: %s", clientScopes)
-
 	defaultTS, err := googleoauth.DefaultTokenSource(context.Background(), clientScopes...)
 	if err != nil {
 		return googleoauth.Credentials{}, fmt.Errorf("Attempted to load application default credentials since neither `credentials` nor `access_token` was set in the provider block.  No credentials loaded. To use your gcloud credentials, run 'gcloud auth application-default login'.  Original error: %w", err)
 	}
+
 	return googleoauth.Credentials{
 		TokenSource: defaultTS,
 	}, err
@@ -1150,6 +1205,7 @@ func ConfigureBasePaths(c *Config) {
 	c.ComputeBasePath = DefaultBasePaths[ComputeBasePathKey]
 	c.ContainerAnalysisBasePath = DefaultBasePaths[ContainerAnalysisBasePathKey]
 	c.DataCatalogBasePath = DefaultBasePaths[DataCatalogBasePathKey]
+	c.DataFusionBasePath = DefaultBasePaths[DataFusionBasePathKey]
 	c.DataLossPreventionBasePath = DefaultBasePaths[DataLossPreventionBasePathKey]
 	c.DataprocBasePath = DefaultBasePaths[DataprocBasePathKey]
 	c.DatastoreBasePath = DefaultBasePaths[DatastoreBasePathKey]
@@ -1180,7 +1236,6 @@ func ConfigureBasePaths(c *Config) {
 	c.PubsubLiteBasePath = DefaultBasePaths[PubsubLiteBasePathKey]
 	c.RedisBasePath = DefaultBasePaths[RedisBasePathKey]
 	c.ResourceManagerBasePath = DefaultBasePaths[ResourceManagerBasePathKey]
-	c.RuntimeConfigBasePath = DefaultBasePaths[RuntimeConfigBasePathKey]
 	c.SecretManagerBasePath = DefaultBasePaths[SecretManagerBasePathKey]
 	c.SecurityCenterBasePath = DefaultBasePaths[SecurityCenterBasePathKey]
 	c.ServiceManagementBasePath = DefaultBasePaths[ServiceManagementBasePathKey]
@@ -1198,9 +1253,7 @@ func ConfigureBasePaths(c *Config) {
 	// Handwritten Products / Versioned / Atypical Entries
 	c.CloudBillingBasePath = DefaultBasePaths[CloudBillingBasePathKey]
 	c.ComposerBasePath = DefaultBasePaths[ComposerBasePathKey]
-	c.ComputeBetaBasePath = DefaultBasePaths[ComputeBetaBasePathKey]
 	c.ContainerBasePath = DefaultBasePaths[ContainerBasePathKey]
-	c.ContainerBetaBasePath = DefaultBasePaths[ContainerBetaBasePathKey]
 	c.DataprocBasePath = DefaultBasePaths[DataprocBasePathKey]
 	c.DataflowBasePath = DefaultBasePaths[DataflowBasePathKey]
 	c.IamCredentialsBasePath = DefaultBasePaths[IamCredentialsBasePathKey]

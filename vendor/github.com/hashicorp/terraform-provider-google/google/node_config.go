@@ -3,7 +3,7 @@ package google
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
-	containerBeta "google.golang.org/api/container/v1beta1"
+	"google.golang.org/api/container/v1"
 )
 
 // Matches gke-default scope from https://cloud.google.com/sdk/gcloud/reference/container/clusters/create
@@ -103,6 +103,24 @@ func schemaNodeConfig() *schema.Schema {
 					ForceNew:     true,
 					ValidateFunc: validation.IntAtLeast(0),
 					Description:  `The number of local SSD disks to be attached to the node.`,
+				},
+
+				"gcfs_config": {
+					Type:        schema.TypeList,
+					Optional:    true,
+					MaxItems:    1,
+					Description: `GCFS configuration for this node.`,
+					ForceNew:    true,
+					Elem: &schema.Resource{
+						Schema: map[string]*schema.Schema{
+							"enabled": {
+								Type:        schema.TypeBool,
+								Required:    true,
+								ForceNew:    true,
+								Description: `Whether or not GCFS is enabled`,
+							},
+						},
+					},
 				},
 
 				"machine_type": {
@@ -231,8 +249,6 @@ func schemaNodeConfig() *schema.Schema {
 					},
 				},
 
-				// Note that ExactlyOneOf can't be set because this schema is reused by
-				// two different resources.
 				"workload_metadata_config": {
 					Computed:    true,
 					Type:        schema.TypeList,
@@ -241,32 +257,36 @@ func schemaNodeConfig() *schema.Schema {
 					Description: `The workload metadata configuration for this node.`,
 					Elem: &schema.Resource{
 						Schema: map[string]*schema.Schema{
-							"node_metadata": {
-								Type:         schema.TypeString,
-								Optional:     true,
-								Computed:     true,
-								Deprecated:   "Deprecated in favor of mode.",
-								ValidateFunc: validation.StringInSlice([]string{"UNSPECIFIED", "SECURE", "EXPOSE", "GKE_METADATA_SERVER"}, false),
-								Description:  `NodeMetadata is the configuration for how to expose metadata to the workloads running on the node.`,
-							},
 							"mode": {
 								Type:         schema.TypeString,
-								Optional:     true,
-								Computed:     true,
+								Required:     true,
 								ValidateFunc: validation.StringInSlice([]string{"MODE_UNSPECIFIED", "GCE_METADATA", "GKE_METADATA"}, false),
 								Description:  `Mode is the configuration for how to expose metadata to workloads running on the node.`,
 							},
 						},
 					},
 				},
+
+				"boot_disk_kms_key": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					ForceNew:    true,
+					Description: `The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool.`,
+				},
+				"node_group": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					ForceNew:    true,
+					Description: `Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes.`,
+				},
 			},
 		},
 	}
 }
 
-func expandNodeConfig(v interface{}) *containerBeta.NodeConfig {
+func expandNodeConfig(v interface{}) *container.NodeConfig {
 	nodeConfigs := v.([]interface{})
-	nc := &containerBeta.NodeConfig{
+	nc := &container.NodeConfig{
 		// Defaults can't be set on a list/set in the schema, so set the default on create here.
 		OauthScopes: defaultOauthScopes,
 	}
@@ -282,13 +302,13 @@ func expandNodeConfig(v interface{}) *containerBeta.NodeConfig {
 
 	if v, ok := nodeConfig["guest_accelerator"]; ok {
 		accels := v.([]interface{})
-		guestAccelerators := make([]*containerBeta.AcceleratorConfig, 0, len(accels))
+		guestAccelerators := make([]*container.AcceleratorConfig, 0, len(accels))
 		for _, raw := range accels {
 			data := raw.(map[string]interface{})
 			if data["count"].(int) == 0 {
 				continue
 			}
-			guestAccelerators = append(guestAccelerators, &containerBeta.AcceleratorConfig{
+			guestAccelerators = append(guestAccelerators, &container.AcceleratorConfig{
 				AcceleratorCount: int64(data["count"].(int)),
 				AcceleratorType:  data["type"].(string),
 				GpuPartitionSize: data["gpu_partition_size"].(string),
@@ -307,6 +327,13 @@ func expandNodeConfig(v interface{}) *containerBeta.NodeConfig {
 
 	if v, ok := nodeConfig["local_ssd_count"]; ok {
 		nc.LocalSsdCount = int64(v.(int))
+	}
+
+	if v, ok := nodeConfig["gcfs_config"]; ok && len(v.([]interface{})) > 0 {
+		conf := v.([]interface{})[0].(map[string]interface{})
+		nc.GcfsConfig = &container.GcfsConfig{
+			Enabled: conf["enabled"].(bool),
+		}
 	}
 
 	if scopes, ok := nodeConfig["oauth_scopes"]; ok {
@@ -356,7 +383,7 @@ func expandNodeConfig(v interface{}) *containerBeta.NodeConfig {
 
 	if v, ok := nodeConfig["shielded_instance_config"]; ok && len(v.([]interface{})) > 0 {
 		conf := v.([]interface{})[0].(map[string]interface{})
-		nc.ShieldedInstanceConfig = &containerBeta.ShieldedInstanceConfig{
+		nc.ShieldedInstanceConfig = &container.ShieldedInstanceConfig{
 			EnableSecureBoot:          conf["enable_secure_boot"].(bool),
 			EnableIntegrityMonitoring: conf["enable_integrity_monitoring"].(bool),
 		}
@@ -371,10 +398,10 @@ func expandNodeConfig(v interface{}) *containerBeta.NodeConfig {
 
 	if v, ok := nodeConfig["taint"]; ok && len(v.([]interface{})) > 0 {
 		taints := v.([]interface{})
-		nodeTaints := make([]*containerBeta.NodeTaint, 0, len(taints))
+		nodeTaints := make([]*container.NodeTaint, 0, len(taints))
 		for _, raw := range taints {
 			data := raw.(map[string]interface{})
-			taint := &containerBeta.NodeTaint{
+			taint := &container.NodeTaint{
 				Key:    data["key"].(string),
 				Value:  data["value"].(string),
 				Effect: data["effect"].(string),
@@ -388,10 +415,18 @@ func expandNodeConfig(v interface{}) *containerBeta.NodeConfig {
 		nc.WorkloadMetadataConfig = expandWorkloadMetadataConfig(v)
 	}
 
+	if v, ok := nodeConfig["boot_disk_kms_key"]; ok {
+		nc.BootDiskKmsKey = v.(string)
+	}
+
+	if v, ok := nodeConfig["node_group"]; ok {
+		nc.NodeGroup = v.(string)
+	}
+
 	return nc
 }
 
-func expandWorkloadMetadataConfig(v interface{}) *containerBeta.WorkloadMetadataConfig {
+func expandWorkloadMetadataConfig(v interface{}) *container.WorkloadMetadataConfig {
 	if v == nil {
 		return nil
 	}
@@ -399,7 +434,7 @@ func expandWorkloadMetadataConfig(v interface{}) *containerBeta.WorkloadMetadata
 	if len(ls) == 0 {
 		return nil
 	}
-	wmc := &containerBeta.WorkloadMetadataConfig{}
+	wmc := &container.WorkloadMetadataConfig{}
 
 	cfg := ls[0].(map[string]interface{})
 
@@ -407,14 +442,10 @@ func expandWorkloadMetadataConfig(v interface{}) *containerBeta.WorkloadMetadata
 		wmc.Mode = v.(string)
 	}
 
-	if v, ok := cfg["node_metadata"]; ok {
-		wmc.NodeMetadata = v.(string)
-	}
-
 	return wmc
 }
 
-func flattenNodeConfig(c *containerBeta.NodeConfig) []map[string]interface{} {
+func flattenNodeConfig(c *container.NodeConfig) []map[string]interface{} {
 	config := make([]map[string]interface{}, 0, 1)
 
 	if c == nil {
@@ -427,6 +458,7 @@ func flattenNodeConfig(c *containerBeta.NodeConfig) []map[string]interface{} {
 		"disk_type":                c.DiskType,
 		"guest_accelerator":        flattenContainerGuestAccelerators(c.Accelerators),
 		"local_ssd_count":          c.LocalSsdCount,
+		"gcfs_config":              flattenGcfsConfig(c.GcfsConfig),
 		"service_account":          c.ServiceAccount,
 		"metadata":                 c.Metadata,
 		"image_type":               c.ImageType,
@@ -437,6 +469,8 @@ func flattenNodeConfig(c *containerBeta.NodeConfig) []map[string]interface{} {
 		"shielded_instance_config": flattenShieldedInstanceConfig(c.ShieldedInstanceConfig),
 		"taint":                    flattenTaints(c.Taints),
 		"workload_metadata_config": flattenWorkloadMetadataConfig(c.WorkloadMetadataConfig),
+		"boot_disk_kms_key":        c.BootDiskKmsKey,
+		"node_group":               c.NodeGroup,
 	})
 
 	if len(c.OauthScopes) > 0 {
@@ -446,7 +480,7 @@ func flattenNodeConfig(c *containerBeta.NodeConfig) []map[string]interface{} {
 	return config
 }
 
-func flattenContainerGuestAccelerators(c []*containerBeta.AcceleratorConfig) []map[string]interface{} {
+func flattenContainerGuestAccelerators(c []*container.AcceleratorConfig) []map[string]interface{} {
 	result := []map[string]interface{}{}
 	for _, accel := range c {
 		result = append(result, map[string]interface{}{
@@ -458,7 +492,7 @@ func flattenContainerGuestAccelerators(c []*containerBeta.AcceleratorConfig) []m
 	return result
 }
 
-func flattenShieldedInstanceConfig(c *containerBeta.ShieldedInstanceConfig) []map[string]interface{} {
+func flattenShieldedInstanceConfig(c *container.ShieldedInstanceConfig) []map[string]interface{} {
 	result := []map[string]interface{}{}
 	if c != nil {
 		result = append(result, map[string]interface{}{
@@ -469,7 +503,17 @@ func flattenShieldedInstanceConfig(c *containerBeta.ShieldedInstanceConfig) []ma
 	return result
 }
 
-func flattenTaints(c []*containerBeta.NodeTaint) []map[string]interface{} {
+func flattenGcfsConfig(c *container.GcfsConfig) []map[string]interface{} {
+	result := []map[string]interface{}{}
+	if c != nil {
+		result = append(result, map[string]interface{}{
+			"enabled": c.Enabled,
+		})
+	}
+	return result
+}
+
+func flattenTaints(c []*container.NodeTaint) []map[string]interface{} {
 	result := []map[string]interface{}{}
 	for _, taint := range c {
 		result = append(result, map[string]interface{}{
@@ -481,12 +525,11 @@ func flattenTaints(c []*containerBeta.NodeTaint) []map[string]interface{} {
 	return result
 }
 
-func flattenWorkloadMetadataConfig(c *containerBeta.WorkloadMetadataConfig) []map[string]interface{} {
+func flattenWorkloadMetadataConfig(c *container.WorkloadMetadataConfig) []map[string]interface{} {
 	result := []map[string]interface{}{}
 	if c != nil {
 		result = append(result, map[string]interface{}{
-			"mode":          c.Mode,
-			"node_metadata": c.NodeMetadata,
+			"mode": c.Mode,
 		})
 	}
 	return result

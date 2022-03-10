@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -39,9 +38,9 @@ func resourceBillingBudget() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Update: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		SchemaVersion: 1,
@@ -132,7 +131,7 @@ budget.`,
 						"spend_basis": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"CURRENT_SPEND", "FORECASTED_SPEND", ""}, false),
+							ValidateFunc: validateEnum([]string{"CURRENT_SPEND", "FORECASTED_SPEND", ""}),
 							Description: `The type of basis used to determine if spend has passed
 the threshold. Default value: "CURRENT_SPEND" Possible values: ["CURRENT_SPEND", "FORECASTED_SPEND"]`,
 							Default: "CURRENT_SPEND",
@@ -217,7 +216,7 @@ account and all subaccounts, if they exist.`,
 						"credit_types_treatment": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS", ""}, false),
+							ValidateFunc: validateEnum([]string{"INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS", ""}),
 							Description: `Specifies how credits should be treated when determining spend
 for threshold calculations. Default value: "INCLUDE_ALL_CREDITS" Possible values: ["INCLUDE_ALL_CREDITS", "EXCLUDE_ALL_CREDITS", "INCLUDE_SPECIFIED_CREDITS"]`,
 							Default:      "INCLUDE_ALL_CREDITS",
@@ -468,7 +467,8 @@ func resourceBillingBudgetUpdate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	if d.HasChange("budget_filter") {
-		updateMask = append(updateMask, "budgetFilter.projects")
+		updateMask = append(updateMask, "budgetFilter.projects",
+			"budgetFilter.labels")
 	}
 
 	if d.HasChange("amount") {
@@ -619,7 +619,28 @@ func flattenBillingBudgetBudgetFilterSubaccounts(v interface{}, d *schema.Resour
 }
 
 func flattenBillingBudgetBudgetFilterLabels(v interface{}, d *schema.ResourceData, config *Config) interface{} {
-	return v
+	/*
+	   note: api only accepts below format. Also only takes a single element in the array
+	   labels = {
+	       foo = ["bar"]
+	   }
+	   until now, sdk does not take array for the map value
+	*/
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	for key, val := range original {
+		l := val.([]interface{})
+		for _, v := range l {
+			transformed[key] = v.(string)
+		}
+	}
+	return transformed
 }
 
 func flattenBillingBudgetAmount(v interface{}, d *schema.ResourceData, config *Config) interface{} {
@@ -665,7 +686,7 @@ func flattenBillingBudgetAmountSpecifiedAmountUnits(v interface{}, d *schema.Res
 func flattenBillingBudgetAmountSpecifiedAmountNanos(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -828,13 +849,13 @@ func expandBillingBudgetBudgetFilterSubaccounts(v interface{}, d TerraformResour
 	return v, nil
 }
 
-func expandBillingBudgetBudgetFilterLabels(v interface{}, d TerraformResourceData, config *Config) (map[string]string, error) {
+func expandBillingBudgetBudgetFilterLabels(v interface{}, d TerraformResourceData, config *Config) (map[string][]string, error) {
 	if v == nil {
-		return map[string]string{}, nil
+		return map[string][]string{}, nil
 	}
-	m := make(map[string]string)
+	m := make(map[string][]string)
 	for k, val := range v.(map[string]interface{}) {
-		m[k] = val.(string)
+		m[k] = []string{val.(string)}
 	}
 	return m, nil
 }

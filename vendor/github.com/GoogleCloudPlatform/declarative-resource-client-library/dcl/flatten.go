@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,16 @@ func SelfLinkToName(v *string) *string {
 // Return value also has error since the dcl template requires the expander to return error.
 func SelfLinkToNameExpander(v *string) (*string, error) {
 	return SelfLinkToName(v), nil
+}
+
+// SelfLinkToNameArrayExpander returns the last element of each string in a slice after the last slash.
+// Return value also has error since the dcl template requires the expander to return error.
+func SelfLinkToNameArrayExpander(v []string) ([]string, error) {
+	r := make([]string, len(v))
+	for i, w := range v {
+		r[i] = *SelfLinkToName(&w)
+	}
+	return r, nil
 }
 
 // FalseToNil returns nil if the pointed-to boolean is 'false' - otherwise returns the pass-in pointer.

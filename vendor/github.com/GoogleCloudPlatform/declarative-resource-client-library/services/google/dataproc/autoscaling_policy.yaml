@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 info:
   title: Dataproc/AutoscalingPolicy
-  description: DCL Specification for the Dataproc AutoscalingPolicy resource
+  description: The Dataproc AutoscalingPolicy resource
+  x-dcl-struct-name: AutoscalingPolicy
   x-dcl-has-iam: false
 paths:
   get:
@@ -62,6 +63,7 @@ components:
       title: AutoscalingPolicy
       x-dcl-id: projects/{{project}}/locations/{{location}}/autoscalingPolicies/{{name}}
       x-dcl-parent-container: project
+      x-dcl-has-iam: false
       type: object
       required:
       - name

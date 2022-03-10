@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -318,6 +318,11 @@ func (c *Client) routeDiffsForRawDesired(ctx context.Context, rawDesired *Route,
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for Route: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for Route: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractRouteFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeRouteInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -454,7 +459,7 @@ func canonicalizeRouteDesiredState(rawDesired, rawInitial *Route, opts ...dcl.Ap
 	} else {
 		canonicalDesired.Network = rawDesired.Network
 	}
-	if dcl.IsZeroValue(rawDesired.Tag) {
+	if dcl.StringArrayCanonicalize(rawDesired.Tag, rawInitial.Tag) {
 		canonicalDesired.Tag = rawInitial.Tag
 	} else {
 		canonicalDesired.Tag = rawDesired.Tag
@@ -464,7 +469,8 @@ func canonicalizeRouteDesiredState(rawDesired, rawInitial *Route, opts ...dcl.Ap
 	} else {
 		canonicalDesired.DestRange = rawDesired.DestRange
 	}
-	if dcl.IsZeroValue(rawDesired.Priority) {
+	if dcl.IsZeroValue(rawDesired.Priority) || (dcl.IsEmptyValueIndirect(rawDesired.Priority) && dcl.IsEmptyValueIndirect(rawInitial.Priority)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Priority = rawInitial.Priority
 	} else {
 		canonicalDesired.Priority = rawDesired.Priority
@@ -537,6 +543,9 @@ func canonicalizeRouteNewState(c *Client, rawNew, rawDesired *Route) (*Route, er
 	if dcl.IsNotReturnedByServer(rawNew.Tag) && dcl.IsNotReturnedByServer(rawDesired.Tag) {
 		rawNew.Tag = rawDesired.Tag
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.Tag, rawNew.Tag) {
+			rawNew.Tag = rawDesired.Tag
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.DestRange) && dcl.IsNotReturnedByServer(rawDesired.DestRange) {
@@ -645,7 +654,7 @@ func canonicalizeRouteWarning(des, initial *RouteWarning, opts ...dcl.ApplyOptio
 }
 
 func canonicalizeRouteWarningSlice(des, initial []RouteWarning, opts ...dcl.ApplyOption) []RouteWarning {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -747,6 +756,9 @@ func diffRoute(c *Client, desired, actual *Route, opts ...dcl.ApplyOption) ([]*d
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -982,44 +994,48 @@ func unmarshalMapRoute(m map[string]interface{}, c *Client) (*Route, error) {
 // expandRoute expands Route into a JSON request object.
 func expandRoute(c *Client, f *Route) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v, err := dcl.DeriveField("global/networks/%s", f.Network, f.Network); err != nil {
+	if v, err := dcl.DeriveField("global/networks/%s", f.Network, dcl.SelfLinkToName(f.Network)); err != nil {
 		return nil, fmt.Errorf("error expanding Network into network: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["network"] = v
 	}
-	m["tags"] = f.Tag
-	if v := f.DestRange; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Tag; v != nil {
+		m["tags"] = v
+	}
+	if v := f.DestRange; dcl.ValueShouldBeSent(v) {
 		m["destRange"] = v
 	}
-	if v := f.Priority; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Priority; dcl.ValueShouldBeSent(v) {
 		m["priority"] = v
 	}
-	if v := f.NextHopInstance; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.NextHopInstance; dcl.ValueShouldBeSent(v) {
 		m["nextHopInstance"] = v
 	}
-	if v := f.NextHopIP; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.NextHopIP; dcl.ValueShouldBeSent(v) {
 		m["nextHopIp"] = v
 	}
-	if v, err := dcl.DeriveField("projects/%s/global/gateways/%s", f.NextHopGateway, f.Project, f.NextHopGateway); err != nil {
+	if v, err := dcl.DeriveField("projects/%s/global/gateways/%s", f.NextHopGateway, dcl.SelfLinkToName(f.Project), dcl.SelfLinkToName(f.NextHopGateway)); err != nil {
 		return nil, fmt.Errorf("error expanding NextHopGateway into nextHopGateway: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["nextHopGateway"] = v
 	}
-	if v := f.NextHopIlb; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.NextHopIlb; dcl.ValueShouldBeSent(v) {
 		m["nextHopIlb"] = v
 	}
-	if v := f.NextHopVpnTunnel; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.NextHopVpnTunnel; dcl.ValueShouldBeSent(v) {
 		m["nextHopVpnTunnel"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Project into project: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["project"] = v
 	}
 
@@ -1065,14 +1081,14 @@ func flattenRoute(c *Client, i interface{}) *Route {
 
 // expandRouteWarningMap expands the contents of RouteWarning into a JSON
 // request object.
-func expandRouteWarningMap(c *Client, f map[string]RouteWarning) (map[string]interface{}, error) {
+func expandRouteWarningMap(c *Client, f map[string]RouteWarning, res *Route) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandRouteWarning(c, &item)
+		i, err := expandRouteWarning(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1086,14 +1102,14 @@ func expandRouteWarningMap(c *Client, f map[string]RouteWarning) (map[string]int
 
 // expandRouteWarningSlice expands the contents of RouteWarning into a JSON
 // request object.
-func expandRouteWarningSlice(c *Client, f []RouteWarning) ([]map[string]interface{}, error) {
+func expandRouteWarningSlice(c *Client, f []RouteWarning, res *Route) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandRouteWarning(c, &item)
+		i, err := expandRouteWarning(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1146,7 +1162,7 @@ func flattenRouteWarningSlice(c *Client, i interface{}) []RouteWarning {
 
 // expandRouteWarning expands an instance of RouteWarning into a JSON
 // request object.
-func expandRouteWarning(c *Client, f *RouteWarning) (map[string]interface{}, error) {
+func expandRouteWarning(c *Client, f *RouteWarning, res *Route) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1221,7 +1237,7 @@ func flattenRouteWarningCodeEnumSlice(c *Client, i interface{}) []RouteWarningCo
 func flattenRouteWarningCodeEnum(i interface{}) *RouteWarningCodeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return RouteWarningCodeEnumRef("")
+		return nil
 	}
 
 	return RouteWarningCodeEnumRef(s)
@@ -1276,7 +1292,7 @@ func convertFieldDiffsToRouteDiffs(config *dcl.Config, fds []*dcl.FieldDiff, opt
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1308,5 +1324,15 @@ func convertOpNameToRouteApiOperation(opName string, fieldDiffs []*dcl.FieldDiff
 }
 
 func extractRouteFields(r *Route) error {
+	return nil
+}
+func extractRouteWarningFields(r *Route, o *RouteWarning) error {
+	return nil
+}
+
+func postReadExtractRouteFields(r *Route) error {
+	return nil
+}
+func postReadExtractRouteWarningFields(r *Route, o *RouteWarning) error {
 	return nil
 }

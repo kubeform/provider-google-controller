@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 info:
   title: Compute/Subnetwork
-  description: DCL Specification for the Compute Subnetwork resource
+  description: The Compute Subnetwork resource
+  x-dcl-struct-name: Subnetwork
   x-dcl-has-iam: false
 paths:
   get:
@@ -64,11 +65,13 @@ components:
       x-dcl-locations:
       - region
       x-dcl-parent-container: project
+      x-dcl-has-iam: false
       type: object
       required:
       - ipCidrRange
       - name
       - network
+      - region
       - project
       properties:
         creationTimestamp:
@@ -100,6 +103,7 @@ components:
           readOnly: true
           description: 'Fingerprint of this resource. This field is used internally
             during updates of this resource. '
+          x-kubernetes-immutable: true
         gatewayAddress:
           type: string
           x-dcl-go-name: GatewayAddress

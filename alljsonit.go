@@ -70,9 +70,9 @@ import (
 	privatecav1alpha1 "kubeform.dev/provider-google-api/apis/privateca/v1alpha1"
 	projectv1alpha1 "kubeform.dev/provider-google-api/apis/project/v1alpha1"
 	pubsubv1alpha1 "kubeform.dev/provider-google-api/apis/pubsub/v1alpha1"
+	recaptchav1alpha1 "kubeform.dev/provider-google-api/apis/recaptcha/v1alpha1"
 	redisv1alpha1 "kubeform.dev/provider-google-api/apis/redis/v1alpha1"
 	resourcev1alpha1 "kubeform.dev/provider-google-api/apis/resource/v1alpha1"
-	runtimeconfigv1alpha1 "kubeform.dev/provider-google-api/apis/runtimeconfig/v1alpha1"
 	sccv1alpha1 "kubeform.dev/provider-google-api/apis/scc/v1alpha1"
 	secretv1alpha1 "kubeform.dev/provider-google-api/apis/secret/v1alpha1"
 	servicev1alpha1 "kubeform.dev/provider-google-api/apis/service/v1alpha1"
@@ -177,6 +177,14 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	{
 		Group:    "apigee.google.kubeform.com",
 		Version:  "v1alpha1",
+		Resource: "endpointattachments",
+	}: {
+		JsonIt:       controllers.GetJSONItr(apigeev1alpha1.GetEncoder(), apigeev1alpha1.GetDecoder()),
+		ResourceType: "google_apigee_endpoint_attachment",
+	},
+	{
+		Group:    "apigee.google.kubeform.com",
+		Version:  "v1alpha1",
 		Resource: "envgroups",
 	}: {
 		JsonIt:       controllers.GetJSONItr(apigeev1alpha1.GetEncoder(), apigeev1alpha1.GetDecoder()),
@@ -197,6 +205,30 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	}: {
 		JsonIt:       controllers.GetJSONItr(apigeev1alpha1.GetEncoder(), apigeev1alpha1.GetDecoder()),
 		ResourceType: "google_apigee_environment",
+	},
+	{
+		Group:    "apigee.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "environmentiambindings",
+	}: {
+		JsonIt:       controllers.GetJSONItr(apigeev1alpha1.GetEncoder(), apigeev1alpha1.GetDecoder()),
+		ResourceType: "google_apigee_environment_iam_binding",
+	},
+	{
+		Group:    "apigee.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "environmentiammembers",
+	}: {
+		JsonIt:       controllers.GetJSONItr(apigeev1alpha1.GetEncoder(), apigeev1alpha1.GetDecoder()),
+		ResourceType: "google_apigee_environment_iam_member",
+	},
+	{
+		Group:    "apigee.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "environmentiampolicies",
+	}: {
+		JsonIt:       controllers.GetJSONItr(apigeev1alpha1.GetEncoder(), apigeev1alpha1.GetDecoder()),
+		ResourceType: "google_apigee_environment_iam_policy",
 	},
 	{
 		Group:    "apigee.google.kubeform.com",
@@ -661,6 +693,14 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	}: {
 		JsonIt:       controllers.GetJSONItr(cloudbuildv1alpha1.GetEncoder(), cloudbuildv1alpha1.GetDecoder()),
 		ResourceType: "google_cloudbuild_trigger",
+	},
+	{
+		Group:    "cloudbuild.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "workerpools",
+	}: {
+		JsonIt:       controllers.GetJSONItr(cloudbuildv1alpha1.GetEncoder(), cloudbuildv1alpha1.GetDecoder()),
+		ResourceType: "google_cloudbuild_worker_pool",
 	},
 	{
 		Group:    "cloudfunctionsfunction.google.kubeform.com",
@@ -1505,6 +1545,46 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	{
 		Group:    "container.google.kubeform.com",
 		Version:  "v1alpha1",
+		Resource: "awsclusters",
+	}: {
+		JsonIt:       controllers.GetJSONItr(containerv1alpha1.GetEncoder(), containerv1alpha1.GetDecoder()),
+		ResourceType: "google_container_aws_cluster",
+	},
+	{
+		Group:    "container.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "awsnodepools",
+	}: {
+		JsonIt:       controllers.GetJSONItr(containerv1alpha1.GetEncoder(), containerv1alpha1.GetDecoder()),
+		ResourceType: "google_container_aws_node_pool",
+	},
+	{
+		Group:    "container.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "azureclients",
+	}: {
+		JsonIt:       controllers.GetJSONItr(containerv1alpha1.GetEncoder(), containerv1alpha1.GetDecoder()),
+		ResourceType: "google_container_azure_client",
+	},
+	{
+		Group:    "container.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "azureclusters",
+	}: {
+		JsonIt:       controllers.GetJSONItr(containerv1alpha1.GetEncoder(), containerv1alpha1.GetDecoder()),
+		ResourceType: "google_container_azure_cluster",
+	},
+	{
+		Group:    "container.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "azurenodepools",
+	}: {
+		JsonIt:       controllers.GetJSONItr(containerv1alpha1.GetEncoder(), containerv1alpha1.GetDecoder()),
+		ResourceType: "google_container_azure_node_pool",
+	},
+	{
+		Group:    "container.google.kubeform.com",
+		Version:  "v1alpha1",
 		Resource: "clusters",
 	}: {
 		JsonIt:       controllers.GetJSONItr(containerv1alpha1.GetEncoder(), containerv1alpha1.GetDecoder()),
@@ -1605,6 +1685,14 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	}: {
 		JsonIt:       controllers.GetJSONItr(datav1alpha1.GetEncoder(), datav1alpha1.GetDecoder()),
 		ResourceType: "google_data_catalog_tag_template_iam_policy",
+	},
+	{
+		Group:    "data.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "fusioninstances",
+	}: {
+		JsonIt:       controllers.GetJSONItr(datav1alpha1.GetEncoder(), datav1alpha1.GetDecoder()),
+		ResourceType: "google_data_fusion_instance",
 	},
 	{
 		Group:    "data.google.kubeform.com",
@@ -2721,6 +2809,22 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	{
 		Group:    "network.google.kubeform.com",
 		Version:  "v1alpha1",
+		Resource: "connectivityhubs",
+	}: {
+		JsonIt:       controllers.GetJSONItr(networkv1alpha1.GetEncoder(), networkv1alpha1.GetDecoder()),
+		ResourceType: "google_network_connectivity_hub",
+	},
+	{
+		Group:    "network.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "connectivityspokes",
+	}: {
+		JsonIt:       controllers.GetJSONItr(networkv1alpha1.GetEncoder(), networkv1alpha1.GetDecoder()),
+		ResourceType: "google_network_connectivity_spoke",
+	},
+	{
+		Group:    "network.google.kubeform.com",
+		Version:  "v1alpha1",
 		Resource: "managementconnectivitytests",
 	}: {
 		JsonIt:       controllers.GetJSONItr(networkv1alpha1.GetEncoder(), networkv1alpha1.GetDecoder()),
@@ -2799,6 +2903,38 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 		ResourceType: "google_notebooks_location",
 	},
 	{
+		Group:    "notebooks.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "runtimes",
+	}: {
+		JsonIt:       controllers.GetJSONItr(notebooksv1alpha1.GetEncoder(), notebooksv1alpha1.GetDecoder()),
+		ResourceType: "google_notebooks_runtime",
+	},
+	{
+		Group:    "notebooks.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "runtimeiambindings",
+	}: {
+		JsonIt:       controllers.GetJSONItr(notebooksv1alpha1.GetEncoder(), notebooksv1alpha1.GetDecoder()),
+		ResourceType: "google_notebooks_runtime_iam_binding",
+	},
+	{
+		Group:    "notebooks.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "runtimeiammembers",
+	}: {
+		JsonIt:       controllers.GetJSONItr(notebooksv1alpha1.GetEncoder(), notebooksv1alpha1.GetDecoder()),
+		ResourceType: "google_notebooks_runtime_iam_member",
+	},
+	{
+		Group:    "notebooks.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "runtimeiampolicies",
+	}: {
+		JsonIt:       controllers.GetJSONItr(notebooksv1alpha1.GetEncoder(), notebooksv1alpha1.GetDecoder()),
+		ResourceType: "google_notebooks_runtime_iam_policy",
+	},
+	{
 		Group:    "org.google.kubeform.com",
 		Version:  "v1alpha1",
 		Resource: "policypolicies",
@@ -2861,6 +2997,14 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	}: {
 		JsonIt:       controllers.GetJSONItr(organizationv1alpha1.GetEncoder(), organizationv1alpha1.GetDecoder()),
 		ResourceType: "google_organization_policy",
+	},
+	{
+		Group:    "os.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "configospolicyassignments",
+	}: {
+		JsonIt:       controllers.GetJSONItr(osv1alpha1.GetEncoder(), osv1alpha1.GetDecoder()),
+		ResourceType: "google_os_config_os_policy_assignment",
 	},
 	{
 		Group:    "os.google.kubeform.com",
@@ -3119,6 +3263,14 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 		ResourceType: "google_pubsub_topic_iam_policy",
 	},
 	{
+		Group:    "recaptcha.google.kubeform.com",
+		Version:  "v1alpha1",
+		Resource: "enterprisekeys",
+	}: {
+		JsonIt:       controllers.GetJSONItr(recaptchav1alpha1.GetEncoder(), recaptchav1alpha1.GetDecoder()),
+		ResourceType: "google_recaptcha_enterprise_key",
+	},
+	{
 		Group:    "redis.google.kubeform.com",
 		Version:  "v1alpha1",
 		Resource: "instances",
@@ -3133,46 +3285,6 @@ var allJsonIt = map[schema.GroupVersionResource]Data{
 	}: {
 		JsonIt:       controllers.GetJSONItr(resourcev1alpha1.GetEncoder(), resourcev1alpha1.GetDecoder()),
 		ResourceType: "google_resource_manager_lien",
-	},
-	{
-		Group:    "runtimeconfig.google.kubeform.com",
-		Version:  "v1alpha1",
-		Resource: "configs",
-	}: {
-		JsonIt:       controllers.GetJSONItr(runtimeconfigv1alpha1.GetEncoder(), runtimeconfigv1alpha1.GetDecoder()),
-		ResourceType: "google_runtimeconfig_config",
-	},
-	{
-		Group:    "runtimeconfig.google.kubeform.com",
-		Version:  "v1alpha1",
-		Resource: "configiambindings",
-	}: {
-		JsonIt:       controllers.GetJSONItr(runtimeconfigv1alpha1.GetEncoder(), runtimeconfigv1alpha1.GetDecoder()),
-		ResourceType: "google_runtimeconfig_config_iam_binding",
-	},
-	{
-		Group:    "runtimeconfig.google.kubeform.com",
-		Version:  "v1alpha1",
-		Resource: "configiammembers",
-	}: {
-		JsonIt:       controllers.GetJSONItr(runtimeconfigv1alpha1.GetEncoder(), runtimeconfigv1alpha1.GetDecoder()),
-		ResourceType: "google_runtimeconfig_config_iam_member",
-	},
-	{
-		Group:    "runtimeconfig.google.kubeform.com",
-		Version:  "v1alpha1",
-		Resource: "configiampolicies",
-	}: {
-		JsonIt:       controllers.GetJSONItr(runtimeconfigv1alpha1.GetEncoder(), runtimeconfigv1alpha1.GetDecoder()),
-		ResourceType: "google_runtimeconfig_config_iam_policy",
-	},
-	{
-		Group:    "runtimeconfig.google.kubeform.com",
-		Version:  "v1alpha1",
-		Resource: "variables",
-	}: {
-		JsonIt:       controllers.GetJSONItr(runtimeconfigv1alpha1.GetEncoder(), runtimeconfigv1alpha1.GetDecoder()),
-		ResourceType: "google_runtimeconfig_variable",
 	},
 	{
 		Group:    "scc.google.kubeform.com",

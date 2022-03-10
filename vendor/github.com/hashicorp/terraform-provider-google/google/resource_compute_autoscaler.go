@@ -18,11 +18,9 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceComputeAutoscaler() *schema.Resource {
@@ -37,9 +35,9 @@ func resourceComputeAutoscaler() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Update: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -173,7 +171,7 @@ of the instances.`,
 									"type": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"GAUGE", "DELTA_PER_SECOND", "DELTA_PER_MINUTE", ""}, false),
+										ValidateFunc: validateEnum([]string{"GAUGE", "DELTA_PER_SECOND", "DELTA_PER_MINUTE", ""}),
 										Description: `Defines how target utilization value is expressed for a
 Stackdriver Monitoring metric. Possible values: ["GAUGE", "DELTA_PER_SECOND", "DELTA_PER_MINUTE"]`,
 									},
@@ -183,7 +181,7 @@ Stackdriver Monitoring metric. Possible values: ["GAUGE", "DELTA_PER_SECOND", "D
 						"mode": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"OFF", "ONLY_UP", "ON", ""}, false),
+							ValidateFunc: validateEnum([]string{"OFF", "ONLY_UP", "ON", ""}),
 							Description:  `Defines operating mode for this policy. Default value: "ON" Possible values: ["OFF", "ONLY_UP", "ON"]`,
 							Default:      "ON",
 						},
@@ -207,26 +205,28 @@ and outages due to abrupt scale-in events`,
 													Optional: true,
 													Description: `Specifies a fixed number of VM instances. This must be a positive
 integer.`,
+													AtLeastOneOf: []string{"autoscaling_policy.0.scale_in_control.0.max_scaled_in_replicas.0.fixed", "autoscaling_policy.0.scale_in_control.0.max_scaled_in_replicas.0.percent"},
 												},
 												"percent": {
 													Type:     schema.TypeInt,
 													Optional: true,
 													Description: `Specifies a percentage of instances between 0 to 100%, inclusive.
 For example, specify 80 for 80%.`,
+													AtLeastOneOf: []string{"autoscaling_policy.0.scale_in_control.0.max_scaled_in_replicas.0.fixed", "autoscaling_policy.0.scale_in_control.0.max_scaled_in_replicas.0.percent"},
 												},
 											},
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"autoscaling_policy.0.scale_in_control.0.max_scaled_in_replicas", "autoscaling_policy.0.scale_in_control.0.time_window_sec"},
 									},
 									"time_window_sec": {
 										Type:     schema.TypeInt,
 										Optional: true,
 										Description: `How long back autoscaling should look when computing recommendations
 to include directives regarding slower scale down, as described above.`,
+										AtLeastOneOf: []string{"autoscaling_policy.0.scale_in_control.0.max_scaled_in_replicas", "autoscaling_policy.0.scale_in_control.0.time_window_sec"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{},
 						},
 						"scaling_schedules": {
 							Type:        schema.TypeSet,
@@ -658,7 +658,7 @@ func flattenComputeAutoscalerAutoscalingPolicy(v interface{}, d *schema.Resource
 func flattenComputeAutoscalerAutoscalingPolicyMinReplicas(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -675,7 +675,7 @@ func flattenComputeAutoscalerAutoscalingPolicyMinReplicas(v interface{}, d *sche
 func flattenComputeAutoscalerAutoscalingPolicyMaxReplicas(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -692,7 +692,7 @@ func flattenComputeAutoscalerAutoscalingPolicyMaxReplicas(v interface{}, d *sche
 func flattenComputeAutoscalerAutoscalingPolicyCooldownPeriod(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -743,7 +743,7 @@ func flattenComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicas(
 func flattenComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicasFixed(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -760,7 +760,7 @@ func flattenComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicasF
 func flattenComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicasPercent(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -777,7 +777,7 @@ func flattenComputeAutoscalerAutoscalingPolicyScaleInControlMaxScaledInReplicasP
 func flattenComputeAutoscalerAutoscalingPolicyScaleInControlTimeWindowSec(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -890,7 +890,7 @@ func flattenComputeAutoscalerAutoscalingPolicyScalingSchedules(v interface{}, d 
 func flattenComputeAutoscalerAutoscalingPolicyScalingSchedulesMinRequiredReplicas(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -915,7 +915,7 @@ func flattenComputeAutoscalerAutoscalingPolicyScalingSchedulesTimeZone(v interfa
 func flattenComputeAutoscalerAutoscalingPolicyScalingSchedulesDurationSec(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}

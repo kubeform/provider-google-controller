@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceApigeeInstance() *schema.Resource {
@@ -81,12 +80,25 @@ Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/c
 				ForceNew:    true,
 				Description: `Display name of the instance.`,
 			},
+			"ip_range": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+				Description: `IP range represents the customer-provided CIDR block of length 22 that will be used for
+the Apigee instance creation. This optional range, if provided, should be freely
+available as part of larger named range the customer has allocated to the Service
+Networking peering. If this is not provided, Apigee will automatically request for any
+available /22 CIDR block from Service Networking. The customer should use this CIDR block
+for configuring their firewall needs to allow traffic from Apigee.
+Input format: "a.b.c.d/22"`,
+			},
 			"peering_cidr_range": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"SLASH_16", "SLASH_20", "SLASH_22", ""}, false),
-				Description:  `The size of the CIDR block range that will be reserved by the instance. Possible values: ["SLASH_16", "SLASH_20", "SLASH_22"]`,
+				Type:     schema.TypeString,
+				Computed: true,
+				Optional: true,
+				ForceNew: true,
+				Description: `The size of the CIDR block range that will be reserved by the instance. For valid values, 
+see [CidrRange](https://cloud.google.com/apigee/docs/reference/apis/apigee/rest/v1/organizations.instances#CidrRange) on the documentation.`,
 			},
 			"host": {
 				Type:        schema.TypeString,
@@ -129,6 +141,12 @@ func resourceApigeeInstanceCreate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("peering_cidr_range"); !isEmptyValue(reflect.ValueOf(peeringCidrRangeProp)) && (ok || !reflect.DeepEqual(v, peeringCidrRangeProp)) {
 		obj["peeringCidrRange"] = peeringCidrRangeProp
 	}
+	ipRangeProp, err := expandApigeeInstanceIpRange(d.Get("ip_range"), d, config)
+	if err != nil {
+		return err
+	} else if v, ok := d.GetOkExists("ip_range"); !isEmptyValue(reflect.ValueOf(ipRangeProp)) && (ok || !reflect.DeepEqual(v, ipRangeProp)) {
+		obj["ipRange"] = ipRangeProp
+	}
 	descriptionProp, err := expandApigeeInstanceDescription(d.Get("description"), d, config)
 	if err != nil {
 		return err
@@ -147,6 +165,13 @@ func resourceApigeeInstanceCreate(d *schema.ResourceData, meta interface{}) erro
 	} else if v, ok := d.GetOkExists("disk_encryption_key_name"); !isEmptyValue(reflect.ValueOf(diskEncryptionKeyNameProp)) && (ok || !reflect.DeepEqual(v, diskEncryptionKeyNameProp)) {
 		obj["diskEncryptionKeyName"] = diskEncryptionKeyNameProp
 	}
+
+	lockName, err := replaceVars(d, config, "{{org_id}}/apigeeInstances")
+	if err != nil {
+		return err
+	}
+	mutexKV.Lock(lockName)
+	defer mutexKV.Unlock(lockName)
 
 	url, err := replaceVars(d, config, "{{ApigeeBasePath}}{{org_id}}/instances")
 	if err != nil {
@@ -261,6 +286,13 @@ func resourceApigeeInstanceDelete(d *schema.ResourceData, meta interface{}) erro
 	}
 
 	billingProject := ""
+
+	lockName, err := replaceVars(d, config, "{{org_id}}/apigeeInstances")
+	if err != nil {
+		return err
+	}
+	mutexKV.Lock(lockName)
+	defer mutexKV.Unlock(lockName)
 
 	url, err := replaceVars(d, config, "{{ApigeeBasePath}}{{org_id}}/instances/{{name}}")
 	if err != nil {
@@ -378,6 +410,10 @@ func expandApigeeInstanceLocation(v interface{}, d TerraformResourceData, config
 }
 
 func expandApigeeInstancePeeringCidrRange(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandApigeeInstanceIpRange(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 

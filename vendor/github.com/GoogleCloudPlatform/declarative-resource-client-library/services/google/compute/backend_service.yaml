@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 info:
   title: Compute/BackendService
-  description: DCL Specification for the Compute BackendService resource
+  description: The Compute BackendService resource
+  x-dcl-struct-name: BackendService
   x-dcl-has-iam: false
 paths:
   get:
@@ -66,6 +67,7 @@ components:
       - region
       x-dcl-uses-state-hint: true
       x-dcl-parent-container: project
+      x-dcl-has-iam: false
       type: object
       required:
       - name
@@ -715,6 +717,7 @@ components:
             HTTP(S), SSL Proxy, TCP Proxy and Network Load Balancing. Choose ` INTERNAL`
             for Internal TCP/UDP Load Balancing. Choose ` INTERNAL_MANAGED` for Internal
             HTTP(S) Load Balancing. ` INTERNAL_SELF_MANAGED` for Traffic Director.
+            Choose `EXTERNAL_MANAGED` for Global external HTTP(S) load balancers.
             A backend service created for one type of load balancer cannot be used
             with another. For more information, refer to (/load-balancing/docs/choosing-load-balancer/).
             Possible values: INVALID_LOAD_BALANCING_SCHEME, INTERNAL, INTERNAL_MANAGED,

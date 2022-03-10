@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -108,8 +108,8 @@ func (r *RouteWarning) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this RouteWarning is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyRouteWarning *RouteWarning = &RouteWarning{empty: true}
 
 func (r *RouteWarning) Empty() bool {
@@ -261,6 +261,9 @@ func (c *Client) GetRoute(ctx context.Context, r *Route) (*Route, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractRouteFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -304,6 +307,9 @@ func (c *Client) DeleteAllRoute(ctx context.Context, project string, filter func
 }
 
 func (c *Client) ApplyRoute(ctx context.Context, rawDesired *Route, opts ...dcl.ApplyOption) (*Route, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *Route
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
@@ -325,9 +331,6 @@ func (c *Client) ApplyRoute(ctx context.Context, rawDesired *Route, opts ...dcl.
 func applyRouteHelper(c *Client, ctx context.Context, rawDesired *Route, opts ...dcl.ApplyOption) (*Route, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyRoute...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -395,7 +398,10 @@ func applyRouteHelper(c *Client, ctx context.Context, rawDesired *Route, opts ..
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyRouteDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyRouteDiff(c *Client, ctx context.Context, desired *Route, rawDesired *Route, ops []routeApiOperation, opts ...dcl.ApplyOption) (*Route, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetRoute(ctx, desired.urlNormalized())
@@ -428,7 +434,7 @@ func applyRouteHelper(c *Client, ctx context.Context, rawDesired *Route, opts ..
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeRouteNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -436,12 +442,22 @@ func applyRouteHelper(c *Client, ctx context.Context, rawDesired *Route, opts ..
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeRouteDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractRouteFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractRouteFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffRoute(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

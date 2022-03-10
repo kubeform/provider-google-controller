@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -134,8 +134,8 @@ func (r *ServiceAttachmentConnectedEndpoints) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this ServiceAttachmentConnectedEndpoints is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyServiceAttachmentConnectedEndpoints *ServiceAttachmentConnectedEndpoints = &ServiceAttachmentConnectedEndpoints{empty: true}
 
 func (r *ServiceAttachmentConnectedEndpoints) Empty() bool {
@@ -183,8 +183,8 @@ func (r *ServiceAttachmentConsumerAcceptLists) UnmarshalJSON(data []byte) error 
 }
 
 // This object is used to assert a desired state where this ServiceAttachmentConsumerAcceptLists is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyServiceAttachmentConsumerAcceptLists *ServiceAttachmentConsumerAcceptLists = &ServiceAttachmentConsumerAcceptLists{empty: true}
 
 func (r *ServiceAttachmentConsumerAcceptLists) Empty() bool {
@@ -232,8 +232,8 @@ func (r *ServiceAttachmentPscServiceAttachmentId) UnmarshalJSON(data []byte) err
 }
 
 // This object is used to assert a desired state where this ServiceAttachmentPscServiceAttachmentId is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyServiceAttachmentPscServiceAttachmentId *ServiceAttachmentPscServiceAttachmentId = &ServiceAttachmentPscServiceAttachmentId{empty: true}
 
 func (r *ServiceAttachmentPscServiceAttachmentId) Empty() bool {
@@ -383,6 +383,9 @@ func (c *Client) GetServiceAttachment(ctx context.Context, r *ServiceAttachment)
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractServiceAttachmentFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -426,6 +429,9 @@ func (c *Client) DeleteAllServiceAttachment(ctx context.Context, project, locati
 }
 
 func (c *Client) ApplyServiceAttachment(ctx context.Context, rawDesired *ServiceAttachment, opts ...dcl.ApplyOption) (*ServiceAttachment, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *ServiceAttachment
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
@@ -447,9 +453,6 @@ func (c *Client) ApplyServiceAttachment(ctx context.Context, rawDesired *Service
 func applyServiceAttachmentHelper(c *Client, ctx context.Context, rawDesired *ServiceAttachment, opts ...dcl.ApplyOption) (*ServiceAttachment, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyServiceAttachment...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -517,7 +520,10 @@ func applyServiceAttachmentHelper(c *Client, ctx context.Context, rawDesired *Se
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyServiceAttachmentDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyServiceAttachmentDiff(c *Client, ctx context.Context, desired *ServiceAttachment, rawDesired *ServiceAttachment, ops []serviceAttachmentApiOperation, opts ...dcl.ApplyOption) (*ServiceAttachment, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetServiceAttachment(ctx, desired.urlNormalized())
@@ -550,7 +556,7 @@ func applyServiceAttachmentHelper(c *Client, ctx context.Context, rawDesired *Se
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeServiceAttachmentNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -558,12 +564,22 @@ func applyServiceAttachmentHelper(c *Client, ctx context.Context, rawDesired *Se
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeServiceAttachmentDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractServiceAttachmentFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractServiceAttachmentFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffServiceAttachment(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

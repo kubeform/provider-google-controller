@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,6 +84,8 @@ type firewallPolicyApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateFirewallPolicyPatchRequest(ctx context.Context, f *FirewallPolicy, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
 		req["description"] = v
@@ -269,6 +271,11 @@ func (c *Client) firewallPolicyDiffsForRawDesired(ctx context.Context, rawDesire
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for FirewallPolicy: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for FirewallPolicy: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractFirewallPolicyFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeFirewallPolicyInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -309,7 +316,8 @@ func canonicalizeFirewallPolicyDesiredState(rawDesired, rawInitial *FirewallPoli
 		return rawDesired, nil
 	}
 	canonicalDesired := &FirewallPolicy{}
-	if dcl.IsZeroValue(rawDesired.Name) {
+	if dcl.IsZeroValue(rawDesired.Name) || (dcl.IsEmptyValueIndirect(rawDesired.Name) && dcl.IsEmptyValueIndirect(rawInitial.Name)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.Name = rawInitial.Name
 	} else {
 		canonicalDesired.Name = rawDesired.Name
@@ -423,6 +431,9 @@ func diffFirewallPolicy(c *Client, desired, actual *FirewallPolicy, opts ...dcl.
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -563,16 +574,18 @@ func unmarshalMapFirewallPolicy(m map[string]interface{}, c *Client) (*FirewallP
 // expandFirewallPolicy expands FirewallPolicy into a JSON request object.
 func expandFirewallPolicy(c *Client, f *FirewallPolicy) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v := f.ShortName; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ShortName; dcl.ValueShouldBeSent(v) {
 		m["shortName"] = v
 	}
-	if v := f.Parent; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Parent; dcl.ValueShouldBeSent(v) {
 		m["parent"] = v
 	}
 
@@ -646,7 +659,7 @@ func convertFieldDiffsToFirewallPolicyDiffs(config *dcl.Config, fds []*dcl.Field
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -681,5 +694,9 @@ func convertOpNameToFirewallPolicyApiOperation(opName string, fieldDiffs []*dcl.
 }
 
 func extractFirewallPolicyFields(r *FirewallPolicy) error {
+	return nil
+}
+
+func postReadExtractFirewallPolicyFields(r *FirewallPolicy) error {
 	return nil
 }

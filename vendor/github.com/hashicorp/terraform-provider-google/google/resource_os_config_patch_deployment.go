@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -36,8 +35,8 @@ func resourceOSConfigPatchDeployment() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -178,7 +177,7 @@ accurate to nanoseconds. Example: "2014-10-02T15:01:23.045123456Z".`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.apt.0.type", "patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages"},
 									},
 									"exclusive_packages": {
 										Type:     schema.TypeList,
@@ -190,19 +189,19 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.apt.0.type", "patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages"},
 									},
 									"type": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ForceNew:     true,
-										ValidateFunc: validation.StringInSlice([]string{"DIST", "UPGRADE", ""}, false),
+										ValidateFunc: validateEnum([]string{"DIST", "UPGRADE", ""}),
 										Description:  `By changing the type to DIST, the patching is performed using apt-get dist-upgrade instead. Possible values: ["DIST", "UPGRADE"]`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.apt.0.type", "patch_config.0.apt.0.excludes", "patch_config.0.apt.0.exclusive_packages"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"goo": {
 							Type:        schema.TypeList,
@@ -220,7 +219,7 @@ any other patch configuration fields.`,
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"post_step": {
 							Type:        schema.TypeList,
@@ -281,7 +280,7 @@ any other patch configuration fields.`,
 													Type:         schema.TypeString,
 													Optional:     true,
 													ForceNew:     true,
-													ValidateFunc: validation.StringInSlice([]string{"SHELL", "POWERSHELL", ""}, false),
+													ValidateFunc: validateEnum([]string{"SHELL", "POWERSHELL", ""}),
 													Description: `The script interpreter to use to run the script. If no interpreter is specified the script will
 be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]`,
 												},
@@ -294,7 +293,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 												},
 											},
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.post_step.0.linux_exec_step_config", "patch_config.0.post_step.0.windows_exec_step_config"},
 									},
 									"windows_exec_step_config": {
 										Type:        schema.TypeList,
@@ -347,7 +346,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Type:         schema.TypeString,
 													Optional:     true,
 													ForceNew:     true,
-													ValidateFunc: validation.StringInSlice([]string{"SHELL", "POWERSHELL", ""}, false),
+													ValidateFunc: validateEnum([]string{"SHELL", "POWERSHELL", ""}),
 													Description: `The script interpreter to use to run the script. If no interpreter is specified the script will
 be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]`,
 												},
@@ -360,11 +359,11 @@ be executed directly, which will likely only succeed for scripts with shebang li
 												},
 											},
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.post_step.0.linux_exec_step_config", "patch_config.0.post_step.0.windows_exec_step_config"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"pre_step": {
 							Type:        schema.TypeList,
@@ -425,7 +424,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Type:         schema.TypeString,
 													Optional:     true,
 													ForceNew:     true,
-													ValidateFunc: validation.StringInSlice([]string{"SHELL", "POWERSHELL", ""}, false),
+													ValidateFunc: validateEnum([]string{"SHELL", "POWERSHELL", ""}),
 													Description: `The script interpreter to use to run the script. If no interpreter is specified the script will
 be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]`,
 												},
@@ -438,7 +437,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 												},
 											},
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.pre_step.0.linux_exec_step_config", "patch_config.0.pre_step.0.windows_exec_step_config"},
 									},
 									"windows_exec_step_config": {
 										Type:        schema.TypeList,
@@ -491,7 +490,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 													Type:         schema.TypeString,
 													Optional:     true,
 													ForceNew:     true,
-													ValidateFunc: validation.StringInSlice([]string{"SHELL", "POWERSHELL", ""}, false),
+													ValidateFunc: validateEnum([]string{"SHELL", "POWERSHELL", ""}),
 													Description: `The script interpreter to use to run the script. If no interpreter is specified the script will
 be executed directly, which will likely only succeed for scripts with shebang lines. Possible values: ["SHELL", "POWERSHELL"]`,
 												},
@@ -504,19 +503,19 @@ be executed directly, which will likely only succeed for scripts with shebang li
 												},
 											},
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.pre_step.0.linux_exec_step_config", "patch_config.0.pre_step.0.windows_exec_step_config"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"reboot_config": {
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"DEFAULT", "ALWAYS", "NEVER", ""}, false),
+							ValidateFunc: validateEnum([]string{"DEFAULT", "ALWAYS", "NEVER", ""}),
 							Description:  `Post-patch reboot settings. Possible values: ["DEFAULT", "ALWAYS", "NEVER"]`,
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"windows_update": {
 							Type:        schema.TypeList,
@@ -533,9 +532,9 @@ be executed directly, which will likely only succeed for scripts with shebang li
 										Description: `Only apply updates of these windows update classifications. If empty, all updates are applied. Possible values: ["CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"]`,
 										Elem: &schema.Schema{
 											Type:         schema.TypeString,
-											ValidateFunc: validation.StringInSlice([]string{"CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"}, false),
+											ValidateFunc: validateEnum([]string{"CRITICAL", "SECURITY", "DEFINITION", "DRIVER", "FEATURE_PACK", "SERVICE_PACK", "TOOL", "UPDATE_ROLLUP", "UPDATE"}),
 										},
-										ExactlyOneOf: []string{},
+										ExactlyOneOf: []string{"patch_config.0.windows_update.0.classifications", "patch_config.0.windows_update.0.excludes", "patch_config.0.windows_update.0.exclusive_patches"},
 									},
 									"excludes": {
 										Type:        schema.TypeList,
@@ -545,7 +544,7 @@ be executed directly, which will likely only succeed for scripts with shebang li
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										ExactlyOneOf: []string{},
+										ExactlyOneOf: []string{"patch_config.0.windows_update.0.classifications", "patch_config.0.windows_update.0.excludes", "patch_config.0.windows_update.0.exclusive_patches"},
 									},
 									"exclusive_patches": {
 										Type:     schema.TypeList,
@@ -556,11 +555,11 @@ This field must not be used with other patch configurations.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										ExactlyOneOf: []string{},
+										ExactlyOneOf: []string{"patch_config.0.windows_update.0.classifications", "patch_config.0.windows_update.0.excludes", "patch_config.0.windows_update.0.exclusive_patches"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"yum": {
 							Type:        schema.TypeList,
@@ -578,7 +577,7 @@ This field must not be used with other patch configurations.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
 									},
 									"exclusive_packages": {
 										Type:     schema.TypeList,
@@ -590,25 +589,25 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
 									},
 									"minimal": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Will cause patch to run yum update-minimal instead.`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
 									},
 									"security": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Adds the --security flag to yum update. Not supported on all platforms.`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.yum.0.security", "patch_config.0.yum.0.minimal", "patch_config.0.yum.0.excludes", "patch_config.0.yum.0.exclusive_packages"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 						"zypper": {
 							Type:        schema.TypeList,
@@ -626,7 +625,7 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
 									},
 									"excludes": {
 										Type:        schema.TypeList,
@@ -636,7 +635,7 @@ any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
 									},
 									"exclusive_patches": {
 										Type:     schema.TypeList,
@@ -647,7 +646,7 @@ This field must not be used with any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
 									},
 									"severities": {
 										Type:        schema.TypeList,
@@ -657,25 +656,25 @@ This field must not be used with any other patch configuration fields.`,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
 									},
 									"with_optional": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Adds the --with-optional flag to zypper patch.`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
 									},
 									"with_update": {
 										Type:         schema.TypeBool,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Adds the --with-update flag, to zypper patch.`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"patch_config.0.zypper.0.with_optional", "patch_config.0.zypper.0.with_update", "patch_config.0.zypper.0.categories", "patch_config.0.zypper.0.severities", "patch_config.0.zypper.0.excludes", "patch_config.0.zypper.0.exclusive_patches"},
 									},
 								},
 							},
-							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.pre_step", "patch_config.0.post_step"},
+							AtLeastOneOf: []string{"patch_config.0.reboot_config", "patch_config.0.apt", "patch_config.0.yum", "patch_config.0.goo", "patch_config.0.zypper", "patch_config.0.windows_update", "patch_config.0.pre_step", "patch_config.0.post_step"},
 						},
 					},
 				},
@@ -793,7 +792,7 @@ will not run in February, April, June, etc.`,
 													Type:         schema.TypeString,
 													Required:     true,
 													ForceNew:     true,
-													ValidateFunc: validation.StringInSlice([]string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}, false),
+													ValidateFunc: validateEnum([]string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}),
 													Description:  `A day of the week. Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]`,
 												},
 												"week_ordinal": {
@@ -809,7 +808,6 @@ will not run in February, April, June, etc.`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"recurring_schedule.0.weekly", "recurring_schedule.0.monthly"},
 						},
 						"start_time": {
 							Type:     schema.TypeString,
@@ -830,12 +828,11 @@ A timestamp in RFC3339 UTC "Zulu" format, accurate to nanoseconds. Example: "201
 										Type:         schema.TypeString,
 										Required:     true,
 										ForceNew:     true,
-										ValidateFunc: validation.StringInSlice([]string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}, false),
+										ValidateFunc: validateEnum([]string{"MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"}),
 										Description:  `IANA Time Zone Database time zone, e.g. "America/New_York". Possible values: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{"recurring_schedule.0.weekly", "recurring_schedule.0.monthly"},
 						},
 						"last_execute_time": {
 							Type:     schema.TypeString,
@@ -896,7 +893,7 @@ For example, if the disruption budget has a fixed value of 10, and 8 VMs fail to
 							Type:         schema.TypeString,
 							Required:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"ZONE_BY_ZONE", "CONCURRENT_ZONES"}, false),
+							ValidateFunc: validateEnum([]string{"ZONE_BY_ZONE", "CONCURRENT_ZONES"}),
 							Description:  `Mode of the patch rollout. Possible values: ["ZONE_BY_ZONE", "CONCURRENT_ZONES"]`,
 						},
 					},
@@ -1820,7 +1817,7 @@ func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDay(v interface{}, d *
 func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDayHours(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1837,7 +1834,7 @@ func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDayHours(v interface{}
 func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDayMinutes(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1854,7 +1851,7 @@ func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDayMinutes(v interface
 func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDaySeconds(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1871,7 +1868,7 @@ func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDaySeconds(v interface
 func flattenOSConfigPatchDeploymentRecurringScheduleTimeOfDayNanos(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1943,7 +1940,7 @@ func flattenOSConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonth(v inte
 func flattenOSConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonthWeekOrdinal(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1964,7 +1961,7 @@ func flattenOSConfigPatchDeploymentRecurringScheduleMonthlyWeekDayOfMonthDayOfWe
 func flattenOSConfigPatchDeploymentRecurringScheduleMonthlyMonthDay(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -2015,7 +2012,7 @@ func flattenOSConfigPatchDeploymentRolloutDisruptionBudget(v interface{}, d *sch
 func flattenOSConfigPatchDeploymentRolloutDisruptionBudgetFixed(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -2032,7 +2029,7 @@ func flattenOSConfigPatchDeploymentRolloutDisruptionBudgetFixed(v interface{}, d
 func flattenOSConfigPatchDeploymentRolloutDisruptionBudgetPercentage(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -3264,6 +3261,8 @@ func resourceOSConfigPatchDeploymentEncoder(d *schema.ResourceData, meta interfa
 			obj["recurringSchedule"].(map[string]interface{})["frequency"] = "MONTHLY"
 		} else if schedule["weekly"] != nil {
 			obj["recurringSchedule"].(map[string]interface{})["frequency"] = "WEEKLY"
+		} else {
+			obj["recurringSchedule"].(map[string]interface{})["frequency"] = "DAILY"
 		}
 	}
 

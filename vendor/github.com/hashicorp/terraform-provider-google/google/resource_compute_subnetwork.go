@@ -25,7 +25,6 @@ import (
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 // Whether the IP CIDR change shrinks the block.
@@ -60,9 +59,9 @@ func resourceComputeSubnetwork() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(6 * time.Minute),
-			Update: schema.DefaultTimeout(6 * time.Minute),
-			Delete: schema.DefaultTimeout(6 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		CustomizeDiff: customdiff.All(
@@ -113,7 +112,7 @@ creation time.`,
 				Type:         schema.TypeString,
 				Optional:     true,
 				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{"EXTERNAL", ""}, false),
+				ValidateFunc: validateEnum([]string{"EXTERNAL", ""}),
 				Description: `The access type of IPv6 address this subnet holds. It's immutable and can only be specified during creation
 or the first time the subnet is updated into IPV4_IPV6 dual stack. If the ipv6_type is EXTERNAL then this subnet
 cannot enable direct path. Possible values: ["EXTERNAL"]`,
@@ -130,7 +129,7 @@ subnetwork is 'INTERNAL_HTTPS_LOAD_BALANCER'`,
 						"aggregation_interval": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"INTERVAL_5_SEC", "INTERVAL_30_SEC", "INTERVAL_1_MIN", "INTERVAL_5_MIN", "INTERVAL_10_MIN", "INTERVAL_15_MIN", ""}, false),
+							ValidateFunc: validateEnum([]string{"INTERVAL_5_SEC", "INTERVAL_30_SEC", "INTERVAL_1_MIN", "INTERVAL_5_MIN", "INTERVAL_10_MIN", "INTERVAL_15_MIN", ""}),
 							Description: `Can only be specified if VPC flow logging for this subnetwork is enabled.
 Toggles the aggregation interval for collecting flow logs. Increasing the
 interval time will reduce the amount of generated flow logs for long
@@ -161,7 +160,7 @@ half of all collected logs are reported.`,
 						"metadata": {
 							Type:         schema.TypeString,
 							Optional:     true,
-							ValidateFunc: validation.StringInSlice([]string{"EXCLUDE_ALL_METADATA", "INCLUDE_ALL_METADATA", "CUSTOM_METADATA", ""}, false),
+							ValidateFunc: validateEnum([]string{"EXCLUDE_ALL_METADATA", "INCLUDE_ALL_METADATA", "CUSTOM_METADATA", ""}),
 							Description: `Can only be specified if VPC flow logging for this subnetwork is enabled.
 Configures whether metadata fields should be added to the reported VPC
 flow logs. Default value: "INCLUDE_ALL_METADATA" Possible values: ["EXCLUDE_ALL_METADATA", "INCLUDE_ALL_METADATA", "CUSTOM_METADATA"]`,
@@ -198,13 +197,11 @@ access Google APIs and services by using Private Google Access.`,
 				Computed: true,
 				Optional: true,
 				ForceNew: true,
-				Description: `The purpose of the resource. This field can be either PRIVATE
-or INTERNAL_HTTPS_LOAD_BALANCER. A subnetwork with purpose set to
+				Description: `The purpose of the resource. A subnetwork with purpose set to
 INTERNAL_HTTPS_LOAD_BALANCER is a user-created subnetwork that is
-reserved for Internal HTTP(S) Load Balancing. If unspecified, the
-purpose defaults to PRIVATE.
+reserved for Internal HTTP(S) Load Balancing.
 
-If set to INTERNAL_HTTPS_LOAD_BALANCER you must also set 'role'.`,
+If set to INTERNAL_HTTPS_LOAD_BALANCER you must also set the 'role' field.`,
 			},
 			"region": {
 				Type:             schema.TypeString,
@@ -217,7 +214,7 @@ If set to INTERNAL_HTTPS_LOAD_BALANCER you must also set 'role'.`,
 			"role": {
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"ACTIVE", "BACKUP", ""}, false),
+				ValidateFunc: validateEnum([]string{"ACTIVE", "BACKUP", ""}),
 				Description: `The role of subnetwork. Currently, this field is only used when
 purpose = INTERNAL_HTTPS_LOAD_BALANCER. The value can be set to ACTIVE
 or BACKUP. An ACTIVE subnetwork is one that is currently being used
@@ -266,7 +263,7 @@ must be unique within the subnetwork.`,
 				Type:         schema.TypeString,
 				Computed:     true,
 				Optional:     true,
-				ValidateFunc: validation.StringInSlice([]string{"IPV4_ONLY", "IPV4_IPV6", ""}, false),
+				ValidateFunc: validateEnum([]string{"IPV4_ONLY", "IPV4_IPV6", ""}),
 				Description: `The stack type for this subnet to identify whether the IPv6 feature is enabled or not.
 If not specified IPV4_ONLY will be used. Possible values: ["IPV4_ONLY", "IPV4_IPV6"]`,
 			},
@@ -1159,8 +1156,8 @@ func expandComputeSubnetworkLogConfig(v interface{}, d TerraformResourceData, co
 	if len(l) == 0 || l[0] == nil {
 		purpose, ok := d.GetOkExists("purpose")
 
-		if ok && purpose.(string) == "INTERNAL_HTTPS_LOAD_BALANCER" {
-			// Subnetworks for L7ILB do not accept any values for logConfig
+		if ok && (purpose.(string) == "REGIONAL_MANAGED_PROXY" || purpose.(string) == "INTERNAL_HTTPS_LOAD_BALANCER") {
+			// Subnetworks for regional L7 ILB/XLB do not accept any values for logConfig
 			return nil, nil
 		}
 		// send enable = false to ensure logging is disabled if there is no config

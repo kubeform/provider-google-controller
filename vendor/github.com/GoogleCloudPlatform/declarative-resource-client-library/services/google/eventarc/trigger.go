@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,8 +73,8 @@ func (r *TriggerMatchingCriteria) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this TriggerMatchingCriteria is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyTriggerMatchingCriteria *TriggerMatchingCriteria = &TriggerMatchingCriteria{empty: true}
 
 func (r *TriggerMatchingCriteria) Empty() bool {
@@ -122,8 +122,8 @@ func (r *TriggerDestination) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this TriggerDestination is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyTriggerDestination *TriggerDestination = &TriggerDestination{empty: true}
 
 func (r *TriggerDestination) Empty() bool {
@@ -174,8 +174,8 @@ func (r *TriggerDestinationCloudRunService) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this TriggerDestinationCloudRunService is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyTriggerDestinationCloudRunService *TriggerDestinationCloudRunService = &TriggerDestinationCloudRunService{empty: true}
 
 func (r *TriggerDestinationCloudRunService) Empty() bool {
@@ -220,8 +220,8 @@ func (r *TriggerTransport) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this TriggerTransport is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyTriggerTransport *TriggerTransport = &TriggerTransport{empty: true}
 
 func (r *TriggerTransport) Empty() bool {
@@ -269,8 +269,8 @@ func (r *TriggerTransportPubsub) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this TriggerTransportPubsub is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyTriggerTransportPubsub *TriggerTransportPubsub = &TriggerTransportPubsub{empty: true}
 
 func (r *TriggerTransportPubsub) Empty() bool {
@@ -416,6 +416,9 @@ func (c *Client) GetTrigger(ctx context.Context, r *Trigger) (*Trigger, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractTriggerFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -459,6 +462,9 @@ func (c *Client) DeleteAllTrigger(ctx context.Context, project, location string,
 }
 
 func (c *Client) ApplyTrigger(ctx context.Context, rawDesired *Trigger, opts ...dcl.ApplyOption) (*Trigger, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *Trigger
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
@@ -480,9 +486,6 @@ func (c *Client) ApplyTrigger(ctx context.Context, rawDesired *Trigger, opts ...
 func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opts ...dcl.ApplyOption) (*Trigger, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyTrigger...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -550,7 +553,10 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyTriggerDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyTriggerDiff(c *Client, ctx context.Context, desired *Trigger, rawDesired *Trigger, ops []triggerApiOperation, opts ...dcl.ApplyOption) (*Trigger, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetTrigger(ctx, desired.urlNormalized())
@@ -583,7 +589,7 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeTriggerNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -591,12 +597,22 @@ func applyTriggerHelper(c *Client, ctx context.Context, rawDesired *Trigger, opt
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeTriggerDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractTriggerFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractTriggerFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffTrigger(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

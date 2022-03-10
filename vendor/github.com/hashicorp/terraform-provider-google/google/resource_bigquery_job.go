@@ -19,7 +19,6 @@ import (
 	"log"
 	"reflect"
 	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -43,8 +42,8 @@ func resourceBigQueryJob() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -92,7 +91,7 @@ or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"CREATE_IF_NEEDED", "CREATE_NEVER", ""}, false),
+							ValidateFunc: validateEnum([]string{"CREATE_IF_NEEDED", "CREATE_NEVER", ""}),
 							Description: `Specifies whether the job is allowed to create new tables. The following values are supported:
 CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table.
 CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result.
@@ -159,7 +158,7 @@ or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY", ""}, false),
+							ValidateFunc: validateEnum([]string{"WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY", ""}),
 							Description: `Specifies the action that occurs if the destination table already exists. The following values are supported:
 WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result.
 WRITE_APPEND: If the table already exists, BigQuery appends the data to the table.
@@ -170,7 +169,7 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 						},
 					},
 				},
-				ExactlyOneOf: []string{},
+				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
 			},
 			"extract": {
 				Type:        schema.TypeList,
@@ -249,7 +248,7 @@ Default is ','`,
 									},
 								},
 							},
-							ExactlyOneOf: []string{},
+							ExactlyOneOf: []string{"extract.0.source_table", "extract.0.source_model"},
 						},
 						"source_table": {
 							Type:        schema.TypeList,
@@ -283,7 +282,7 @@ or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}
 									},
 								},
 							},
-							ExactlyOneOf: []string{},
+							ExactlyOneOf: []string{"extract.0.source_table", "extract.0.source_model"},
 						},
 						"use_avro_logical_types": {
 							Type:        schema.TypeBool,
@@ -293,7 +292,7 @@ or of the form 'projects/{{project}}/datasets/{{dataset_id}}/tables/{{table_id}}
 						},
 					},
 				},
-				ExactlyOneOf: []string{},
+				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
 			},
 			"job_timeout_ms": {
 				Type:        schema.TypeString,
@@ -390,7 +389,7 @@ The default value is false.`,
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"CREATE_IF_NEEDED", "CREATE_NEVER", ""}, false),
+							ValidateFunc: validateEnum([]string{"CREATE_IF_NEEDED", "CREATE_NEVER", ""}),
 							Description: `Specifies whether the job is allowed to create new tables. The following values are supported:
 CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table.
 CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result.
@@ -566,7 +565,7 @@ A wrapper is used here because an empty string is an invalid value.`,
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY", ""}, false),
+							ValidateFunc: validateEnum([]string{"WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY", ""}),
 							Description: `Specifies the action that occurs if the destination table already exists. The following values are supported:
 WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result.
 WRITE_APPEND: If the table already exists, BigQuery appends the data to the table.
@@ -577,7 +576,7 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 						},
 					},
 				},
-				ExactlyOneOf: []string{},
+				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
 			},
 			"query": {
 				Type:        schema.TypeList,
@@ -607,7 +606,7 @@ However, you must still set destinationTable when result size exceeds the allowe
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"CREATE_IF_NEEDED", "CREATE_NEVER", ""}, false),
+							ValidateFunc: validateEnum([]string{"CREATE_IF_NEEDED", "CREATE_NEVER", ""}),
 							Description: `Specifies whether the job is allowed to create new tables. The following values are supported:
 CREATE_IF_NEEDED: If the table does not exist, BigQuery creates the table.
 CREATE_NEVER: The table must already exist. If it does not, a 'notFound' error is returned in the job result.
@@ -729,7 +728,7 @@ If unspecified, this will be set to your project default.`,
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"INTERACTIVE", "BATCH", ""}, false),
+							ValidateFunc: validateEnum([]string{"INTERACTIVE", "BATCH", ""}),
 							Description:  `Specifies a priority for the query. Default value: "INTERACTIVE" Possible values: ["INTERACTIVE", "BATCH"]`,
 							Default:      "INTERACTIVE",
 						},
@@ -760,24 +759,24 @@ ALLOW_FIELD_RELAXATION: allow relaxing a required field in the original schema t
 										Type:         schema.TypeString,
 										Optional:     true,
 										ForceNew:     true,
-										ValidateFunc: validation.StringInSlice([]string{"LAST", "FIRST_SELECT", ""}, false),
+										ValidateFunc: validateEnum([]string{"LAST", "FIRST_SELECT", ""}),
 										Description: `Determines which statement in the script represents the "key result",
 used to populate the schema and query results of the script job. Possible values: ["LAST", "FIRST_SELECT"]`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"query.0.script_options.0.statement_timeout_ms", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.key_result_statement"},
 									},
 									"statement_byte_budget": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Limit on the number of bytes billed per statement. Exceeding this budget results in an error.`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"query.0.script_options.0.statement_timeout_ms", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.key_result_statement"},
 									},
 									"statement_timeout_ms": {
 										Type:         schema.TypeString,
 										Optional:     true,
 										ForceNew:     true,
 										Description:  `Timeout period for each statement in a script.`,
-										AtLeastOneOf: []string{},
+										AtLeastOneOf: []string{"query.0.script_options.0.statement_timeout_ms", "query.0.script_options.0.statement_byte_budget", "query.0.script_options.0.key_result_statement"},
 									},
 								},
 							},
@@ -825,7 +824,7 @@ Providing a inline code resource is equivalent to providing a URI for a file con
 							Type:         schema.TypeString,
 							Optional:     true,
 							ForceNew:     true,
-							ValidateFunc: validation.StringInSlice([]string{"WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY", ""}, false),
+							ValidateFunc: validateEnum([]string{"WRITE_TRUNCATE", "WRITE_APPEND", "WRITE_EMPTY", ""}),
 							Description: `Specifies the action that occurs if the destination table already exists. The following values are supported:
 WRITE_TRUNCATE: If the table already exists, BigQuery overwrites the table data and uses the schema from the query result.
 WRITE_APPEND: If the table already exists, BigQuery appends the data to the table.
@@ -836,7 +835,7 @@ Creation, truncation and append actions occur as one atomic update upon job comp
 						},
 					},
 				},
-				ExactlyOneOf: []string{},
+				ExactlyOneOf: []string{"query", "load", "copy", "extract"},
 			},
 			"job_type": {
 				Type:        schema.TypeString,
@@ -1329,7 +1328,7 @@ func flattenBigQueryJobConfigurationQueryFlattenResults(v interface{}, d *schema
 func flattenBigQueryJobConfigurationQueryMaximumBillingTier(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1505,7 +1504,7 @@ func flattenBigQueryJobConfigurationLoadFieldDelimiter(v interface{}, d *schema.
 func flattenBigQueryJobConfigurationLoadSkipLeadingRows(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1530,7 +1529,7 @@ func flattenBigQueryJobConfigurationLoadQuote(v interface{}, d *schema.ResourceD
 func flattenBigQueryJobConfigurationLoadMaxBadRecords(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}

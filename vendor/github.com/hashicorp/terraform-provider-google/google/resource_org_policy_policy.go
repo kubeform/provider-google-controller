@@ -39,9 +39,9 @@ func resourceOrgPolicyPolicy() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(10 * time.Minute),
-			Update: schema.DefaultTimeout(10 * time.Minute),
-			Delete: schema.DefaultTimeout(10 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -222,7 +222,13 @@ func resourceOrgPolicyPolicyCreate(d *schema.ResourceData, meta interface{}) err
 	if bp, err := getBillingProject(d, config); err == nil {
 		billingProject = bp
 	}
-	client := NewDCLOrgPolicyClient(config, userAgent, billingProject)
+	client := NewDCLOrgPolicyClient(config, userAgent, billingProject, d.Timeout(schema.TimeoutCreate))
+	if bp, err := replaceVars(d, config, client.Config.BasePath); err != nil {
+		d.SetId("")
+		return fmt.Errorf("Could not format %q: %w", client.Config.BasePath, err)
+	} else {
+		client.Config.BasePath = bp
+	}
 	res, err := client.ApplyPolicy(context.Background(), obj, createDirective...)
 
 	if _, ok := err.(dcl.DiffAfterApplyError); ok {
@@ -256,7 +262,13 @@ func resourceOrgPolicyPolicyRead(d *schema.ResourceData, meta interface{}) error
 	if bp, err := getBillingProject(d, config); err == nil {
 		billingProject = bp
 	}
-	client := NewDCLOrgPolicyClient(config, userAgent, billingProject)
+	client := NewDCLOrgPolicyClient(config, userAgent, billingProject, d.Timeout(schema.TimeoutRead))
+	if bp, err := replaceVars(d, config, client.Config.BasePath); err != nil {
+		d.SetId("")
+		return fmt.Errorf("Could not format %q: %w", client.Config.BasePath, err)
+	} else {
+		client.Config.BasePath = bp
+	}
 	res, err := client.GetPolicy(context.Background(), obj)
 	if err != nil {
 		resourceName := fmt.Sprintf("OrgPolicyPolicy %q", d.Id())
@@ -294,7 +306,13 @@ func resourceOrgPolicyPolicyUpdate(d *schema.ResourceData, meta interface{}) err
 	if bp, err := getBillingProject(d, config); err == nil {
 		billingProject = bp
 	}
-	client := NewDCLOrgPolicyClient(config, userAgent, billingProject)
+	client := NewDCLOrgPolicyClient(config, userAgent, billingProject, d.Timeout(schema.TimeoutUpdate))
+	if bp, err := replaceVars(d, config, client.Config.BasePath); err != nil {
+		d.SetId("")
+		return fmt.Errorf("Could not format %q: %w", client.Config.BasePath, err)
+	} else {
+		client.Config.BasePath = bp
+	}
 	res, err := client.ApplyPolicy(context.Background(), obj, directive...)
 
 	if _, ok := err.(dcl.DiffAfterApplyError); ok {
@@ -329,7 +347,13 @@ func resourceOrgPolicyPolicyDelete(d *schema.ResourceData, meta interface{}) err
 	if bp, err := getBillingProject(d, config); err == nil {
 		billingProject = bp
 	}
-	client := NewDCLOrgPolicyClient(config, userAgent, billingProject)
+	client := NewDCLOrgPolicyClient(config, userAgent, billingProject, d.Timeout(schema.TimeoutDelete))
+	if bp, err := replaceVars(d, config, client.Config.BasePath); err != nil {
+		d.SetId("")
+		return fmt.Errorf("Could not format %q: %w", client.Config.BasePath, err)
+	} else {
+		client.Config.BasePath = bp
+	}
 	if err := client.DeletePolicy(context.Background(), obj); err != nil {
 		return fmt.Errorf("Error deleting Policy: %s", err)
 	}

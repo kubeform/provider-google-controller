@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 info:
   title: Compute/SslCertificate
-  description: DCL Specification for the Compute SslCertificate resource
+  description: The Compute SslCertificate resource
+  x-dcl-struct-name: SslCertificate
   x-dcl-has-iam: false
 paths:
   get:
@@ -66,6 +67,7 @@ components:
       - global
       x-dcl-uses-state-hint: true
       x-dcl-parent-container: project
+      x-dcl-has-iam: false
       type: object
       required:
       - project

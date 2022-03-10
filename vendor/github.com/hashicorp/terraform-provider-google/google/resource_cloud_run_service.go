@@ -20,7 +20,6 @@ import (
 	"log"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -96,9 +95,9 @@ func resourceCloudRunService() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(6 * time.Minute),
-			Update: schema.DefaultTimeout(15 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		SchemaVersion: 1,
@@ -108,6 +107,7 @@ func resourceCloudRunService() *schema.Resource {
 			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: `The location of the cloud run instance. eg us-central1`,
 			},
 			"name": {
@@ -289,25 +289,25 @@ https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names`,
 													Computed: true,
 													Optional: true,
 													Description: `List of open ports in the container.
-More Info: 
+More Info:
 https://cloud.google.com/run/docs/reference/rest/v1/RevisionSpec#ContainerPort`,
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"container_port": {
 																Type:        schema.TypeInt,
-																Required:    true,
-																Description: `Port number.`,
+																Optional:    true,
+																Description: `Port number the container listens on. This must be a valid port number, 0 < x < 65536.`,
 															},
 															"name": {
 																Type:        schema.TypeString,
 																Computed:    true,
 																Optional:    true,
-																Description: `Name of the port.`,
+																Description: `If specified, used to specify which protocol to use. Allowed values are "http1" and "h2c".`,
 															},
 															"protocol": {
 																Type:        schema.TypeString,
 																Optional:    true,
-																Description: `Protocol used on port. Defaults to TCP.`,
+																Description: `Protocol for port. Must be "TCP". Defaults to "TCP".`,
 															},
 														},
 													},
@@ -344,6 +344,27 @@ https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apimachi
 														},
 													},
 												},
+												"volume_mounts": {
+													Type:     schema.TypeList,
+													Optional: true,
+													Description: `Volume to mount into the container's filesystem.
+Only supports SecretVolumeSources.`,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"mount_path": {
+																Type:     schema.TypeString,
+																Required: true,
+																Description: `Path within the container at which the volume should be mounted.  Must
+not contain ':'.`,
+															},
+															"name": {
+																Type:        schema.TypeString,
+																Required:    true,
+																Description: `This must match the Name of a Volume.`,
+															},
+														},
+													},
+												},
 												"working_dir": {
 													Type:       schema.TypeString,
 													Optional:   true,
@@ -369,6 +390,7 @@ requests per container of the Revision. Values are:
 									},
 									"service_account_name": {
 										Type:     schema.TypeString,
+										Computed: true,
 										Optional: true,
 										Description: `Email address of the IAM service account associated with the revision of the
 service. The service account represents the identity of the running revision,
@@ -380,6 +402,88 @@ will use the project's default service account.`,
 										Computed:    true,
 										Optional:    true,
 										Description: `TimeoutSeconds holds the max duration the instance is allowed for responding to a request.`,
+									},
+									"volumes": {
+										Type:        schema.TypeList,
+										Optional:    true,
+										Description: `Volume represents a named volume in a container.`,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"name": {
+													Type:        schema.TypeString,
+													Required:    true,
+													Description: `Volume's name.`,
+												},
+												"secret": {
+													Type:     schema.TypeList,
+													Required: true,
+													Description: `The secret's value will be presented as the content of a file whose
+name is defined in the item path. If no items are defined, the name of
+the file is the secret_name.`,
+													MaxItems: 1,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"secret_name": {
+																Type:     schema.TypeString,
+																Required: true,
+																Description: `The name of the secret in Cloud Secret Manager. By default, the secret
+is assumed to be in the same project.
+If the secret is in another project, you must define an alias.
+An alias definition has the form:
+<alias>:projects/<project-id|project-number>/secrets/<secret-name>.
+If multiple alias definitions are needed, they must be separated by
+commas.
+The alias definitions must be set on the run.googleapis.com/secrets
+annotation.`,
+															},
+															"default_mode": {
+																Type:     schema.TypeInt,
+																Optional: true,
+																Description: `Mode bits to use on created files by default. Must be a value between 0000
+and 0777. Defaults to 0644. Directories within the path are not affected by
+this setting. This might be in conflict with other options that affect the
+file mode, like fsGroup, and the result can be other mode bits set.`,
+															},
+															"items": {
+																Type:     schema.TypeList,
+																Optional: true,
+																Description: `If unspecified, the volume will expose a file whose name is the
+secret_name.
+If specified, the key will be used as the version to fetch from Cloud
+Secret Manager and the path will be the name of the file exposed in the
+volume. When items are defined, they must specify a key and a path.`,
+																Elem: &schema.Resource{
+																	Schema: map[string]*schema.Schema{
+																		"key": {
+																			Type:     schema.TypeString,
+																			Required: true,
+																			Description: `The Cloud Secret Manager secret version.
+Can be 'latest' for the latest value or an integer for a specific version.`,
+																		},
+																		"path": {
+																			Type:     schema.TypeString,
+																			Required: true,
+																			Description: `The relative path of the file to map the key to.
+May not be an absolute path.
+May not contain the path element '..'.
+May not start with the string '..'.`,
+																		},
+																		"mode": {
+																			Type:     schema.TypeInt,
+																			Optional: true,
+																			Description: `Mode bits to use on this file, must be a value between 0000 and 0777. If
+not specified, the volume defaultMode will be used. This might be in
+conflict with other options that affect the file mode, like fsGroup, and
+the result can be other mode bits set.`,
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
 									},
 									"serving_state": {
 										Type:       schema.TypeString,
@@ -694,6 +798,44 @@ syntax can be escaped with a double $$, ie: $$(VAR_NAME). Escaped
 references will never be expanded, regardless of whether the variable
 exists or not.
 Defaults to "".`,
+			},
+			"value_from": {
+				Type:        schema.TypeList,
+				Optional:    true,
+				Description: `Source for the environment variable's value. Only supports secret_key_ref.`,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"secret_key_ref": {
+							Type:        schema.TypeList,
+							Required:    true,
+							Description: `Selects a key (version) of a secret in Secret Manager.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"key": {
+										Type:     schema.TypeString,
+										Required: true,
+										Description: `A Cloud Secret Manager secret version. Must be 'latest' for the latest
+version or an integer for a specific version.`,
+									},
+									"name": {
+										Type:     schema.TypeString,
+										Required: true,
+										Description: `The name of the secret in Cloud Secret Manager. By default, the secret
+is assumed to be in the same project.
+If the secret is in another project, you must define an alias.
+You set the <alias> in this field, and create an annotation with the
+following structure
+"run.googleapis.com/secrets" = "<alias>:projects/<project-id|project-number>/secrets/<secret-name>".
+If multiple alias definitions are needed, they must be separated by
+commas in the annotation field.`,
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1056,7 +1198,7 @@ func flattenCloudRunServiceSpecTrafficRevisionName(v interface{}, d *schema.Reso
 func flattenCloudRunServiceSpecTrafficPercent(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1123,7 +1265,7 @@ func flattenCloudRunServiceSpecTemplateMetadataLabels(v interface{}, d *schema.R
 func flattenCloudRunServiceSpecTemplateMetadataGeneration(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1178,6 +1320,8 @@ func flattenCloudRunServiceSpecTemplateSpec(v interface{}, d *schema.ResourceDat
 		flattenCloudRunServiceSpecTemplateSpecTimeoutSeconds(original["timeoutSeconds"], d, config)
 	transformed["service_account_name"] =
 		flattenCloudRunServiceSpecTemplateSpecServiceAccountName(original["serviceAccountName"], d, config)
+	transformed["volumes"] =
+		flattenCloudRunServiceSpecTemplateSpecVolumes(original["volumes"], d, config)
 	transformed["serving_state"] =
 		flattenCloudRunServiceSpecTemplateSpecServingState(original["servingState"], d, config)
 	return []interface{}{transformed}
@@ -1195,14 +1339,15 @@ func flattenCloudRunServiceSpecTemplateSpecContainers(v interface{}, d *schema.R
 			continue
 		}
 		transformed = append(transformed, map[string]interface{}{
-			"working_dir": flattenCloudRunServiceSpecTemplateSpecContainersWorkingDir(original["workingDir"], d, config),
-			"args":        flattenCloudRunServiceSpecTemplateSpecContainersArgs(original["args"], d, config),
-			"env_from":    flattenCloudRunServiceSpecTemplateSpecContainersEnvFrom(original["envFrom"], d, config),
-			"image":       flattenCloudRunServiceSpecTemplateSpecContainersImage(original["image"], d, config),
-			"command":     flattenCloudRunServiceSpecTemplateSpecContainersCommand(original["command"], d, config),
-			"env":         flattenCloudRunServiceSpecTemplateSpecContainersEnv(original["env"], d, config),
-			"ports":       flattenCloudRunServiceSpecTemplateSpecContainersPorts(original["ports"], d, config),
-			"resources":   flattenCloudRunServiceSpecTemplateSpecContainersResources(original["resources"], d, config),
+			"working_dir":   flattenCloudRunServiceSpecTemplateSpecContainersWorkingDir(original["workingDir"], d, config),
+			"args":          flattenCloudRunServiceSpecTemplateSpecContainersArgs(original["args"], d, config),
+			"env_from":      flattenCloudRunServiceSpecTemplateSpecContainersEnvFrom(original["envFrom"], d, config),
+			"image":         flattenCloudRunServiceSpecTemplateSpecContainersImage(original["image"], d, config),
+			"command":       flattenCloudRunServiceSpecTemplateSpecContainersCommand(original["command"], d, config),
+			"env":           flattenCloudRunServiceSpecTemplateSpecContainersEnv(original["env"], d, config),
+			"ports":         flattenCloudRunServiceSpecTemplateSpecContainersPorts(original["ports"], d, config),
+			"resources":     flattenCloudRunServiceSpecTemplateSpecContainersResources(original["resources"], d, config),
+			"volume_mounts": flattenCloudRunServiceSpecTemplateSpecContainersVolumeMounts(original["volumeMounts"], d, config),
 		})
 	}
 	return transformed
@@ -1332,8 +1477,9 @@ func flattenCloudRunServiceSpecTemplateSpecContainersEnv(v interface{}, d *schem
 			continue
 		}
 		transformed.Add(map[string]interface{}{
-			"name":  flattenCloudRunServiceSpecTemplateSpecContainersEnvName(original["name"], d, config),
-			"value": flattenCloudRunServiceSpecTemplateSpecContainersEnvValue(original["value"], d, config),
+			"name":       flattenCloudRunServiceSpecTemplateSpecContainersEnvName(original["name"], d, config),
+			"value":      flattenCloudRunServiceSpecTemplateSpecContainersEnvValue(original["value"], d, config),
+			"value_from": flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFrom(original["valueFrom"], d, config),
 		})
 	}
 	return transformed
@@ -1343,6 +1489,42 @@ func flattenCloudRunServiceSpecTemplateSpecContainersEnvName(v interface{}, d *s
 }
 
 func flattenCloudRunServiceSpecTemplateSpecContainersEnvValue(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFrom(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["secret_key_ref"] =
+		flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRef(original["secretKeyRef"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRef(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["key"] =
+		flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefKey(original["key"], d, config)
+	transformed["name"] =
+		flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefName(original["name"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefKey(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefName(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	return v
 }
 
@@ -1377,7 +1559,7 @@ func flattenCloudRunServiceSpecTemplateSpecContainersPortsProtocol(v interface{}
 func flattenCloudRunServiceSpecTemplateSpecContainersPortsContainerPort(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1414,10 +1596,37 @@ func flattenCloudRunServiceSpecTemplateSpecContainersResourcesRequests(v interfa
 	return v
 }
 
+func flattenCloudRunServiceSpecTemplateSpecContainersVolumeMounts(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"mount_path": flattenCloudRunServiceSpecTemplateSpecContainersVolumeMountsMountPath(original["mountPath"], d, config),
+			"name":       flattenCloudRunServiceSpecTemplateSpecContainersVolumeMountsName(original["name"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenCloudRunServiceSpecTemplateSpecContainersVolumeMountsMountPath(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecContainersVolumeMountsName(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
 func flattenCloudRunServiceSpecTemplateSpecContainerConcurrency(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1434,7 +1643,7 @@ func flattenCloudRunServiceSpecTemplateSpecContainerConcurrency(v interface{}, d
 func flattenCloudRunServiceSpecTemplateSpecTimeoutSeconds(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1450,6 +1659,112 @@ func flattenCloudRunServiceSpecTemplateSpecTimeoutSeconds(v interface{}, d *sche
 
 func flattenCloudRunServiceSpecTemplateSpecServiceAccountName(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecVolumes(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"name":   flattenCloudRunServiceSpecTemplateSpecVolumesName(original["name"], d, config),
+			"secret": flattenCloudRunServiceSpecTemplateSpecVolumesSecret(original["secret"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenCloudRunServiceSpecTemplateSpecVolumesName(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecret(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["secret_name"] =
+		flattenCloudRunServiceSpecTemplateSpecVolumesSecretSecretName(original["secretName"], d, config)
+	transformed["default_mode"] =
+		flattenCloudRunServiceSpecTemplateSpecVolumesSecretDefaultMode(original["defaultMode"], d, config)
+	transformed["items"] =
+		flattenCloudRunServiceSpecTemplateSpecVolumesSecretItems(original["items"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecretSecretName(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecretDefaultMode(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := stringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
+}
+
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecretItems(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"key":  flattenCloudRunServiceSpecTemplateSpecVolumesSecretItemsKey(original["key"], d, config),
+			"path": flattenCloudRunServiceSpecTemplateSpecVolumesSecretItemsPath(original["path"], d, config),
+			"mode": flattenCloudRunServiceSpecTemplateSpecVolumesSecretItemsMode(original["mode"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecretItemsKey(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecretItemsPath(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudRunServiceSpecTemplateSpecVolumesSecretItemsMode(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	// Handles the string fixed64 format
+	if strVal, ok := v.(string); ok {
+		if intVal, err := stringToFixed64(strVal); err == nil {
+			return intVal
+		}
+	}
+
+	// number values are represented as float64
+	if floatVal, ok := v.(float64); ok {
+		intVal := int(floatVal)
+		return intVal
+	}
+
+	return v // let terraform core handle it otherwise
 }
 
 func flattenCloudRunServiceSpecTemplateSpecServingState(v interface{}, d *schema.ResourceData, config *Config) interface{} {
@@ -1521,7 +1836,7 @@ func flattenCloudRunServiceStatusUrl(v interface{}, d *schema.ResourceData, conf
 func flattenCloudRunServiceStatusObservedGeneration(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1575,7 +1890,7 @@ func flattenCloudRunServiceMetadataLabels(v interface{}, d *schema.ResourceData,
 func flattenCloudRunServiceMetadataGeneration(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1863,6 +2178,13 @@ func expandCloudRunServiceSpecTemplateSpec(v interface{}, d TerraformResourceDat
 		transformed["serviceAccountName"] = transformedServiceAccountName
 	}
 
+	transformedVolumes, err := expandCloudRunServiceSpecTemplateSpecVolumes(original["volumes"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedVolumes); val.IsValid() && !isEmptyValue(val) {
+		transformed["volumes"] = transformedVolumes
+	}
+
 	transformedServingState, err := expandCloudRunServiceSpecTemplateSpecServingState(original["serving_state"], d, config)
 	if err != nil {
 		return nil, err
@@ -1937,6 +2259,13 @@ func expandCloudRunServiceSpecTemplateSpecContainers(v interface{}, d TerraformR
 			return nil, err
 		} else if val := reflect.ValueOf(transformedResources); val.IsValid() && !isEmptyValue(val) {
 			transformed["resources"] = transformedResources
+		}
+
+		transformedVolumeMounts, err := expandCloudRunServiceSpecTemplateSpecContainersVolumeMounts(original["volume_mounts"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedVolumeMounts); val.IsValid() && !isEmptyValue(val) {
+			transformed["volumeMounts"] = transformedVolumeMounts
 		}
 
 		req = append(req, transformed)
@@ -2131,6 +2460,13 @@ func expandCloudRunServiceSpecTemplateSpecContainersEnv(v interface{}, d Terrafo
 			transformed["value"] = transformedValue
 		}
 
+		transformedValueFrom, err := expandCloudRunServiceSpecTemplateSpecContainersEnvValueFrom(original["value_from"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedValueFrom); val.IsValid() && !isEmptyValue(val) {
+			transformed["valueFrom"] = transformedValueFrom
+		}
+
 		req = append(req, transformed)
 	}
 	return req, nil
@@ -2141,6 +2477,59 @@ func expandCloudRunServiceSpecTemplateSpecContainersEnvName(v interface{}, d Ter
 }
 
 func expandCloudRunServiceSpecTemplateSpecContainersEnvValue(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecContainersEnvValueFrom(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedSecretKeyRef, err := expandCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRef(original["secret_key_ref"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretKeyRef); val.IsValid() && !isEmptyValue(val) {
+		transformed["secretKeyRef"] = transformedSecretKeyRef
+	}
+
+	return transformed, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRef(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedKey, err := expandCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefKey(original["key"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedKey); val.IsValid() && !isEmptyValue(val) {
+		transformed["key"] = transformedKey
+	}
+
+	transformedName, err := expandCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefName(original["name"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedName); val.IsValid() && !isEmptyValue(val) {
+		transformed["name"] = transformedName
+	}
+
+	return transformed, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefKey(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecContainersEnvValueFromSecretKeyRefName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 
@@ -2240,6 +2629,43 @@ func expandCloudRunServiceSpecTemplateSpecContainersResourcesRequests(v interfac
 	return m, nil
 }
 
+func expandCloudRunServiceSpecTemplateSpecContainersVolumeMounts(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	req := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		if raw == nil {
+			continue
+		}
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedMountPath, err := expandCloudRunServiceSpecTemplateSpecContainersVolumeMountsMountPath(original["mount_path"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedMountPath); val.IsValid() && !isEmptyValue(val) {
+			transformed["mountPath"] = transformedMountPath
+		}
+
+		transformedName, err := expandCloudRunServiceSpecTemplateSpecContainersVolumeMountsName(original["name"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedName); val.IsValid() && !isEmptyValue(val) {
+			transformed["name"] = transformedName
+		}
+
+		req = append(req, transformed)
+	}
+	return req, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecContainersVolumeMountsMountPath(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecContainersVolumeMountsName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
 func expandCloudRunServiceSpecTemplateSpecContainerConcurrency(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
@@ -2249,6 +2675,128 @@ func expandCloudRunServiceSpecTemplateSpecTimeoutSeconds(v interface{}, d Terraf
 }
 
 func expandCloudRunServiceSpecTemplateSpecServiceAccountName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumes(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	req := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		if raw == nil {
+			continue
+		}
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedName, err := expandCloudRunServiceSpecTemplateSpecVolumesName(original["name"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedName); val.IsValid() && !isEmptyValue(val) {
+			transformed["name"] = transformedName
+		}
+
+		transformedSecret, err := expandCloudRunServiceSpecTemplateSpecVolumesSecret(original["secret"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedSecret); val.IsValid() && !isEmptyValue(val) {
+			transformed["secret"] = transformedSecret
+		}
+
+		req = append(req, transformed)
+	}
+	return req, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecret(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedSecretName, err := expandCloudRunServiceSpecTemplateSpecVolumesSecretSecretName(original["secret_name"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretName); val.IsValid() && !isEmptyValue(val) {
+		transformed["secretName"] = transformedSecretName
+	}
+
+	transformedDefaultMode, err := expandCloudRunServiceSpecTemplateSpecVolumesSecretDefaultMode(original["default_mode"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedDefaultMode); val.IsValid() && !isEmptyValue(val) {
+		transformed["defaultMode"] = transformedDefaultMode
+	}
+
+	transformedItems, err := expandCloudRunServiceSpecTemplateSpecVolumesSecretItems(original["items"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedItems); val.IsValid() && !isEmptyValue(val) {
+		transformed["items"] = transformedItems
+	}
+
+	return transformed, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecretSecretName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecretDefaultMode(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecretItems(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	req := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		if raw == nil {
+			continue
+		}
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedKey, err := expandCloudRunServiceSpecTemplateSpecVolumesSecretItemsKey(original["key"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedKey); val.IsValid() && !isEmptyValue(val) {
+			transformed["key"] = transformedKey
+		}
+
+		transformedPath, err := expandCloudRunServiceSpecTemplateSpecVolumesSecretItemsPath(original["path"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedPath); val.IsValid() && !isEmptyValue(val) {
+			transformed["path"] = transformedPath
+		}
+
+		transformedMode, err := expandCloudRunServiceSpecTemplateSpecVolumesSecretItemsMode(original["mode"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedMode); val.IsValid() && !isEmptyValue(val) {
+			transformed["mode"] = transformedMode
+		}
+
+		req = append(req, transformed)
+	}
+	return req, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecretItemsKey(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecretItemsPath(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudRunServiceSpecTemplateSpecVolumesSecretItemsMode(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
 	return v, nil
 }
 

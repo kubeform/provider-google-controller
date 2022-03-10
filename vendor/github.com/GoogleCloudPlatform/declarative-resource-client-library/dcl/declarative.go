@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,6 +132,14 @@ func FlattenInteger(v interface{}) *int64 {
 	return Int64(0)
 }
 
+// FlattenOptionalInteger returns a set or unset optional int.
+func FlattenOptionalInteger(v interface{}) *OptionalInt64 {
+	if v == nil {
+		return &OptionalInt64{Unset: true}
+	}
+	return &OptionalInt64{Unset: false, Value: FlattenInteger(v)}
+}
+
 // FlattenDouble asserts that an interface is a float64 and returns a pointer to it,
 // or to 0.0 if the value is invalid.
 func FlattenDouble(v interface{}) *float64 {
@@ -144,6 +152,14 @@ func FlattenDouble(v interface{}) *float64 {
 	}
 
 	return &p
+}
+
+// FlattenOptionalDouble returns a set or unset optional double.
+func FlattenOptionalDouble(v interface{}) *OptionalFloat64 {
+	if v == nil {
+		return &OptionalFloat64{Unset: true}
+	}
+	return &OptionalFloat64{Unset: false, Value: FlattenDouble(v)}
 }
 
 // FlattenKeyValuePairs asserts that an interface is a map[string]string and
@@ -161,6 +177,20 @@ func FlattenKeyValuePairs(v interface{}) map[string]string {
 	}
 
 	return assertStringMap(p)
+}
+
+// FlattenKeyValueInterface returns a pointer to an interface.
+// It can only be used for untyped maps.
+func FlattenKeyValueInterface(v interface{}) map[string]interface{} {
+	if v == nil {
+		return nil
+	}
+
+	if ss, ok := v.(map[string]interface{}); ok {
+		return ss
+	}
+
+	return map[string]interface{}{}
 }
 
 // Returns a map[string]string from a map[string]interface{}
@@ -289,6 +319,14 @@ func FlattenString(v interface{}) *string {
 	return &p
 }
 
+// FlattenOptionalString returns a unset or set optional string.
+func FlattenOptionalString(v interface{}) *OptionalString {
+	if v == nil {
+		return &OptionalString{Unset: true}
+	}
+	return &OptionalString{Unset: false, Value: FlattenString(v)}
+}
+
 // FlattenBool asserts that an interface is a bool and returns a pointer to it, or
 // a pointer to false if the value is invalid.
 func FlattenBool(v interface{}) *bool {
@@ -301,6 +339,14 @@ func FlattenBool(v interface{}) *bool {
 	}
 
 	return &p
+}
+
+// FlattenOptionalBool returns a unset or set optional bool.
+func FlattenOptionalBool(v interface{}) *OptionalBool {
+	if v == nil {
+		return &OptionalBool{Unset: true}
+	}
+	return &OptionalBool{Unset: false, Value: FlattenBool(v)}
 }
 
 // FlattenTime asserts that an interface is a time.Time and returns it.

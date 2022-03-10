@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ func encodeJobCreateRequest(m map[string]interface{}) map[string]interface{} {
 	return req
 }
 
-func expandClusterProject(cluster *Cluster, project *string) (*string, error) {
+func expandClusterProject(_ *Client, project *string, _ *Cluster) (*string, error) {
 	return dcl.SelfLinkToName(project), nil
 }
 
-// CompareClusterInstanceGroupConfigNewStyle exposes the compareClusterInstanceGroupConfigNewStyle function for testing.
-func CompareClusterInstanceGroupConfigNewStyle(d, a interface{}, fn dcl.FieldName) ([]*dcl.FieldDiff, error) {
-	return compareClusterInstanceGroupConfigNewStyle(d, a, fn)
+// CompareClusterConfigMasterConfigNewStyle exposes the compareClusterConfigMasterConfigNewStyle function for testing.
+func CompareClusterConfigMasterConfigNewStyle(d, a interface{}, fn dcl.FieldName) ([]*dcl.FieldDiff, error) {
+	return compareClusterConfigMasterConfigNewStyle(d, a, fn)
 }

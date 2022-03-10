@@ -19,11 +19,9 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func stepTimeoutCustomizeDiff(_ context.Context, diff *schema.ResourceDiff, v interface{}) error {
@@ -75,9 +73,9 @@ func resourceCloudBuildTrigger() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Update: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		SchemaVersion: 1,
@@ -325,6 +323,37 @@ nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:2
 								},
 							},
 						},
+						"available_secrets": {
+							Type:        schema.TypeList,
+							Optional:    true,
+							Description: `Secrets and secret environment variables.`,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"secret_manager": {
+										Type:        schema.TypeList,
+										Required:    true,
+										Description: `Pairs a secret environment variable with a SecretVersion in Secret Manager.`,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"env": {
+													Type:     schema.TypeString,
+													Required: true,
+													Description: `Environment variable name to associate with the secret. Secret environment
+variables must be unique across all of a build's secrets, and must be used
+by at least one build step.`,
+												},
+												"version_name": {
+													Type:        schema.TypeString,
+													Required:    true,
+													Description: `Resource name of the SecretVersion. In format: projects/*/secrets/*/versions/*`,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 						"images": {
 							Type:     schema.TypeList,
 							Optional: true,
@@ -380,25 +409,25 @@ The elements are of the form "KEY=VALUE" for the environment variable "KEY" bein
 									"log_streaming_option": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF", ""}, false),
+										ValidateFunc: validateEnum([]string{"STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF", ""}),
 										Description:  `Option to define build log streaming behavior to Google Cloud Storage. Possible values: ["STREAM_DEFAULT", "STREAM_ON", "STREAM_OFF"]`,
 									},
 									"logging": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "NONE", ""}, false),
+										ValidateFunc: validateEnum([]string{"LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "NONE", ""}),
 										Description:  `Option to specify the logging mode, which determines if and where build logs are stored. Possible values: ["LOGGING_UNSPECIFIED", "LEGACY", "GCS_ONLY", "STACKDRIVER_ONLY", "NONE"]`,
 									},
 									"machine_type": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"UNSPECIFIED", "N1_HIGHCPU_8", "N1_HIGHCPU_32", "E2_HIGHCPU_8", "E2_HIGHCPU_32", ""}, false),
+										ValidateFunc: validateEnum([]string{"UNSPECIFIED", "N1_HIGHCPU_8", "N1_HIGHCPU_32", "E2_HIGHCPU_8", "E2_HIGHCPU_32", ""}),
 										Description:  `Compute Engine machine type on which to run the build. Possible values: ["UNSPECIFIED", "N1_HIGHCPU_8", "N1_HIGHCPU_32", "E2_HIGHCPU_8", "E2_HIGHCPU_32"]`,
 									},
 									"requested_verify_option": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"NOT_VERIFIED", "VERIFIED", ""}, false),
+										ValidateFunc: validateEnum([]string{"NOT_VERIFIED", "VERIFIED", ""}),
 										Description:  `Requested verifiability options. Possible values: ["NOT_VERIFIED", "VERIFIED"]`,
 									},
 									"secret_env": {
@@ -417,13 +446,13 @@ will be available to all build steps in this build.`,
 										Description: `Requested hash for SourceProvenance. Possible values: ["NONE", "SHA256", "MD5"]`,
 										Elem: &schema.Schema{
 											Type:         schema.TypeString,
-											ValidateFunc: validation.StringInSlice([]string{"NONE", "SHA256", "MD5"}, false),
+											ValidateFunc: validateEnum([]string{"NONE", "SHA256", "MD5"}),
 										},
 									},
 									"substitution_option": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"MUST_MATCH", "ALLOW_LOOSE", ""}, false),
+										ValidateFunc: validateEnum([]string{"MUST_MATCH", "ALLOW_LOOSE", ""}),
 										Description: `Option to specify behavior when there is an error in the substitution checks.
 
 NOTE this is always set to ALLOW_LOOSE for triggered builds and cannot be overridden
@@ -529,13 +558,13 @@ One of 'storageSource' or 'repoSource' must be provided.`,
 													Description: `Regex matching branches to build. Exactly one a of branch name, tag, or commit SHA must be provided.
 The syntax of the regular expressions accepted is the syntax accepted by RE2 and 
 described at https://github.com/google/re2/wiki/Syntax`,
-													ExactlyOneOf: []string{},
+													ExactlyOneOf: []string{"build.0.source.0.repo_source.0.branch_name", "build.0.source.0.repo_source.0.commit_sha", "build.0.source.0.repo_source.0.tag_name"},
 												},
 												"commit_sha": {
 													Type:         schema.TypeString,
 													Optional:     true,
 													Description:  `Explicit commit SHA to build. Exactly one a of branch name, tag, or commit SHA must be provided.`,
-													ExactlyOneOf: []string{},
+													ExactlyOneOf: []string{"build.0.source.0.repo_source.0.branch_name", "build.0.source.0.repo_source.0.commit_sha", "build.0.source.0.repo_source.0.tag_name"},
 												},
 												"dir": {
 													Type:     schema.TypeString,
@@ -567,7 +596,7 @@ If omitted, the project ID requesting the build is assumed.`,
 													Description: `Regex matching tags to build. Exactly one a of branch name, tag, or commit SHA must be provided.
 The syntax of the regular expressions accepted is the syntax accepted by RE2 and 
 described at https://github.com/google/re2/wiki/Syntax`,
-													ExactlyOneOf: []string{},
+													ExactlyOneOf: []string{"build.0.source.0.repo_source.0.branch_name", "build.0.source.0.repo_source.0.commit_sha", "build.0.source.0.repo_source.0.tag_name"},
 												},
 											},
 										},
@@ -670,7 +699,7 @@ https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform".`
 						"pull_request": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `filter to match changes in pull requests.  Specify only one of pullRequest or push.`,
+							Description: `filter to match changes in pull requests. Specify only one of 'pull_request' or 'push'.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -682,7 +711,7 @@ https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform".`
 									"comment_control": {
 										Type:         schema.TypeString,
 										Optional:     true,
-										ValidateFunc: validation.StringInSlice([]string{"COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY", ""}, false),
+										ValidateFunc: validateEnum([]string{"COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY", ""}),
 										Description:  `Whether to block builds on a "/gcbrun" comment from a repository owner or collaborator. Possible values: ["COMMENTS_DISABLED", "COMMENTS_ENABLED", "COMMENTS_ENABLED_FOR_EXTERNAL_CONTRIBUTORS_ONLY"]`,
 									},
 									"invert_regex": {
@@ -697,7 +726,7 @@ https://github.com/googlecloudplatform/cloud-builders is "googlecloudplatform".`
 						"push": {
 							Type:        schema.TypeList,
 							Optional:    true,
-							Description: `filter to match changes in refs, like branches or tags.  Specify only one of pullRequest or push.`,
+							Description: `filter to match changes in refs, like branches or tags. Specify only one of 'pull_request' or 'push'.`,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -1615,6 +1644,8 @@ func flattenCloudBuildTriggerBuild(v interface{}, d *schema.ResourceData, config
 		flattenCloudBuildTriggerBuildTimeout(original["timeout"], d, config)
 	transformed["secret"] =
 		flattenCloudBuildTriggerBuildSecret(original["secrets"], d, config)
+	transformed["available_secrets"] =
+		flattenCloudBuildTriggerBuildAvailableSecrets(original["availableSecrets"], d, config)
 	transformed["step"] =
 		flattenCloudBuildTriggerBuildStep(original["steps"], d, config)
 	transformed["artifacts"] =
@@ -1774,6 +1805,46 @@ func flattenCloudBuildTriggerBuildSecretKmsKeyName(v interface{}, d *schema.Reso
 }
 
 func flattenCloudBuildTriggerBuildSecretSecretEnv(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudBuildTriggerBuildAvailableSecrets(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return nil
+	}
+	original := v.(map[string]interface{})
+	if len(original) == 0 {
+		return nil
+	}
+	transformed := make(map[string]interface{})
+	transformed["secret_manager"] =
+		flattenCloudBuildTriggerBuildAvailableSecretsSecretManager(original["secretManager"], d, config)
+	return []interface{}{transformed}
+}
+func flattenCloudBuildTriggerBuildAvailableSecretsSecretManager(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	if v == nil {
+		return v
+	}
+	l := v.([]interface{})
+	transformed := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		original := raw.(map[string]interface{})
+		if len(original) < 1 {
+			// Do not include empty json objects coming back from the api
+			continue
+		}
+		transformed = append(transformed, map[string]interface{}{
+			"version_name": flattenCloudBuildTriggerBuildAvailableSecretsSecretManagerVersionName(original["versionName"], d, config),
+			"env":          flattenCloudBuildTriggerBuildAvailableSecretsSecretManagerEnv(original["env"], d, config),
+		})
+	}
+	return transformed
+}
+func flattenCloudBuildTriggerBuildAvailableSecretsSecretManagerVersionName(v interface{}, d *schema.ResourceData, config *Config) interface{} {
+	return v
+}
+
+func flattenCloudBuildTriggerBuildAvailableSecretsSecretManagerEnv(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	return v
 }
 
@@ -1989,7 +2060,7 @@ func flattenCloudBuildTriggerBuildOptionsMachineType(v interface{}, d *schema.Re
 func flattenCloudBuildTriggerBuildOptionsDiskSizeGb(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -2483,6 +2554,13 @@ func expandCloudBuildTriggerBuild(v interface{}, d TerraformResourceData, config
 		transformed["secrets"] = transformedSecret
 	}
 
+	transformedAvailableSecrets, err := expandCloudBuildTriggerBuildAvailableSecrets(original["available_secrets"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedAvailableSecrets); val.IsValid() && !isEmptyValue(val) {
+		transformed["availableSecrets"] = transformedAvailableSecrets
+	}
+
 	transformedStep, err := expandCloudBuildTriggerBuildStep(original["step"], d, config)
 	if err != nil {
 		return nil, err
@@ -2758,6 +2836,62 @@ func expandCloudBuildTriggerBuildSecretSecretEnv(v interface{}, d TerraformResou
 		m[k] = val.(string)
 	}
 	return m, nil
+}
+
+func expandCloudBuildTriggerBuildAvailableSecrets(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	if len(l) == 0 || l[0] == nil {
+		return nil, nil
+	}
+	raw := l[0]
+	original := raw.(map[string]interface{})
+	transformed := make(map[string]interface{})
+
+	transformedSecretManager, err := expandCloudBuildTriggerBuildAvailableSecretsSecretManager(original["secret_manager"], d, config)
+	if err != nil {
+		return nil, err
+	} else if val := reflect.ValueOf(transformedSecretManager); val.IsValid() && !isEmptyValue(val) {
+		transformed["secretManager"] = transformedSecretManager
+	}
+
+	return transformed, nil
+}
+
+func expandCloudBuildTriggerBuildAvailableSecretsSecretManager(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	l := v.([]interface{})
+	req := make([]interface{}, 0, len(l))
+	for _, raw := range l {
+		if raw == nil {
+			continue
+		}
+		original := raw.(map[string]interface{})
+		transformed := make(map[string]interface{})
+
+		transformedVersionName, err := expandCloudBuildTriggerBuildAvailableSecretsSecretManagerVersionName(original["version_name"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedVersionName); val.IsValid() && !isEmptyValue(val) {
+			transformed["versionName"] = transformedVersionName
+		}
+
+		transformedEnv, err := expandCloudBuildTriggerBuildAvailableSecretsSecretManagerEnv(original["env"], d, config)
+		if err != nil {
+			return nil, err
+		} else if val := reflect.ValueOf(transformedEnv); val.IsValid() && !isEmptyValue(val) {
+			transformed["env"] = transformedEnv
+		}
+
+		req = append(req, transformed)
+	}
+	return req, nil
+}
+
+func expandCloudBuildTriggerBuildAvailableSecretsSecretManagerVersionName(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
+}
+
+func expandCloudBuildTriggerBuildAvailableSecretsSecretManagerEnv(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {
+	return v, nil
 }
 
 func expandCloudBuildTriggerBuildStep(v interface{}, d TerraformResourceData, config *Config) (interface{}, error) {

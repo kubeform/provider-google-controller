@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,18 +30,22 @@ type CRMOperation struct {
 	Error    *CRMOperationError     `json:"error"`
 	Done     bool                   `json:"done"`
 	Response map[string]interface{} `json:"response"`
+	Metadata map[string]interface{} `json:"metadata"`
 	// other irrelevant fields omitted
 
 	config   *dcl.Config
 	basePath string
 	verb     string
+	version  string
 
 	response map[string]interface{}
 }
 
 // CRMOperationError is the GCP operation's Error body.
 type CRMOperationError struct {
-	Errors []*CRMOperationErrorError `json:"errors"`
+	Code    int                       `json:"code"`
+	Message string                    `json:"message"`
+	Errors  []*CRMOperationErrorError `json:"errors"`
 }
 
 // String formats the CRMOperationError as an error string.
@@ -52,6 +56,9 @@ func (e *CRMOperationError) String() string {
 	var b strings.Builder
 	for _, err := range e.Errors {
 		fmt.Fprintf(&b, "error code %q, message: %s\n", err.Code, err.Message)
+	}
+	if e.Code != 0 || e.Message != "" {
+		fmt.Fprintf(&b, "error code %d, message: %s\n", e.Code, e.Message)
 	}
 
 	return b.String()
@@ -74,11 +81,21 @@ func (op *CRMOperation) Wait(ctx context.Context, c *dcl.Config, basePath, verb 
 		op.response = op.Response
 	}
 
+	op.version = "v1"
+	if t, ok := op.Metadata["@type"].(string); ok && t == "type.googleapis.com/google.cloud.resourcemanager.v3.DeleteTagKeyMetadata" {
+		// TagKey delete operation requires the use of the v3 endpoint
+		op.version = "v3"
+	}
+
+	if op.Done {
+		return nil
+	}
+
 	return dcl.Do(ctx, op.operate, c.RetryProvider)
 }
 
 func (op *CRMOperation) operate(ctx context.Context) (*dcl.RetryDetails, error) {
-	u := dcl.URL("v1/"+op.Name, op.basePath, op.config.BasePath, nil)
+	u := dcl.URL(op.version+"/"+op.Name, op.basePath, op.config.BasePath, nil)
 	resp, err := dcl.SendRequest(ctx, op.config, op.verb, u, &bytes.Buffer{}, nil)
 	if err != nil {
 		if dcl.IsRetryableRequestError(op.config, err, false, time.Now()) {

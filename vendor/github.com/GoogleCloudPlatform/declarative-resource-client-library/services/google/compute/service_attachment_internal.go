@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ func (r *ServiceAttachment) validate() error {
 	if err := dcl.RequiredParameter(r.Project, "Project"); err != nil {
 		return err
 	}
-	if err := dcl.Required(r, "location"); err != nil {
+	if err := dcl.RequiredParameter(r.Location, "Location"); err != nil {
 		return err
 	}
 	if !dcl.IsEmptyValueIndirect(r.PscServiceAttachmentId) {
@@ -121,10 +121,9 @@ type serviceAttachmentApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateServiceAttachmentPatchRequest(ctx context.Context, f *ServiceAttachment, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
-		req["name"] = v
-	}
 	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
 		req["description"] = v
 	}
@@ -134,10 +133,12 @@ func newUpdateServiceAttachmentPatchRequest(ctx context.Context, f *ServiceAttac
 	if v := f.NatSubnets; v != nil {
 		req["natSubnets"] = v
 	}
-	if v := f.ConsumerRejectLists; v != nil {
+	if v, err := dcl.SelfLinkToNameArrayExpander(f.ConsumerRejectLists); err != nil {
+		return nil, fmt.Errorf("error expanding ConsumerRejectLists into consumerRejectLists: %w", err)
+	} else if v != nil {
 		req["consumerRejectLists"] = v
 	}
-	if v, err := expandServiceAttachmentConsumerAcceptListsSlice(c, f.ConsumerAcceptLists); err != nil {
+	if v, err := expandServiceAttachmentConsumerAcceptListsSlice(c, f.ConsumerAcceptLists, res); err != nil {
 		return nil, fmt.Errorf("error expanding ConsumerAcceptLists into consumerAcceptLists: %w", err)
 	} else if v != nil {
 		req["consumerAcceptLists"] = v
@@ -159,6 +160,8 @@ func newUpdateServiceAttachmentPatchRequest(ctx context.Context, f *ServiceAttac
 	} else {
 		req["fingerprint"] = rawFingerprint.(string)
 	}
+	req["name"] = fmt.Sprintf("%s", *f.Name)
+
 	return req, nil
 }
 
@@ -441,6 +444,11 @@ func (c *Client) serviceAttachmentDiffsForRawDesired(ctx context.Context, rawDes
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for ServiceAttachment: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for ServiceAttachment: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractServiceAttachmentFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeServiceAttachmentInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -497,12 +505,13 @@ func canonicalizeServiceAttachmentDesiredState(rawDesired, rawInitial *ServiceAt
 	} else {
 		canonicalDesired.TargetService = rawDesired.TargetService
 	}
-	if dcl.IsZeroValue(rawDesired.ConnectionPreference) {
+	if dcl.IsZeroValue(rawDesired.ConnectionPreference) || (dcl.IsEmptyValueIndirect(rawDesired.ConnectionPreference) && dcl.IsEmptyValueIndirect(rawInitial.ConnectionPreference)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.ConnectionPreference = rawInitial.ConnectionPreference
 	} else {
 		canonicalDesired.ConnectionPreference = rawDesired.ConnectionPreference
 	}
-	if dcl.IsZeroValue(rawDesired.NatSubnets) {
+	if dcl.StringArrayCanonicalize(rawDesired.NatSubnets, rawInitial.NatSubnets) {
 		canonicalDesired.NatSubnets = rawInitial.NatSubnets
 	} else {
 		canonicalDesired.NatSubnets = rawDesired.NatSubnets
@@ -512,7 +521,7 @@ func canonicalizeServiceAttachmentDesiredState(rawDesired, rawInitial *ServiceAt
 	} else {
 		canonicalDesired.EnableProxyProtocol = rawDesired.EnableProxyProtocol
 	}
-	if dcl.IsZeroValue(rawDesired.ConsumerRejectLists) {
+	if dcl.StringArrayCanonicalize(rawDesired.ConsumerRejectLists, rawInitial.ConsumerRejectLists) {
 		canonicalDesired.ConsumerRejectLists = rawInitial.ConsumerRejectLists
 	} else {
 		canonicalDesired.ConsumerRejectLists = rawDesired.ConsumerRejectLists
@@ -523,7 +532,7 @@ func canonicalizeServiceAttachmentDesiredState(rawDesired, rawInitial *ServiceAt
 	} else {
 		canonicalDesired.Project = rawDesired.Project
 	}
-	if dcl.StringCanonicalize(rawDesired.Location, rawInitial.Location) {
+	if dcl.NameToSelfLink(rawDesired.Location, rawInitial.Location) {
 		canonicalDesired.Location = rawInitial.Location
 	} else {
 		canonicalDesired.Location = rawDesired.Location
@@ -593,6 +602,9 @@ func canonicalizeServiceAttachmentNewState(c *Client, rawNew, rawDesired *Servic
 	if dcl.IsNotReturnedByServer(rawNew.NatSubnets) && dcl.IsNotReturnedByServer(rawDesired.NatSubnets) {
 		rawNew.NatSubnets = rawDesired.NatSubnets
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.NatSubnets, rawNew.NatSubnets) {
+			rawNew.NatSubnets = rawDesired.NatSubnets
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.EnableProxyProtocol) && dcl.IsNotReturnedByServer(rawDesired.EnableProxyProtocol) {
@@ -606,6 +618,9 @@ func canonicalizeServiceAttachmentNewState(c *Client, rawNew, rawDesired *Servic
 	if dcl.IsNotReturnedByServer(rawNew.ConsumerRejectLists) && dcl.IsNotReturnedByServer(rawDesired.ConsumerRejectLists) {
 		rawNew.ConsumerRejectLists = rawDesired.ConsumerRejectLists
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.ConsumerRejectLists, rawNew.ConsumerRejectLists) {
+			rawNew.ConsumerRejectLists = rawDesired.ConsumerRejectLists
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.ConsumerAcceptLists) && dcl.IsNotReturnedByServer(rawDesired.ConsumerAcceptLists) {
@@ -630,13 +645,7 @@ func canonicalizeServiceAttachmentNewState(c *Client, rawNew, rawDesired *Servic
 
 	rawNew.Project = rawDesired.Project
 
-	if dcl.IsNotReturnedByServer(rawNew.Location) && dcl.IsNotReturnedByServer(rawDesired.Location) {
-		rawNew.Location = rawDesired.Location
-	} else {
-		if dcl.StringCanonicalize(rawDesired.Location, rawNew.Location) {
-			rawNew.Location = rawDesired.Location
-		}
-	}
+	rawNew.Location = rawDesired.Location
 
 	return rawNew, nil
 }
@@ -655,13 +664,15 @@ func canonicalizeServiceAttachmentConnectedEndpoints(des, initial *ServiceAttach
 
 	cDes := &ServiceAttachmentConnectedEndpoints{}
 
-	if dcl.IsZeroValue(des.Status) {
-		des.Status = initial.Status
+	if dcl.IsZeroValue(des.Status) || (dcl.IsEmptyValueIndirect(des.Status) && dcl.IsEmptyValueIndirect(initial.Status)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Status = initial.Status
 	} else {
 		cDes.Status = des.Status
 	}
-	if dcl.IsZeroValue(des.PscConnectionId) {
-		des.PscConnectionId = initial.PscConnectionId
+	if dcl.IsZeroValue(des.PscConnectionId) || (dcl.IsEmptyValueIndirect(des.PscConnectionId) && dcl.IsEmptyValueIndirect(initial.PscConnectionId)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.PscConnectionId = initial.PscConnectionId
 	} else {
 		cDes.PscConnectionId = des.PscConnectionId
 	}
@@ -675,7 +686,7 @@ func canonicalizeServiceAttachmentConnectedEndpoints(des, initial *ServiceAttach
 }
 
 func canonicalizeServiceAttachmentConnectedEndpointsSlice(des, initial []ServiceAttachmentConnectedEndpoints, opts ...dcl.ApplyOption) []ServiceAttachmentConnectedEndpoints {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -785,8 +796,9 @@ func canonicalizeServiceAttachmentConsumerAcceptLists(des, initial *ServiceAttac
 	} else {
 		cDes.ProjectIdOrNum = des.ProjectIdOrNum
 	}
-	if dcl.IsZeroValue(des.ConnectionLimit) {
-		des.ConnectionLimit = initial.ConnectionLimit
+	if dcl.IsZeroValue(des.ConnectionLimit) || (dcl.IsEmptyValueIndirect(des.ConnectionLimit) && dcl.IsEmptyValueIndirect(initial.ConnectionLimit)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ConnectionLimit = initial.ConnectionLimit
 	} else {
 		cDes.ConnectionLimit = des.ConnectionLimit
 	}
@@ -904,7 +916,7 @@ func canonicalizeServiceAttachmentPscServiceAttachmentId(des, initial *ServiceAt
 }
 
 func canonicalizeServiceAttachmentPscServiceAttachmentIdSlice(des, initial []ServiceAttachmentPscServiceAttachmentId, opts ...dcl.ApplyOption) []ServiceAttachmentPscServiceAttachmentId {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1003,6 +1015,9 @@ func diffServiceAttachment(c *Client, desired, actual *ServiceAttachment, opts .
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
 
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
+
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
 	// New style diffs.
@@ -1013,7 +1028,7 @@ func diffServiceAttachment(c *Client, desired, actual *ServiceAttachment, opts .
 		newDiffs = append(newDiffs, ds...)
 	}
 
-	if ds, err := dcl.Diff(desired.Name, actual.Name, dcl.Info{OperationSelector: dcl.TriggersOperation("updateServiceAttachmentPatchOperation")}, fn.AddNest("Name")); len(ds) != 0 || err != nil {
+	if ds, err := dcl.Diff(desired.Name, actual.Name, dcl.Info{OperationSelector: dcl.RequiresRecreate()}, fn.AddNest("Name")); len(ds) != 0 || err != nil {
 		if err != nil {
 			return nil, err
 		}
@@ -1299,34 +1314,44 @@ func unmarshalMapServiceAttachment(m map[string]interface{}, c *Client) (*Servic
 // expandServiceAttachment expands ServiceAttachment into a JSON request object.
 func expandServiceAttachment(c *Client, f *ServiceAttachment) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v := f.TargetService; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.TargetService; dcl.ValueShouldBeSent(v) {
 		m["targetService"] = v
 	}
-	if v := f.ConnectionPreference; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.ConnectionPreference; dcl.ValueShouldBeSent(v) {
 		m["connectionPreference"] = v
 	}
-	m["natSubnets"] = f.NatSubnets
-	if v := f.EnableProxyProtocol; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.NatSubnets; v != nil {
+		m["natSubnets"] = v
+	}
+	if v := f.EnableProxyProtocol; dcl.ValueShouldBeSent(v) {
 		m["enableProxyProtocol"] = v
 	}
-	m["consumerRejectLists"] = f.ConsumerRejectLists
-	if v, err := expandServiceAttachmentConsumerAcceptListsSlice(c, f.ConsumerAcceptLists); err != nil {
+	if v, err := dcl.SelfLinkToNameArrayExpander(f.ConsumerRejectLists); err != nil {
+		return nil, fmt.Errorf("error expanding ConsumerRejectLists into consumerRejectLists: %w", err)
+	} else if v != nil {
+		m["consumerRejectLists"] = v
+	}
+	if v, err := expandServiceAttachmentConsumerAcceptListsSlice(c, f.ConsumerAcceptLists, res); err != nil {
 		return nil, fmt.Errorf("error expanding ConsumerAcceptLists into consumerAcceptLists: %w", err)
-	} else {
+	} else if v != nil {
 		m["consumerAcceptLists"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Project into project: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["project"] = v
 	}
-	if v := f.Location; !dcl.IsEmptyValueIndirect(v) {
+	if v, err := dcl.EmptyValue(); err != nil {
+		return nil, fmt.Errorf("error expanding Location into location: %w", err)
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["location"] = v
 	}
 
@@ -1367,14 +1392,14 @@ func flattenServiceAttachment(c *Client, i interface{}) *ServiceAttachment {
 
 // expandServiceAttachmentConnectedEndpointsMap expands the contents of ServiceAttachmentConnectedEndpoints into a JSON
 // request object.
-func expandServiceAttachmentConnectedEndpointsMap(c *Client, f map[string]ServiceAttachmentConnectedEndpoints) (map[string]interface{}, error) {
+func expandServiceAttachmentConnectedEndpointsMap(c *Client, f map[string]ServiceAttachmentConnectedEndpoints, res *ServiceAttachment) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandServiceAttachmentConnectedEndpoints(c, &item)
+		i, err := expandServiceAttachmentConnectedEndpoints(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1388,14 +1413,14 @@ func expandServiceAttachmentConnectedEndpointsMap(c *Client, f map[string]Servic
 
 // expandServiceAttachmentConnectedEndpointsSlice expands the contents of ServiceAttachmentConnectedEndpoints into a JSON
 // request object.
-func expandServiceAttachmentConnectedEndpointsSlice(c *Client, f []ServiceAttachmentConnectedEndpoints) ([]map[string]interface{}, error) {
+func expandServiceAttachmentConnectedEndpointsSlice(c *Client, f []ServiceAttachmentConnectedEndpoints, res *ServiceAttachment) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandServiceAttachmentConnectedEndpoints(c, &item)
+		i, err := expandServiceAttachmentConnectedEndpoints(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1448,7 +1473,7 @@ func flattenServiceAttachmentConnectedEndpointsSlice(c *Client, i interface{}) [
 
 // expandServiceAttachmentConnectedEndpoints expands an instance of ServiceAttachmentConnectedEndpoints into a JSON
 // request object.
-func expandServiceAttachmentConnectedEndpoints(c *Client, f *ServiceAttachmentConnectedEndpoints) (map[string]interface{}, error) {
+func expandServiceAttachmentConnectedEndpoints(c *Client, f *ServiceAttachmentConnectedEndpoints, res *ServiceAttachment) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1489,14 +1514,14 @@ func flattenServiceAttachmentConnectedEndpoints(c *Client, i interface{}) *Servi
 
 // expandServiceAttachmentConsumerAcceptListsMap expands the contents of ServiceAttachmentConsumerAcceptLists into a JSON
 // request object.
-func expandServiceAttachmentConsumerAcceptListsMap(c *Client, f map[string]ServiceAttachmentConsumerAcceptLists) (map[string]interface{}, error) {
+func expandServiceAttachmentConsumerAcceptListsMap(c *Client, f map[string]ServiceAttachmentConsumerAcceptLists, res *ServiceAttachment) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandServiceAttachmentConsumerAcceptLists(c, &item)
+		i, err := expandServiceAttachmentConsumerAcceptLists(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1510,14 +1535,14 @@ func expandServiceAttachmentConsumerAcceptListsMap(c *Client, f map[string]Servi
 
 // expandServiceAttachmentConsumerAcceptListsSlice expands the contents of ServiceAttachmentConsumerAcceptLists into a JSON
 // request object.
-func expandServiceAttachmentConsumerAcceptListsSlice(c *Client, f []ServiceAttachmentConsumerAcceptLists) ([]map[string]interface{}, error) {
+func expandServiceAttachmentConsumerAcceptListsSlice(c *Client, f []ServiceAttachmentConsumerAcceptLists, res *ServiceAttachment) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandServiceAttachmentConsumerAcceptLists(c, &item)
+		i, err := expandServiceAttachmentConsumerAcceptLists(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1570,13 +1595,15 @@ func flattenServiceAttachmentConsumerAcceptListsSlice(c *Client, i interface{}) 
 
 // expandServiceAttachmentConsumerAcceptLists expands an instance of ServiceAttachmentConsumerAcceptLists into a JSON
 // request object.
-func expandServiceAttachmentConsumerAcceptLists(c *Client, f *ServiceAttachmentConsumerAcceptLists) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandServiceAttachmentConsumerAcceptLists(c *Client, f *ServiceAttachmentConsumerAcceptLists, res *ServiceAttachment) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v := f.ProjectIdOrNum; !dcl.IsEmptyValueIndirect(v) {
+	if v, err := dcl.SelfLinkToNameExpander(f.ProjectIdOrNum); err != nil {
+		return nil, fmt.Errorf("error expanding ProjectIdOrNum into projectIdOrNum: %w", err)
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["projectIdOrNum"] = v
 	}
 	if v := f.ConnectionLimit; !dcl.IsEmptyValueIndirect(v) {
@@ -1607,14 +1634,14 @@ func flattenServiceAttachmentConsumerAcceptLists(c *Client, i interface{}) *Serv
 
 // expandServiceAttachmentPscServiceAttachmentIdMap expands the contents of ServiceAttachmentPscServiceAttachmentId into a JSON
 // request object.
-func expandServiceAttachmentPscServiceAttachmentIdMap(c *Client, f map[string]ServiceAttachmentPscServiceAttachmentId) (map[string]interface{}, error) {
+func expandServiceAttachmentPscServiceAttachmentIdMap(c *Client, f map[string]ServiceAttachmentPscServiceAttachmentId, res *ServiceAttachment) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandServiceAttachmentPscServiceAttachmentId(c, &item)
+		i, err := expandServiceAttachmentPscServiceAttachmentId(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1628,14 +1655,14 @@ func expandServiceAttachmentPscServiceAttachmentIdMap(c *Client, f map[string]Se
 
 // expandServiceAttachmentPscServiceAttachmentIdSlice expands the contents of ServiceAttachmentPscServiceAttachmentId into a JSON
 // request object.
-func expandServiceAttachmentPscServiceAttachmentIdSlice(c *Client, f []ServiceAttachmentPscServiceAttachmentId) ([]map[string]interface{}, error) {
+func expandServiceAttachmentPscServiceAttachmentIdSlice(c *Client, f []ServiceAttachmentPscServiceAttachmentId, res *ServiceAttachment) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandServiceAttachmentPscServiceAttachmentId(c, &item)
+		i, err := expandServiceAttachmentPscServiceAttachmentId(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -1688,7 +1715,7 @@ func flattenServiceAttachmentPscServiceAttachmentIdSlice(c *Client, i interface{
 
 // expandServiceAttachmentPscServiceAttachmentId expands an instance of ServiceAttachmentPscServiceAttachmentId into a JSON
 // request object.
-func expandServiceAttachmentPscServiceAttachmentId(c *Client, f *ServiceAttachmentPscServiceAttachmentId) (map[string]interface{}, error) {
+func expandServiceAttachmentPscServiceAttachmentId(c *Client, f *ServiceAttachmentPscServiceAttachmentId, res *ServiceAttachment) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -1762,7 +1789,7 @@ func flattenServiceAttachmentConnectionPreferenceEnumSlice(c *Client, i interfac
 func flattenServiceAttachmentConnectionPreferenceEnum(i interface{}) *ServiceAttachmentConnectionPreferenceEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ServiceAttachmentConnectionPreferenceEnumRef("")
+		return nil
 	}
 
 	return ServiceAttachmentConnectionPreferenceEnumRef(s)
@@ -1813,7 +1840,7 @@ func flattenServiceAttachmentConnectedEndpointsStatusEnumSlice(c *Client, i inte
 func flattenServiceAttachmentConnectedEndpointsStatusEnum(i interface{}) *ServiceAttachmentConnectedEndpointsStatusEnum {
 	s, ok := i.(string)
 	if !ok {
-		return ServiceAttachmentConnectedEndpointsStatusEnumRef("")
+		return nil
 	}
 
 	return ServiceAttachmentConnectedEndpointsStatusEnumRef(s)
@@ -1876,7 +1903,7 @@ func convertFieldDiffsToServiceAttachmentDiffs(config *dcl.Config, fds []*dcl.Fi
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -1911,5 +1938,49 @@ func convertOpNameToServiceAttachmentApiOperation(opName string, fieldDiffs []*d
 }
 
 func extractServiceAttachmentFields(r *ServiceAttachment) error {
+	vPscServiceAttachmentId := r.PscServiceAttachmentId
+	if vPscServiceAttachmentId == nil {
+		// note: explicitly not the empty object.
+		vPscServiceAttachmentId = &ServiceAttachmentPscServiceAttachmentId{}
+	}
+	if err := extractServiceAttachmentPscServiceAttachmentIdFields(r, vPscServiceAttachmentId); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vPscServiceAttachmentId) {
+		r.PscServiceAttachmentId = vPscServiceAttachmentId
+	}
+	return nil
+}
+func extractServiceAttachmentConnectedEndpointsFields(r *ServiceAttachment, o *ServiceAttachmentConnectedEndpoints) error {
+	return nil
+}
+func extractServiceAttachmentConsumerAcceptListsFields(r *ServiceAttachment, o *ServiceAttachmentConsumerAcceptLists) error {
+	return nil
+}
+func extractServiceAttachmentPscServiceAttachmentIdFields(r *ServiceAttachment, o *ServiceAttachmentPscServiceAttachmentId) error {
+	return nil
+}
+
+func postReadExtractServiceAttachmentFields(r *ServiceAttachment) error {
+	vPscServiceAttachmentId := r.PscServiceAttachmentId
+	if vPscServiceAttachmentId == nil {
+		// note: explicitly not the empty object.
+		vPscServiceAttachmentId = &ServiceAttachmentPscServiceAttachmentId{}
+	}
+	if err := postReadExtractServiceAttachmentPscServiceAttachmentIdFields(r, vPscServiceAttachmentId); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vPscServiceAttachmentId) {
+		r.PscServiceAttachmentId = vPscServiceAttachmentId
+	}
+	return nil
+}
+func postReadExtractServiceAttachmentConnectedEndpointsFields(r *ServiceAttachment, o *ServiceAttachmentConnectedEndpoints) error {
+	return nil
+}
+func postReadExtractServiceAttachmentConsumerAcceptListsFields(r *ServiceAttachment, o *ServiceAttachmentConsumerAcceptLists) error {
+	return nil
+}
+func postReadExtractServiceAttachmentPscServiceAttachmentIdFields(r *ServiceAttachment, o *ServiceAttachmentPscServiceAttachmentId) error {
 	return nil
 }

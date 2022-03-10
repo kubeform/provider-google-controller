@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -67,8 +67,8 @@ func (r *AutoscalingPolicyBasicAlgorithm) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this AutoscalingPolicyBasicAlgorithm is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyAutoscalingPolicyBasicAlgorithm *AutoscalingPolicyBasicAlgorithm = &AutoscalingPolicyBasicAlgorithm{empty: true}
 
 func (r *AutoscalingPolicyBasicAlgorithm) Empty() bool {
@@ -125,8 +125,8 @@ func (r *AutoscalingPolicyBasicAlgorithmYarnConfig) UnmarshalJSON(data []byte) e
 }
 
 // This object is used to assert a desired state where this AutoscalingPolicyBasicAlgorithmYarnConfig is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyAutoscalingPolicyBasicAlgorithmYarnConfig *AutoscalingPolicyBasicAlgorithmYarnConfig = &AutoscalingPolicyBasicAlgorithmYarnConfig{empty: true}
 
 func (r *AutoscalingPolicyBasicAlgorithmYarnConfig) Empty() bool {
@@ -177,8 +177,8 @@ func (r *AutoscalingPolicyWorkerConfig) UnmarshalJSON(data []byte) error {
 }
 
 // This object is used to assert a desired state where this AutoscalingPolicyWorkerConfig is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyAutoscalingPolicyWorkerConfig *AutoscalingPolicyWorkerConfig = &AutoscalingPolicyWorkerConfig{empty: true}
 
 func (r *AutoscalingPolicyWorkerConfig) Empty() bool {
@@ -229,8 +229,8 @@ func (r *AutoscalingPolicySecondaryWorkerConfig) UnmarshalJSON(data []byte) erro
 }
 
 // This object is used to assert a desired state where this AutoscalingPolicySecondaryWorkerConfig is
-// empty.  Go lacks global const objects, but this object should be treated
-// as one.  Modifying this object will have undesirable results.
+// empty. Go lacks global const objects, but this object should be treated
+// as one. Modifying this object will have undesirable results.
 var EmptyAutoscalingPolicySecondaryWorkerConfig *AutoscalingPolicySecondaryWorkerConfig = &AutoscalingPolicySecondaryWorkerConfig{empty: true}
 
 func (r *AutoscalingPolicySecondaryWorkerConfig) Empty() bool {
@@ -370,6 +370,9 @@ func (c *Client) GetAutoscalingPolicy(ctx context.Context, r *AutoscalingPolicy)
 	if err != nil {
 		return nil, err
 	}
+	if err := postReadExtractAutoscalingPolicyFields(result); err != nil {
+		return result, err
+	}
 	c.Config.Logger.InfoWithContextf(ctx, "Created result state: %v", result)
 
 	return result, nil
@@ -413,6 +416,9 @@ func (c *Client) DeleteAllAutoscalingPolicy(ctx context.Context, project, locati
 }
 
 func (c *Client) ApplyAutoscalingPolicy(ctx context.Context, rawDesired *AutoscalingPolicy, opts ...dcl.ApplyOption) (*AutoscalingPolicy, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
+	defer cancel()
+
 	ctx = dcl.ContextWithRequestID(ctx)
 	var resultNewState *AutoscalingPolicy
 	err := dcl.Do(ctx, func(ctx context.Context) (*dcl.RetryDetails, error) {
@@ -434,9 +440,6 @@ func (c *Client) ApplyAutoscalingPolicy(ctx context.Context, rawDesired *Autosca
 func applyAutoscalingPolicyHelper(c *Client, ctx context.Context, rawDesired *AutoscalingPolicy, opts ...dcl.ApplyOption) (*AutoscalingPolicy, error) {
 	c.Config.Logger.InfoWithContext(ctx, "Beginning ApplyAutoscalingPolicy...")
 	c.Config.Logger.InfoWithContextf(ctx, "User specified desired state: %v", rawDesired)
-
-	ctx, cancel := context.WithTimeout(ctx, c.Config.TimeoutOr(0*time.Second))
-	defer cancel()
 
 	// 1.1: Validation of user-specified fields in desired state.
 	if err := rawDesired.validate(); err != nil {
@@ -504,7 +507,10 @@ func applyAutoscalingPolicyHelper(c *Client, ctx context.Context, rawDesired *Au
 		}
 		c.Config.Logger.InfoWithContextf(ctx, "Finished operation %T %+v", op, op)
 	}
+	return applyAutoscalingPolicyDiff(c, ctx, desired, rawDesired, ops, opts...)
+}
 
+func applyAutoscalingPolicyDiff(c *Client, ctx context.Context, desired *AutoscalingPolicy, rawDesired *AutoscalingPolicy, ops []autoscalingPolicyApiOperation, opts ...dcl.ApplyOption) (*AutoscalingPolicy, error) {
 	// 3.1, 3.2a Retrieval of raw new state & canonicalization with desired state
 	c.Config.Logger.InfoWithContext(ctx, "Retrieving raw new state...")
 	rawNew, err := c.GetAutoscalingPolicy(ctx, desired.urlNormalized())
@@ -537,7 +543,7 @@ func applyAutoscalingPolicyHelper(c *Client, ctx context.Context, rawDesired *Au
 	// 3.2b Canonicalization of raw new state using raw desired state
 	newState, err := canonicalizeAutoscalingPolicyNewState(c, rawNew, rawDesired)
 	if err != nil {
-		return nil, err
+		return rawNew, err
 	}
 
 	c.Config.Logger.InfoWithContextf(ctx, "Created canonical new state: %v", newState)
@@ -545,12 +551,22 @@ func applyAutoscalingPolicyHelper(c *Client, ctx context.Context, rawDesired *Au
 	// TODO(magic-modules-eng): EVENTUALLY_CONSISTENT_UPDATE
 	newDesired, err := canonicalizeAutoscalingPolicyDesiredState(rawDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
+
+	if err := postReadExtractAutoscalingPolicyFields(newState); err != nil {
+		return newState, err
+	}
+
+	// Need to ensure any transformations made here match acceptably in differ.
+	if err := postReadExtractAutoscalingPolicyFields(newDesired); err != nil {
+		return newState, err
+	}
+
 	c.Config.Logger.InfoWithContextf(ctx, "Diffing using canonicalized desired state: %v", newDesired)
 	newDiffs, err := diffAutoscalingPolicy(c, newDesired, newState)
 	if err != nil {
-		return nil, err
+		return newState, err
 	}
 
 	if len(newDiffs) == 0 {

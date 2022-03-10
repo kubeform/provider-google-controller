@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 info:
   title: Compute/UrlMap
-  description: DCL Specification for the Compute UrlMap resource
+  description: The Compute UrlMap resource
+  x-dcl-struct-name: UrlMap
   x-dcl-has-iam: false
 paths:
   get:
@@ -59,6 +60,7 @@ paths:
 components:
   schemas:
     DefaultRouteAction:
+      x-dcl-has-iam: false
       type: object
       x-dcl-go-name: DefaultRouteAction
       x-dcl-go-type: UrlMapDefaultRouteAction
@@ -374,6 +376,7 @@ components:
 
                   The value must be between 0 and 1000
     HeaderAction:
+      x-dcl-has-iam: false
       type: object
       x-dcl-go-name: HeaderAction
       x-dcl-go-type: UrlMapHeaderAction
@@ -472,6 +475,7 @@ components:
       - region
       - global
       x-dcl-parent-container: project
+      x-dcl-has-iam: false
       type: object
       properties:
         defaultRouteAction:

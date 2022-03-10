@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -231,8 +231,10 @@ type instanceGroupManagerApiOperation interface {
 // fields based on the intended state of the resource.
 func newUpdateInstanceGroupManagerPatchRequest(ctx context.Context, f *InstanceGroupManager, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
-	if v, err := expandInstanceGroupManagerDistributionPolicy(c, f.DistributionPolicy); err != nil {
+	if v, err := expandInstanceGroupManagerDistributionPolicy(c, f.DistributionPolicy, res); err != nil {
 		return nil, fmt.Errorf("error expanding DistributionPolicy into distributionPolicy: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["distributionPolicy"] = v
@@ -240,7 +242,7 @@ func newUpdateInstanceGroupManagerPatchRequest(ctx context.Context, f *InstanceG
 	if v := f.InstanceTemplate; !dcl.IsEmptyValueIndirect(v) {
 		req["instanceTemplate"] = v
 	}
-	if v, err := expandInstanceGroupManagerVersionsSlice(c, f.Versions); err != nil {
+	if v, err := expandInstanceGroupManagerVersionsSlice(c, f.Versions, res); err != nil {
 		return nil, fmt.Errorf("error expanding Versions into versions: %w", err)
 	} else if v != nil {
 		req["versions"] = v
@@ -251,7 +253,7 @@ func newUpdateInstanceGroupManagerPatchRequest(ctx context.Context, f *InstanceG
 	if v := f.BaseInstanceName; !dcl.IsEmptyValueIndirect(v) {
 		req["baseInstanceName"] = v
 	}
-	if v, err := expandInstanceGroupManagerStatus(c, f.Status); err != nil {
+	if v, err := expandInstanceGroupManagerStatus(c, f.Status, res); err != nil {
 		return nil, fmt.Errorf("error expanding Status into status: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["status"] = v
@@ -259,17 +261,17 @@ func newUpdateInstanceGroupManagerPatchRequest(ctx context.Context, f *InstanceG
 	if v := f.TargetSize; !dcl.IsEmptyValueIndirect(v) {
 		req["targetSize"] = v
 	}
-	if v, err := expandInstanceGroupManagerAutoHealingPoliciesSlice(c, f.AutoHealingPolicies); err != nil {
+	if v, err := expandInstanceGroupManagerAutoHealingPoliciesSlice(c, f.AutoHealingPolicies, res); err != nil {
 		return nil, fmt.Errorf("error expanding AutoHealingPolicies into autoHealingPolicies: %w", err)
 	} else if v != nil {
 		req["autoHealingPolicies"] = v
 	}
-	if v, err := expandInstanceGroupManagerUpdatePolicy(c, f.UpdatePolicy); err != nil {
+	if v, err := expandInstanceGroupManagerUpdatePolicy(c, f.UpdatePolicy, res); err != nil {
 		return nil, fmt.Errorf("error expanding UpdatePolicy into updatePolicy: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["updatePolicy"] = v
 	}
-	if v, err := expandInstanceGroupManagerStatefulPolicy(c, f.StatefulPolicy); err != nil {
+	if v, err := expandInstanceGroupManagerStatefulPolicy(c, f.StatefulPolicy, res); err != nil {
 		return nil, fmt.Errorf("error expanding StatefulPolicy into statefulPolicy: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		req["statefulPolicy"] = v
@@ -357,6 +359,8 @@ func (op *updateInstanceGroupManagerPatchOperation) do(ctx context.Context, r *I
 // fields based on the intended state of the resource.
 func newUpdateInstanceGroupManagerSetInstanceTemplateRequest(ctx context.Context, f *InstanceGroupManager, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	return req, nil
 }
@@ -424,6 +428,8 @@ func (op *updateInstanceGroupManagerSetInstanceTemplateOperation) do(ctx context
 // fields based on the intended state of the resource.
 func newUpdateInstanceGroupManagerSetTargetPoolsRequest(ctx context.Context, f *InstanceGroupManager, c *Client) (map[string]interface{}, error) {
 	req := map[string]interface{}{}
+	res := f
+	_ = res
 
 	return req, nil
 }
@@ -707,6 +713,11 @@ func (c *Client) instanceGroupManagerDiffsForRawDesired(ctx context.Context, raw
 	c.Config.Logger.InfoWithContextf(ctx, "Found initial state for InstanceGroupManager: %v", rawInitial)
 	c.Config.Logger.InfoWithContextf(ctx, "Initial desired state for InstanceGroupManager: %v", rawDesired)
 
+	// The Get call applies postReadExtract and so the result may contain fields that are not part of API version.
+	if err := extractInstanceGroupManagerFields(rawInitial); err != nil {
+		return nil, nil, nil, err
+	}
+
 	// 1.3: Canonicalize raw initial state into initial state.
 	initial, err = canonicalizeInstanceGroupManagerInitialState(rawInitial, rawDesired)
 	if err != nil {
@@ -769,7 +780,7 @@ func canonicalizeInstanceGroupManagerDesiredState(rawDesired, rawInitial *Instan
 		canonicalDesired.InstanceTemplate = rawDesired.InstanceTemplate
 	}
 	canonicalDesired.Versions = canonicalizeInstanceGroupManagerVersionsSlice(rawDesired.Versions, rawInitial.Versions, opts...)
-	if dcl.IsZeroValue(rawDesired.TargetPools) {
+	if dcl.StringArrayCanonicalize(rawDesired.TargetPools, rawInitial.TargetPools) {
 		canonicalDesired.TargetPools = rawInitial.TargetPools
 	} else {
 		canonicalDesired.TargetPools = rawDesired.TargetPools
@@ -779,7 +790,8 @@ func canonicalizeInstanceGroupManagerDesiredState(rawDesired, rawInitial *Instan
 	} else {
 		canonicalDesired.BaseInstanceName = rawDesired.BaseInstanceName
 	}
-	if dcl.IsZeroValue(rawDesired.TargetSize) {
+	if dcl.IsZeroValue(rawDesired.TargetSize) || (dcl.IsEmptyValueIndirect(rawDesired.TargetSize) && dcl.IsEmptyValueIndirect(rawInitial.TargetSize)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
 		canonicalDesired.TargetSize = rawInitial.TargetSize
 	} else {
 		canonicalDesired.TargetSize = rawDesired.TargetSize
@@ -880,6 +892,9 @@ func canonicalizeInstanceGroupManagerNewState(c *Client, rawNew, rawDesired *Ins
 	if dcl.IsNotReturnedByServer(rawNew.TargetPools) && dcl.IsNotReturnedByServer(rawDesired.TargetPools) {
 		rawNew.TargetPools = rawDesired.TargetPools
 	} else {
+		if dcl.StringArrayCanonicalize(rawDesired.TargetPools, rawNew.TargetPools) {
+			rawNew.TargetPools = rawDesired.TargetPools
+		}
 	}
 
 	if dcl.IsNotReturnedByServer(rawNew.BaseInstanceName) && dcl.IsNotReturnedByServer(rawDesired.BaseInstanceName) {
@@ -969,8 +984,9 @@ func canonicalizeInstanceGroupManagerDistributionPolicy(des, initial *InstanceGr
 	cDes := &InstanceGroupManagerDistributionPolicy{}
 
 	cDes.Zones = canonicalizeInstanceGroupManagerDistributionPolicyZonesSlice(des.Zones, initial.Zones, opts...)
-	if dcl.IsZeroValue(des.TargetShape) {
-		des.TargetShape = initial.TargetShape
+	if dcl.IsZeroValue(des.TargetShape) || (dcl.IsEmptyValueIndirect(des.TargetShape) && dcl.IsEmptyValueIndirect(initial.TargetShape)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.TargetShape = initial.TargetShape
 	} else {
 		cDes.TargetShape = des.TargetShape
 	}
@@ -979,7 +995,7 @@ func canonicalizeInstanceGroupManagerDistributionPolicy(des, initial *InstanceGr
 }
 
 func canonicalizeInstanceGroupManagerDistributionPolicySlice(des, initial []InstanceGroupManagerDistributionPolicy, opts ...dcl.ApplyOption) []InstanceGroupManagerDistributionPolicy {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1322,13 +1338,15 @@ func canonicalizeInstanceGroupManagerFixedOrPercent(des, initial *InstanceGroupM
 
 	cDes := &InstanceGroupManagerFixedOrPercent{}
 
-	if dcl.IsZeroValue(des.Fixed) {
-		des.Fixed = initial.Fixed
+	if dcl.IsZeroValue(des.Fixed) || (dcl.IsEmptyValueIndirect(des.Fixed) && dcl.IsEmptyValueIndirect(initial.Fixed)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Fixed = initial.Fixed
 	} else {
 		cDes.Fixed = des.Fixed
 	}
-	if dcl.IsZeroValue(des.Percent) {
-		des.Percent = initial.Percent
+	if dcl.IsZeroValue(des.Percent) || (dcl.IsEmptyValueIndirect(des.Percent) && dcl.IsEmptyValueIndirect(initial.Percent)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Percent = initial.Percent
 	} else {
 		cDes.Percent = des.Percent
 	}
@@ -1337,7 +1355,7 @@ func canonicalizeInstanceGroupManagerFixedOrPercent(des, initial *InstanceGroupM
 }
 
 func canonicalizeInstanceGroupManagerFixedOrPercentSlice(des, initial []InstanceGroupManagerFixedOrPercent, opts ...dcl.ApplyOption) []InstanceGroupManagerFixedOrPercent {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1442,7 +1460,7 @@ func canonicalizeInstanceGroupManagerCurrentActions(des, initial *InstanceGroupM
 }
 
 func canonicalizeInstanceGroupManagerCurrentActionsSlice(des, initial []InstanceGroupManagerCurrentActions, opts ...dcl.ApplyOption) []InstanceGroupManagerCurrentActions {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1547,7 +1565,7 @@ func canonicalizeInstanceGroupManagerStatus(des, initial *InstanceGroupManagerSt
 }
 
 func canonicalizeInstanceGroupManagerStatusSlice(des, initial []InstanceGroupManagerStatus, opts ...dcl.ApplyOption) []InstanceGroupManagerStatus {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1661,7 +1679,7 @@ func canonicalizeInstanceGroupManagerStatusVersionTarget(des, initial *InstanceG
 }
 
 func canonicalizeInstanceGroupManagerStatusVersionTargetSlice(des, initial []InstanceGroupManagerStatusVersionTarget, opts ...dcl.ApplyOption) []InstanceGroupManagerStatusVersionTarget {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1770,7 +1788,7 @@ func canonicalizeInstanceGroupManagerStatusStateful(des, initial *InstanceGroupM
 }
 
 func canonicalizeInstanceGroupManagerStatusStatefulSlice(des, initial []InstanceGroupManagerStatusStateful, opts ...dcl.ApplyOption) []InstanceGroupManagerStatusStateful {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1886,7 +1904,7 @@ func canonicalizeInstanceGroupManagerStatusStatefulPerInstanceConfigs(des, initi
 }
 
 func canonicalizeInstanceGroupManagerStatusStatefulPerInstanceConfigsSlice(des, initial []InstanceGroupManagerStatusStatefulPerInstanceConfigs, opts ...dcl.ApplyOption) []InstanceGroupManagerStatusStatefulPerInstanceConfigs {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -1996,8 +2014,9 @@ func canonicalizeInstanceGroupManagerAutoHealingPolicies(des, initial *InstanceG
 	} else {
 		cDes.HealthCheck = des.HealthCheck
 	}
-	if dcl.IsZeroValue(des.InitialDelaySec) {
-		des.InitialDelaySec = initial.InitialDelaySec
+	if dcl.IsZeroValue(des.InitialDelaySec) || (dcl.IsEmptyValueIndirect(des.InitialDelaySec) && dcl.IsEmptyValueIndirect(initial.InitialDelaySec)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.InitialDelaySec = initial.InitialDelaySec
 	} else {
 		cDes.InitialDelaySec = des.InitialDelaySec
 	}
@@ -2111,25 +2130,29 @@ func canonicalizeInstanceGroupManagerUpdatePolicy(des, initial *InstanceGroupMan
 
 	cDes := &InstanceGroupManagerUpdatePolicy{}
 
-	if dcl.IsZeroValue(des.Type) {
-		des.Type = initial.Type
+	if dcl.IsZeroValue(des.Type) || (dcl.IsEmptyValueIndirect(des.Type) && dcl.IsEmptyValueIndirect(initial.Type)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Type = initial.Type
 	} else {
 		cDes.Type = des.Type
 	}
-	if dcl.IsZeroValue(des.InstanceRedistributionType) {
-		des.InstanceRedistributionType = initial.InstanceRedistributionType
+	if dcl.IsZeroValue(des.InstanceRedistributionType) || (dcl.IsEmptyValueIndirect(des.InstanceRedistributionType) && dcl.IsEmptyValueIndirect(initial.InstanceRedistributionType)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.InstanceRedistributionType = initial.InstanceRedistributionType
 	} else {
 		cDes.InstanceRedistributionType = des.InstanceRedistributionType
 	}
-	if dcl.IsZeroValue(des.MinimalAction) {
-		des.MinimalAction = initial.MinimalAction
+	if dcl.IsZeroValue(des.MinimalAction) || (dcl.IsEmptyValueIndirect(des.MinimalAction) && dcl.IsEmptyValueIndirect(initial.MinimalAction)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.MinimalAction = initial.MinimalAction
 	} else {
 		cDes.MinimalAction = des.MinimalAction
 	}
 	cDes.MaxSurge = canonicalizeInstanceGroupManagerFixedOrPercent(des.MaxSurge, initial.MaxSurge, opts...)
 	cDes.MaxUnavailable = canonicalizeInstanceGroupManagerFixedOrPercent(des.MaxUnavailable, initial.MaxUnavailable, opts...)
-	if dcl.IsZeroValue(des.ReplacementMethod) {
-		des.ReplacementMethod = initial.ReplacementMethod
+	if dcl.IsZeroValue(des.ReplacementMethod) || (dcl.IsEmptyValueIndirect(des.ReplacementMethod) && dcl.IsEmptyValueIndirect(initial.ReplacementMethod)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.ReplacementMethod = initial.ReplacementMethod
 	} else {
 		cDes.ReplacementMethod = des.ReplacementMethod
 	}
@@ -2138,7 +2161,7 @@ func canonicalizeInstanceGroupManagerUpdatePolicy(des, initial *InstanceGroupMan
 }
 
 func canonicalizeInstanceGroupManagerUpdatePolicySlice(des, initial []InstanceGroupManagerUpdatePolicy, opts ...dcl.ApplyOption) []InstanceGroupManagerUpdatePolicy {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -2247,8 +2270,9 @@ func canonicalizeInstanceGroupManagerNamedPorts(des, initial *InstanceGroupManag
 	} else {
 		cDes.Name = des.Name
 	}
-	if dcl.IsZeroValue(des.Port) {
-		des.Port = initial.Port
+	if dcl.IsZeroValue(des.Port) || (dcl.IsEmptyValueIndirect(des.Port) && dcl.IsEmptyValueIndirect(initial.Port)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Port = initial.Port
 	} else {
 		cDes.Port = des.Port
 	}
@@ -2368,7 +2392,7 @@ func canonicalizeInstanceGroupManagerStatefulPolicy(des, initial *InstanceGroupM
 }
 
 func canonicalizeInstanceGroupManagerStatefulPolicySlice(des, initial []InstanceGroupManagerStatefulPolicy, opts ...dcl.ApplyOption) []InstanceGroupManagerStatefulPolicy {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -2471,8 +2495,9 @@ func canonicalizeInstanceGroupManagerStatefulPolicyPreservedState(des, initial *
 
 	cDes := &InstanceGroupManagerStatefulPolicyPreservedState{}
 
-	if dcl.IsZeroValue(des.Disks) {
-		des.Disks = initial.Disks
+	if dcl.IsZeroValue(des.Disks) || (dcl.IsEmptyValueIndirect(des.Disks) && dcl.IsEmptyValueIndirect(initial.Disks)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.Disks = initial.Disks
 	} else {
 		cDes.Disks = des.Disks
 	}
@@ -2481,7 +2506,7 @@ func canonicalizeInstanceGroupManagerStatefulPolicyPreservedState(des, initial *
 }
 
 func canonicalizeInstanceGroupManagerStatefulPolicyPreservedStateSlice(des, initial []InstanceGroupManagerStatefulPolicyPreservedState, opts ...dcl.ApplyOption) []InstanceGroupManagerStatefulPolicyPreservedState {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -2582,8 +2607,9 @@ func canonicalizeInstanceGroupManagerStatefulPolicyPreservedStateDisks(des, init
 
 	cDes := &InstanceGroupManagerStatefulPolicyPreservedStateDisks{}
 
-	if dcl.IsZeroValue(des.AutoDelete) {
-		des.AutoDelete = initial.AutoDelete
+	if dcl.IsZeroValue(des.AutoDelete) || (dcl.IsEmptyValueIndirect(des.AutoDelete) && dcl.IsEmptyValueIndirect(initial.AutoDelete)) {
+		// Desired and initial values are equivalent, so set canonical desired value to initial value.
+		cDes.AutoDelete = initial.AutoDelete
 	} else {
 		cDes.AutoDelete = des.AutoDelete
 	}
@@ -2592,7 +2618,7 @@ func canonicalizeInstanceGroupManagerStatefulPolicyPreservedStateDisks(des, init
 }
 
 func canonicalizeInstanceGroupManagerStatefulPolicyPreservedStateDisksSlice(des, initial []InstanceGroupManagerStatefulPolicyPreservedStateDisks, opts ...dcl.ApplyOption) []InstanceGroupManagerStatefulPolicyPreservedStateDisks {
-	if des == nil {
+	if dcl.IsEmptyValueIndirect(des) {
 		return initial
 	}
 
@@ -2690,6 +2716,9 @@ func diffInstanceGroupManager(c *Client, desired, actual *InstanceGroupManager, 
 	if desired == nil || actual == nil {
 		return nil, fmt.Errorf("nil resource passed to diff - always a programming error: %#v, %#v", desired, actual)
 	}
+
+	c.Config.Logger.Infof("Diff function called with desired state: %v", desired)
+	c.Config.Logger.Infof("Diff function called with actual state: %v", actual)
 
 	var fn dcl.FieldName
 	var newDiffs []*dcl.FieldDiff
@@ -3570,60 +3599,64 @@ func unmarshalMapInstanceGroupManager(m map[string]interface{}, c *Client) (*Ins
 // expandInstanceGroupManager expands InstanceGroupManager into a JSON request object.
 func expandInstanceGroupManager(c *Client, f *InstanceGroupManager) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
-	if v := f.Name; !dcl.IsEmptyValueIndirect(v) {
+	res := f
+	_ = res
+	if v := f.Name; dcl.ValueShouldBeSent(v) {
 		m["name"] = v
 	}
-	if v := f.Description; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.Description; dcl.ValueShouldBeSent(v) {
 		m["description"] = v
 	}
-	if v, err := expandInstanceGroupManagerDistributionPolicy(c, f.DistributionPolicy); err != nil {
+	if v, err := expandInstanceGroupManagerDistributionPolicy(c, f.DistributionPolicy, res); err != nil {
 		return nil, fmt.Errorf("error expanding DistributionPolicy into distributionPolicy: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["distributionPolicy"] = v
 	}
-	if v := f.InstanceTemplate; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.InstanceTemplate; dcl.ValueShouldBeSent(v) {
 		m["instanceTemplate"] = v
 	}
-	if v, err := expandInstanceGroupManagerVersionsSlice(c, f.Versions); err != nil {
+	if v, err := expandInstanceGroupManagerVersionsSlice(c, f.Versions, res); err != nil {
 		return nil, fmt.Errorf("error expanding Versions into versions: %w", err)
-	} else {
+	} else if v != nil {
 		m["versions"] = v
 	}
-	m["targetPools"] = f.TargetPools
-	if v := f.BaseInstanceName; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.TargetPools; v != nil {
+		m["targetPools"] = v
+	}
+	if v := f.BaseInstanceName; dcl.ValueShouldBeSent(v) {
 		m["baseInstanceName"] = v
 	}
-	if v := f.TargetSize; !dcl.IsEmptyValueIndirect(v) {
+	if v := f.TargetSize; dcl.ValueShouldBeSent(v) {
 		m["targetSize"] = v
 	}
-	if v, err := expandInstanceGroupManagerAutoHealingPoliciesSlice(c, f.AutoHealingPolicies); err != nil {
+	if v, err := expandInstanceGroupManagerAutoHealingPoliciesSlice(c, f.AutoHealingPolicies, res); err != nil {
 		return nil, fmt.Errorf("error expanding AutoHealingPolicies into autoHealingPolicies: %w", err)
-	} else {
+	} else if v != nil {
 		m["autoHealingPolicies"] = v
 	}
-	if v, err := expandInstanceGroupManagerUpdatePolicy(c, f.UpdatePolicy); err != nil {
+	if v, err := expandInstanceGroupManagerUpdatePolicy(c, f.UpdatePolicy, res); err != nil {
 		return nil, fmt.Errorf("error expanding UpdatePolicy into updatePolicy: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["updatePolicy"] = v
 	}
-	if v, err := expandInstanceGroupManagerNamedPortsSlice(c, f.NamedPorts); err != nil {
+	if v, err := expandInstanceGroupManagerNamedPortsSlice(c, f.NamedPorts, res); err != nil {
 		return nil, fmt.Errorf("error expanding NamedPorts into namedPorts: %w", err)
-	} else {
+	} else if v != nil {
 		m["namedPorts"] = v
 	}
-	if v, err := expandInstanceGroupManagerStatefulPolicy(c, f.StatefulPolicy); err != nil {
+	if v, err := expandInstanceGroupManagerStatefulPolicy(c, f.StatefulPolicy, res); err != nil {
 		return nil, fmt.Errorf("error expanding StatefulPolicy into statefulPolicy: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["statefulPolicy"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Project into project: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["project"] = v
 	}
 	if v, err := dcl.EmptyValue(); err != nil {
 		return nil, fmt.Errorf("error expanding Location into location: %w", err)
-	} else if v != nil {
+	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["location"] = v
 	}
 
@@ -3671,14 +3704,14 @@ func flattenInstanceGroupManager(c *Client, i interface{}) *InstanceGroupManager
 
 // expandInstanceGroupManagerDistributionPolicyMap expands the contents of InstanceGroupManagerDistributionPolicy into a JSON
 // request object.
-func expandInstanceGroupManagerDistributionPolicyMap(c *Client, f map[string]InstanceGroupManagerDistributionPolicy) (map[string]interface{}, error) {
+func expandInstanceGroupManagerDistributionPolicyMap(c *Client, f map[string]InstanceGroupManagerDistributionPolicy, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerDistributionPolicy(c, &item)
+		i, err := expandInstanceGroupManagerDistributionPolicy(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -3692,14 +3725,14 @@ func expandInstanceGroupManagerDistributionPolicyMap(c *Client, f map[string]Ins
 
 // expandInstanceGroupManagerDistributionPolicySlice expands the contents of InstanceGroupManagerDistributionPolicy into a JSON
 // request object.
-func expandInstanceGroupManagerDistributionPolicySlice(c *Client, f []InstanceGroupManagerDistributionPolicy) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerDistributionPolicySlice(c *Client, f []InstanceGroupManagerDistributionPolicy, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerDistributionPolicy(c, &item)
+		i, err := expandInstanceGroupManagerDistributionPolicy(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -3752,15 +3785,15 @@ func flattenInstanceGroupManagerDistributionPolicySlice(c *Client, i interface{}
 
 // expandInstanceGroupManagerDistributionPolicy expands an instance of InstanceGroupManagerDistributionPolicy into a JSON
 // request object.
-func expandInstanceGroupManagerDistributionPolicy(c *Client, f *InstanceGroupManagerDistributionPolicy) (map[string]interface{}, error) {
+func expandInstanceGroupManagerDistributionPolicy(c *Client, f *InstanceGroupManagerDistributionPolicy, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v, err := expandInstanceGroupManagerDistributionPolicyZonesSlice(c, f.Zones); err != nil {
+	if v, err := expandInstanceGroupManagerDistributionPolicyZonesSlice(c, f.Zones, res); err != nil {
 		return nil, fmt.Errorf("error expanding Zones into zones: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
+	} else if v != nil {
 		m["zones"] = v
 	}
 	if v := f.TargetShape; !dcl.IsEmptyValueIndirect(v) {
@@ -3791,14 +3824,14 @@ func flattenInstanceGroupManagerDistributionPolicy(c *Client, i interface{}) *In
 
 // expandInstanceGroupManagerDistributionPolicyZonesMap expands the contents of InstanceGroupManagerDistributionPolicyZones into a JSON
 // request object.
-func expandInstanceGroupManagerDistributionPolicyZonesMap(c *Client, f map[string]InstanceGroupManagerDistributionPolicyZones) (map[string]interface{}, error) {
+func expandInstanceGroupManagerDistributionPolicyZonesMap(c *Client, f map[string]InstanceGroupManagerDistributionPolicyZones, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerDistributionPolicyZones(c, &item)
+		i, err := expandInstanceGroupManagerDistributionPolicyZones(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -3812,14 +3845,14 @@ func expandInstanceGroupManagerDistributionPolicyZonesMap(c *Client, f map[strin
 
 // expandInstanceGroupManagerDistributionPolicyZonesSlice expands the contents of InstanceGroupManagerDistributionPolicyZones into a JSON
 // request object.
-func expandInstanceGroupManagerDistributionPolicyZonesSlice(c *Client, f []InstanceGroupManagerDistributionPolicyZones) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerDistributionPolicyZonesSlice(c *Client, f []InstanceGroupManagerDistributionPolicyZones, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerDistributionPolicyZones(c, &item)
+		i, err := expandInstanceGroupManagerDistributionPolicyZones(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -3872,8 +3905,8 @@ func flattenInstanceGroupManagerDistributionPolicyZonesSlice(c *Client, i interf
 
 // expandInstanceGroupManagerDistributionPolicyZones expands an instance of InstanceGroupManagerDistributionPolicyZones into a JSON
 // request object.
-func expandInstanceGroupManagerDistributionPolicyZones(c *Client, f *InstanceGroupManagerDistributionPolicyZones) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandInstanceGroupManagerDistributionPolicyZones(c *Client, f *InstanceGroupManagerDistributionPolicyZones, res *InstanceGroupManager) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -3905,14 +3938,14 @@ func flattenInstanceGroupManagerDistributionPolicyZones(c *Client, i interface{}
 
 // expandInstanceGroupManagerVersionsMap expands the contents of InstanceGroupManagerVersions into a JSON
 // request object.
-func expandInstanceGroupManagerVersionsMap(c *Client, f map[string]InstanceGroupManagerVersions) (map[string]interface{}, error) {
+func expandInstanceGroupManagerVersionsMap(c *Client, f map[string]InstanceGroupManagerVersions, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerVersions(c, &item)
+		i, err := expandInstanceGroupManagerVersions(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -3926,14 +3959,14 @@ func expandInstanceGroupManagerVersionsMap(c *Client, f map[string]InstanceGroup
 
 // expandInstanceGroupManagerVersionsSlice expands the contents of InstanceGroupManagerVersions into a JSON
 // request object.
-func expandInstanceGroupManagerVersionsSlice(c *Client, f []InstanceGroupManagerVersions) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerVersionsSlice(c *Client, f []InstanceGroupManagerVersions, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerVersions(c, &item)
+		i, err := expandInstanceGroupManagerVersions(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -3986,8 +4019,8 @@ func flattenInstanceGroupManagerVersionsSlice(c *Client, i interface{}) []Instan
 
 // expandInstanceGroupManagerVersions expands an instance of InstanceGroupManagerVersions into a JSON
 // request object.
-func expandInstanceGroupManagerVersions(c *Client, f *InstanceGroupManagerVersions) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandInstanceGroupManagerVersions(c *Client, f *InstanceGroupManagerVersions, res *InstanceGroupManager) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -3998,7 +4031,7 @@ func expandInstanceGroupManagerVersions(c *Client, f *InstanceGroupManagerVersio
 	if v := f.InstanceTemplate; !dcl.IsEmptyValueIndirect(v) {
 		m["instanceTemplate"] = v
 	}
-	if v, err := expandInstanceGroupManagerFixedOrPercent(c, f.TargetSize); err != nil {
+	if v, err := expandInstanceGroupManagerFixedOrPercent(c, f.TargetSize, res); err != nil {
 		return nil, fmt.Errorf("error expanding TargetSize into targetSize: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["targetSize"] = v
@@ -4029,14 +4062,14 @@ func flattenInstanceGroupManagerVersions(c *Client, i interface{}) *InstanceGrou
 
 // expandInstanceGroupManagerFixedOrPercentMap expands the contents of InstanceGroupManagerFixedOrPercent into a JSON
 // request object.
-func expandInstanceGroupManagerFixedOrPercentMap(c *Client, f map[string]InstanceGroupManagerFixedOrPercent) (map[string]interface{}, error) {
+func expandInstanceGroupManagerFixedOrPercentMap(c *Client, f map[string]InstanceGroupManagerFixedOrPercent, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerFixedOrPercent(c, &item)
+		i, err := expandInstanceGroupManagerFixedOrPercent(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4050,14 +4083,14 @@ func expandInstanceGroupManagerFixedOrPercentMap(c *Client, f map[string]Instanc
 
 // expandInstanceGroupManagerFixedOrPercentSlice expands the contents of InstanceGroupManagerFixedOrPercent into a JSON
 // request object.
-func expandInstanceGroupManagerFixedOrPercentSlice(c *Client, f []InstanceGroupManagerFixedOrPercent) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerFixedOrPercentSlice(c *Client, f []InstanceGroupManagerFixedOrPercent, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerFixedOrPercent(c, &item)
+		i, err := expandInstanceGroupManagerFixedOrPercent(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4110,7 +4143,7 @@ func flattenInstanceGroupManagerFixedOrPercentSlice(c *Client, i interface{}) []
 
 // expandInstanceGroupManagerFixedOrPercent expands an instance of InstanceGroupManagerFixedOrPercent into a JSON
 // request object.
-func expandInstanceGroupManagerFixedOrPercent(c *Client, f *InstanceGroupManagerFixedOrPercent) (map[string]interface{}, error) {
+func expandInstanceGroupManagerFixedOrPercent(c *Client, f *InstanceGroupManagerFixedOrPercent, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4148,14 +4181,14 @@ func flattenInstanceGroupManagerFixedOrPercent(c *Client, i interface{}) *Instan
 
 // expandInstanceGroupManagerCurrentActionsMap expands the contents of InstanceGroupManagerCurrentActions into a JSON
 // request object.
-func expandInstanceGroupManagerCurrentActionsMap(c *Client, f map[string]InstanceGroupManagerCurrentActions) (map[string]interface{}, error) {
+func expandInstanceGroupManagerCurrentActionsMap(c *Client, f map[string]InstanceGroupManagerCurrentActions, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerCurrentActions(c, &item)
+		i, err := expandInstanceGroupManagerCurrentActions(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4169,14 +4202,14 @@ func expandInstanceGroupManagerCurrentActionsMap(c *Client, f map[string]Instanc
 
 // expandInstanceGroupManagerCurrentActionsSlice expands the contents of InstanceGroupManagerCurrentActions into a JSON
 // request object.
-func expandInstanceGroupManagerCurrentActionsSlice(c *Client, f []InstanceGroupManagerCurrentActions) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerCurrentActionsSlice(c *Client, f []InstanceGroupManagerCurrentActions, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerCurrentActions(c, &item)
+		i, err := expandInstanceGroupManagerCurrentActions(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4229,7 +4262,7 @@ func flattenInstanceGroupManagerCurrentActionsSlice(c *Client, i interface{}) []
 
 // expandInstanceGroupManagerCurrentActions expands an instance of InstanceGroupManagerCurrentActions into a JSON
 // request object.
-func expandInstanceGroupManagerCurrentActions(c *Client, f *InstanceGroupManagerCurrentActions) (map[string]interface{}, error) {
+func expandInstanceGroupManagerCurrentActions(c *Client, f *InstanceGroupManagerCurrentActions, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4267,14 +4300,14 @@ func flattenInstanceGroupManagerCurrentActions(c *Client, i interface{}) *Instan
 
 // expandInstanceGroupManagerStatusMap expands the contents of InstanceGroupManagerStatus into a JSON
 // request object.
-func expandInstanceGroupManagerStatusMap(c *Client, f map[string]InstanceGroupManagerStatus) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusMap(c *Client, f map[string]InstanceGroupManagerStatus, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatus(c, &item)
+		i, err := expandInstanceGroupManagerStatus(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4288,14 +4321,14 @@ func expandInstanceGroupManagerStatusMap(c *Client, f map[string]InstanceGroupMa
 
 // expandInstanceGroupManagerStatusSlice expands the contents of InstanceGroupManagerStatus into a JSON
 // request object.
-func expandInstanceGroupManagerStatusSlice(c *Client, f []InstanceGroupManagerStatus) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusSlice(c *Client, f []InstanceGroupManagerStatus, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatus(c, &item)
+		i, err := expandInstanceGroupManagerStatus(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4348,7 +4381,7 @@ func flattenInstanceGroupManagerStatusSlice(c *Client, i interface{}) []Instance
 
 // expandInstanceGroupManagerStatus expands an instance of InstanceGroupManagerStatus into a JSON
 // request object.
-func expandInstanceGroupManagerStatus(c *Client, f *InstanceGroupManagerStatus) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatus(c *Client, f *InstanceGroupManagerStatus, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4381,14 +4414,14 @@ func flattenInstanceGroupManagerStatus(c *Client, i interface{}) *InstanceGroupM
 
 // expandInstanceGroupManagerStatusVersionTargetMap expands the contents of InstanceGroupManagerStatusVersionTarget into a JSON
 // request object.
-func expandInstanceGroupManagerStatusVersionTargetMap(c *Client, f map[string]InstanceGroupManagerStatusVersionTarget) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusVersionTargetMap(c *Client, f map[string]InstanceGroupManagerStatusVersionTarget, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatusVersionTarget(c, &item)
+		i, err := expandInstanceGroupManagerStatusVersionTarget(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4402,14 +4435,14 @@ func expandInstanceGroupManagerStatusVersionTargetMap(c *Client, f map[string]In
 
 // expandInstanceGroupManagerStatusVersionTargetSlice expands the contents of InstanceGroupManagerStatusVersionTarget into a JSON
 // request object.
-func expandInstanceGroupManagerStatusVersionTargetSlice(c *Client, f []InstanceGroupManagerStatusVersionTarget) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusVersionTargetSlice(c *Client, f []InstanceGroupManagerStatusVersionTarget, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatusVersionTarget(c, &item)
+		i, err := expandInstanceGroupManagerStatusVersionTarget(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4462,7 +4495,7 @@ func flattenInstanceGroupManagerStatusVersionTargetSlice(c *Client, i interface{
 
 // expandInstanceGroupManagerStatusVersionTarget expands an instance of InstanceGroupManagerStatusVersionTarget into a JSON
 // request object.
-func expandInstanceGroupManagerStatusVersionTarget(c *Client, f *InstanceGroupManagerStatusVersionTarget) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusVersionTarget(c *Client, f *InstanceGroupManagerStatusVersionTarget, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4492,14 +4525,14 @@ func flattenInstanceGroupManagerStatusVersionTarget(c *Client, i interface{}) *I
 
 // expandInstanceGroupManagerStatusStatefulMap expands the contents of InstanceGroupManagerStatusStateful into a JSON
 // request object.
-func expandInstanceGroupManagerStatusStatefulMap(c *Client, f map[string]InstanceGroupManagerStatusStateful) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusStatefulMap(c *Client, f map[string]InstanceGroupManagerStatusStateful, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatusStateful(c, &item)
+		i, err := expandInstanceGroupManagerStatusStateful(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4513,14 +4546,14 @@ func expandInstanceGroupManagerStatusStatefulMap(c *Client, f map[string]Instanc
 
 // expandInstanceGroupManagerStatusStatefulSlice expands the contents of InstanceGroupManagerStatusStateful into a JSON
 // request object.
-func expandInstanceGroupManagerStatusStatefulSlice(c *Client, f []InstanceGroupManagerStatusStateful) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusStatefulSlice(c *Client, f []InstanceGroupManagerStatusStateful, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatusStateful(c, &item)
+		i, err := expandInstanceGroupManagerStatusStateful(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4573,7 +4606,7 @@ func flattenInstanceGroupManagerStatusStatefulSlice(c *Client, i interface{}) []
 
 // expandInstanceGroupManagerStatusStateful expands an instance of InstanceGroupManagerStatusStateful into a JSON
 // request object.
-func expandInstanceGroupManagerStatusStateful(c *Client, f *InstanceGroupManagerStatusStateful) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusStateful(c *Client, f *InstanceGroupManagerStatusStateful, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4604,14 +4637,14 @@ func flattenInstanceGroupManagerStatusStateful(c *Client, i interface{}) *Instan
 
 // expandInstanceGroupManagerStatusStatefulPerInstanceConfigsMap expands the contents of InstanceGroupManagerStatusStatefulPerInstanceConfigs into a JSON
 // request object.
-func expandInstanceGroupManagerStatusStatefulPerInstanceConfigsMap(c *Client, f map[string]InstanceGroupManagerStatusStatefulPerInstanceConfigs) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusStatefulPerInstanceConfigsMap(c *Client, f map[string]InstanceGroupManagerStatusStatefulPerInstanceConfigs, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatusStatefulPerInstanceConfigs(c, &item)
+		i, err := expandInstanceGroupManagerStatusStatefulPerInstanceConfigs(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4625,14 +4658,14 @@ func expandInstanceGroupManagerStatusStatefulPerInstanceConfigsMap(c *Client, f 
 
 // expandInstanceGroupManagerStatusStatefulPerInstanceConfigsSlice expands the contents of InstanceGroupManagerStatusStatefulPerInstanceConfigs into a JSON
 // request object.
-func expandInstanceGroupManagerStatusStatefulPerInstanceConfigsSlice(c *Client, f []InstanceGroupManagerStatusStatefulPerInstanceConfigs) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusStatefulPerInstanceConfigsSlice(c *Client, f []InstanceGroupManagerStatusStatefulPerInstanceConfigs, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatusStatefulPerInstanceConfigs(c, &item)
+		i, err := expandInstanceGroupManagerStatusStatefulPerInstanceConfigs(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4685,7 +4718,7 @@ func flattenInstanceGroupManagerStatusStatefulPerInstanceConfigsSlice(c *Client,
 
 // expandInstanceGroupManagerStatusStatefulPerInstanceConfigs expands an instance of InstanceGroupManagerStatusStatefulPerInstanceConfigs into a JSON
 // request object.
-func expandInstanceGroupManagerStatusStatefulPerInstanceConfigs(c *Client, f *InstanceGroupManagerStatusStatefulPerInstanceConfigs) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatusStatefulPerInstanceConfigs(c *Client, f *InstanceGroupManagerStatusStatefulPerInstanceConfigs, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4718,14 +4751,14 @@ func flattenInstanceGroupManagerStatusStatefulPerInstanceConfigs(c *Client, i in
 
 // expandInstanceGroupManagerAutoHealingPoliciesMap expands the contents of InstanceGroupManagerAutoHealingPolicies into a JSON
 // request object.
-func expandInstanceGroupManagerAutoHealingPoliciesMap(c *Client, f map[string]InstanceGroupManagerAutoHealingPolicies) (map[string]interface{}, error) {
+func expandInstanceGroupManagerAutoHealingPoliciesMap(c *Client, f map[string]InstanceGroupManagerAutoHealingPolicies, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerAutoHealingPolicies(c, &item)
+		i, err := expandInstanceGroupManagerAutoHealingPolicies(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4739,14 +4772,14 @@ func expandInstanceGroupManagerAutoHealingPoliciesMap(c *Client, f map[string]In
 
 // expandInstanceGroupManagerAutoHealingPoliciesSlice expands the contents of InstanceGroupManagerAutoHealingPolicies into a JSON
 // request object.
-func expandInstanceGroupManagerAutoHealingPoliciesSlice(c *Client, f []InstanceGroupManagerAutoHealingPolicies) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerAutoHealingPoliciesSlice(c *Client, f []InstanceGroupManagerAutoHealingPolicies, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerAutoHealingPolicies(c, &item)
+		i, err := expandInstanceGroupManagerAutoHealingPolicies(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4799,8 +4832,8 @@ func flattenInstanceGroupManagerAutoHealingPoliciesSlice(c *Client, i interface{
 
 // expandInstanceGroupManagerAutoHealingPolicies expands an instance of InstanceGroupManagerAutoHealingPolicies into a JSON
 // request object.
-func expandInstanceGroupManagerAutoHealingPolicies(c *Client, f *InstanceGroupManagerAutoHealingPolicies) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandInstanceGroupManagerAutoHealingPolicies(c *Client, f *InstanceGroupManagerAutoHealingPolicies, res *InstanceGroupManager) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -4836,14 +4869,14 @@ func flattenInstanceGroupManagerAutoHealingPolicies(c *Client, i interface{}) *I
 
 // expandInstanceGroupManagerUpdatePolicyMap expands the contents of InstanceGroupManagerUpdatePolicy into a JSON
 // request object.
-func expandInstanceGroupManagerUpdatePolicyMap(c *Client, f map[string]InstanceGroupManagerUpdatePolicy) (map[string]interface{}, error) {
+func expandInstanceGroupManagerUpdatePolicyMap(c *Client, f map[string]InstanceGroupManagerUpdatePolicy, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerUpdatePolicy(c, &item)
+		i, err := expandInstanceGroupManagerUpdatePolicy(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4857,14 +4890,14 @@ func expandInstanceGroupManagerUpdatePolicyMap(c *Client, f map[string]InstanceG
 
 // expandInstanceGroupManagerUpdatePolicySlice expands the contents of InstanceGroupManagerUpdatePolicy into a JSON
 // request object.
-func expandInstanceGroupManagerUpdatePolicySlice(c *Client, f []InstanceGroupManagerUpdatePolicy) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerUpdatePolicySlice(c *Client, f []InstanceGroupManagerUpdatePolicy, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerUpdatePolicy(c, &item)
+		i, err := expandInstanceGroupManagerUpdatePolicy(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4917,7 +4950,7 @@ func flattenInstanceGroupManagerUpdatePolicySlice(c *Client, i interface{}) []In
 
 // expandInstanceGroupManagerUpdatePolicy expands an instance of InstanceGroupManagerUpdatePolicy into a JSON
 // request object.
-func expandInstanceGroupManagerUpdatePolicy(c *Client, f *InstanceGroupManagerUpdatePolicy) (map[string]interface{}, error) {
+func expandInstanceGroupManagerUpdatePolicy(c *Client, f *InstanceGroupManagerUpdatePolicy, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -4932,12 +4965,12 @@ func expandInstanceGroupManagerUpdatePolicy(c *Client, f *InstanceGroupManagerUp
 	if v := f.MinimalAction; !dcl.IsEmptyValueIndirect(v) {
 		m["minimalAction"] = v
 	}
-	if v, err := expandInstanceGroupManagerFixedOrPercent(c, f.MaxSurge); err != nil {
+	if v, err := expandInstanceGroupManagerFixedOrPercent(c, f.MaxSurge, res); err != nil {
 		return nil, fmt.Errorf("error expanding MaxSurge into maxSurge: %w", err)
-	} else if !dcl.IsEmptyValueIndirect(v) {
+	} else if v != nil {
 		m["maxSurge"] = v
 	}
-	if v, err := expandInstanceGroupManagerFixedOrPercent(c, f.MaxUnavailable); err != nil {
+	if v, err := expandInstanceGroupManagerFixedOrPercent(c, f.MaxUnavailable, res); err != nil {
 		return nil, fmt.Errorf("error expanding MaxUnavailable into maxUnavailable: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["maxUnavailable"] = v
@@ -4974,14 +5007,14 @@ func flattenInstanceGroupManagerUpdatePolicy(c *Client, i interface{}) *Instance
 
 // expandInstanceGroupManagerNamedPortsMap expands the contents of InstanceGroupManagerNamedPorts into a JSON
 // request object.
-func expandInstanceGroupManagerNamedPortsMap(c *Client, f map[string]InstanceGroupManagerNamedPorts) (map[string]interface{}, error) {
+func expandInstanceGroupManagerNamedPortsMap(c *Client, f map[string]InstanceGroupManagerNamedPorts, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerNamedPorts(c, &item)
+		i, err := expandInstanceGroupManagerNamedPorts(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -4995,14 +5028,14 @@ func expandInstanceGroupManagerNamedPortsMap(c *Client, f map[string]InstanceGro
 
 // expandInstanceGroupManagerNamedPortsSlice expands the contents of InstanceGroupManagerNamedPorts into a JSON
 // request object.
-func expandInstanceGroupManagerNamedPortsSlice(c *Client, f []InstanceGroupManagerNamedPorts) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerNamedPortsSlice(c *Client, f []InstanceGroupManagerNamedPorts, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerNamedPorts(c, &item)
+		i, err := expandInstanceGroupManagerNamedPorts(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5055,8 +5088,8 @@ func flattenInstanceGroupManagerNamedPortsSlice(c *Client, i interface{}) []Inst
 
 // expandInstanceGroupManagerNamedPorts expands an instance of InstanceGroupManagerNamedPorts into a JSON
 // request object.
-func expandInstanceGroupManagerNamedPorts(c *Client, f *InstanceGroupManagerNamedPorts) (map[string]interface{}, error) {
-	if dcl.IsEmptyValueIndirect(f) {
+func expandInstanceGroupManagerNamedPorts(c *Client, f *InstanceGroupManagerNamedPorts, res *InstanceGroupManager) (map[string]interface{}, error) {
+	if f == nil {
 		return nil, nil
 	}
 
@@ -5092,14 +5125,14 @@ func flattenInstanceGroupManagerNamedPorts(c *Client, i interface{}) *InstanceGr
 
 // expandInstanceGroupManagerStatefulPolicyMap expands the contents of InstanceGroupManagerStatefulPolicy into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyMap(c *Client, f map[string]InstanceGroupManagerStatefulPolicy) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyMap(c *Client, f map[string]InstanceGroupManagerStatefulPolicy, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatefulPolicy(c, &item)
+		i, err := expandInstanceGroupManagerStatefulPolicy(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5113,14 +5146,14 @@ func expandInstanceGroupManagerStatefulPolicyMap(c *Client, f map[string]Instanc
 
 // expandInstanceGroupManagerStatefulPolicySlice expands the contents of InstanceGroupManagerStatefulPolicy into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicySlice(c *Client, f []InstanceGroupManagerStatefulPolicy) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicySlice(c *Client, f []InstanceGroupManagerStatefulPolicy, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatefulPolicy(c, &item)
+		i, err := expandInstanceGroupManagerStatefulPolicy(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5173,13 +5206,13 @@ func flattenInstanceGroupManagerStatefulPolicySlice(c *Client, i interface{}) []
 
 // expandInstanceGroupManagerStatefulPolicy expands an instance of InstanceGroupManagerStatefulPolicy into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicy(c *Client, f *InstanceGroupManagerStatefulPolicy) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicy(c *Client, f *InstanceGroupManagerStatefulPolicy, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v, err := expandInstanceGroupManagerStatefulPolicyPreservedState(c, f.PreservedState); err != nil {
+	if v, err := expandInstanceGroupManagerStatefulPolicyPreservedState(c, f.PreservedState, res); err != nil {
 		return nil, fmt.Errorf("error expanding PreservedState into preservedState: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["preservedState"] = v
@@ -5208,14 +5241,14 @@ func flattenInstanceGroupManagerStatefulPolicy(c *Client, i interface{}) *Instan
 
 // expandInstanceGroupManagerStatefulPolicyPreservedStateMap expands the contents of InstanceGroupManagerStatefulPolicyPreservedState into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyPreservedStateMap(c *Client, f map[string]InstanceGroupManagerStatefulPolicyPreservedState) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyPreservedStateMap(c *Client, f map[string]InstanceGroupManagerStatefulPolicyPreservedState, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatefulPolicyPreservedState(c, &item)
+		i, err := expandInstanceGroupManagerStatefulPolicyPreservedState(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5229,14 +5262,14 @@ func expandInstanceGroupManagerStatefulPolicyPreservedStateMap(c *Client, f map[
 
 // expandInstanceGroupManagerStatefulPolicyPreservedStateSlice expands the contents of InstanceGroupManagerStatefulPolicyPreservedState into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyPreservedStateSlice(c *Client, f []InstanceGroupManagerStatefulPolicyPreservedState) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyPreservedStateSlice(c *Client, f []InstanceGroupManagerStatefulPolicyPreservedState, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatefulPolicyPreservedState(c, &item)
+		i, err := expandInstanceGroupManagerStatefulPolicyPreservedState(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5289,13 +5322,13 @@ func flattenInstanceGroupManagerStatefulPolicyPreservedStateSlice(c *Client, i i
 
 // expandInstanceGroupManagerStatefulPolicyPreservedState expands an instance of InstanceGroupManagerStatefulPolicyPreservedState into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyPreservedState(c *Client, f *InstanceGroupManagerStatefulPolicyPreservedState) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyPreservedState(c *Client, f *InstanceGroupManagerStatefulPolicyPreservedState, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
 
 	m := make(map[string]interface{})
-	if v, err := expandInstanceGroupManagerStatefulPolicyPreservedStateDisksMap(c, f.Disks); err != nil {
+	if v, err := expandInstanceGroupManagerStatefulPolicyPreservedStateDisksMap(c, f.Disks, res); err != nil {
 		return nil, fmt.Errorf("error expanding Disks into disks: %w", err)
 	} else if !dcl.IsEmptyValueIndirect(v) {
 		m["disks"] = v
@@ -5324,14 +5357,14 @@ func flattenInstanceGroupManagerStatefulPolicyPreservedState(c *Client, i interf
 
 // expandInstanceGroupManagerStatefulPolicyPreservedStateDisksMap expands the contents of InstanceGroupManagerStatefulPolicyPreservedStateDisks into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyPreservedStateDisksMap(c *Client, f map[string]InstanceGroupManagerStatefulPolicyPreservedStateDisks) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyPreservedStateDisksMap(c *Client, f map[string]InstanceGroupManagerStatefulPolicyPreservedStateDisks, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := make(map[string]interface{})
 	for k, item := range f {
-		i, err := expandInstanceGroupManagerStatefulPolicyPreservedStateDisks(c, &item)
+		i, err := expandInstanceGroupManagerStatefulPolicyPreservedStateDisks(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5345,14 +5378,14 @@ func expandInstanceGroupManagerStatefulPolicyPreservedStateDisksMap(c *Client, f
 
 // expandInstanceGroupManagerStatefulPolicyPreservedStateDisksSlice expands the contents of InstanceGroupManagerStatefulPolicyPreservedStateDisks into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyPreservedStateDisksSlice(c *Client, f []InstanceGroupManagerStatefulPolicyPreservedStateDisks) ([]map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyPreservedStateDisksSlice(c *Client, f []InstanceGroupManagerStatefulPolicyPreservedStateDisks, res *InstanceGroupManager) ([]map[string]interface{}, error) {
 	if f == nil {
 		return nil, nil
 	}
 
 	items := []map[string]interface{}{}
 	for _, item := range f {
-		i, err := expandInstanceGroupManagerStatefulPolicyPreservedStateDisks(c, &item)
+		i, err := expandInstanceGroupManagerStatefulPolicyPreservedStateDisks(c, &item, res)
 		if err != nil {
 			return nil, err
 		}
@@ -5405,7 +5438,7 @@ func flattenInstanceGroupManagerStatefulPolicyPreservedStateDisksSlice(c *Client
 
 // expandInstanceGroupManagerStatefulPolicyPreservedStateDisks expands an instance of InstanceGroupManagerStatefulPolicyPreservedStateDisks into a JSON
 // request object.
-func expandInstanceGroupManagerStatefulPolicyPreservedStateDisks(c *Client, f *InstanceGroupManagerStatefulPolicyPreservedStateDisks) (map[string]interface{}, error) {
+func expandInstanceGroupManagerStatefulPolicyPreservedStateDisks(c *Client, f *InstanceGroupManagerStatefulPolicyPreservedStateDisks, res *InstanceGroupManager) (map[string]interface{}, error) {
 	if dcl.IsEmptyValueIndirect(f) {
 		return nil, nil
 	}
@@ -5481,7 +5514,7 @@ func flattenInstanceGroupManagerDistributionPolicyTargetShapeEnumSlice(c *Client
 func flattenInstanceGroupManagerDistributionPolicyTargetShapeEnum(i interface{}) *InstanceGroupManagerDistributionPolicyTargetShapeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return InstanceGroupManagerDistributionPolicyTargetShapeEnumRef("")
+		return nil
 	}
 
 	return InstanceGroupManagerDistributionPolicyTargetShapeEnumRef(s)
@@ -5532,7 +5565,7 @@ func flattenInstanceGroupManagerUpdatePolicyTypeEnumSlice(c *Client, i interface
 func flattenInstanceGroupManagerUpdatePolicyTypeEnum(i interface{}) *InstanceGroupManagerUpdatePolicyTypeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return InstanceGroupManagerUpdatePolicyTypeEnumRef("")
+		return nil
 	}
 
 	return InstanceGroupManagerUpdatePolicyTypeEnumRef(s)
@@ -5583,7 +5616,7 @@ func flattenInstanceGroupManagerUpdatePolicyInstanceRedistributionTypeEnumSlice(
 func flattenInstanceGroupManagerUpdatePolicyInstanceRedistributionTypeEnum(i interface{}) *InstanceGroupManagerUpdatePolicyInstanceRedistributionTypeEnum {
 	s, ok := i.(string)
 	if !ok {
-		return InstanceGroupManagerUpdatePolicyInstanceRedistributionTypeEnumRef("")
+		return nil
 	}
 
 	return InstanceGroupManagerUpdatePolicyInstanceRedistributionTypeEnumRef(s)
@@ -5634,7 +5667,7 @@ func flattenInstanceGroupManagerUpdatePolicyMinimalActionEnumSlice(c *Client, i 
 func flattenInstanceGroupManagerUpdatePolicyMinimalActionEnum(i interface{}) *InstanceGroupManagerUpdatePolicyMinimalActionEnum {
 	s, ok := i.(string)
 	if !ok {
-		return InstanceGroupManagerUpdatePolicyMinimalActionEnumRef("")
+		return nil
 	}
 
 	return InstanceGroupManagerUpdatePolicyMinimalActionEnumRef(s)
@@ -5685,7 +5718,7 @@ func flattenInstanceGroupManagerUpdatePolicyReplacementMethodEnumSlice(c *Client
 func flattenInstanceGroupManagerUpdatePolicyReplacementMethodEnum(i interface{}) *InstanceGroupManagerUpdatePolicyReplacementMethodEnum {
 	s, ok := i.(string)
 	if !ok {
-		return InstanceGroupManagerUpdatePolicyReplacementMethodEnumRef("")
+		return nil
 	}
 
 	return InstanceGroupManagerUpdatePolicyReplacementMethodEnumRef(s)
@@ -5736,7 +5769,7 @@ func flattenInstanceGroupManagerStatefulPolicyPreservedStateDisksAutoDeleteEnumS
 func flattenInstanceGroupManagerStatefulPolicyPreservedStateDisksAutoDeleteEnum(i interface{}) *InstanceGroupManagerStatefulPolicyPreservedStateDisksAutoDeleteEnum {
 	s, ok := i.(string)
 	if !ok {
-		return InstanceGroupManagerStatefulPolicyPreservedStateDisksAutoDeleteEnumRef("")
+		return nil
 	}
 
 	return InstanceGroupManagerStatefulPolicyPreservedStateDisksAutoDeleteEnumRef(s)
@@ -5799,7 +5832,7 @@ func convertFieldDiffsToInstanceGroupManagerDiffs(config *dcl.Config, fds []*dcl
 				fieldDiffs = append(fieldDiffs, fd)
 				opNamesToFieldDiffs[ro] = fieldDiffs
 			} else {
-				config.Logger.Infof("%s required due to diff in %q", ro, fd.FieldName)
+				config.Logger.Infof("%s required due to diff: %v", ro, fd)
 				opNamesToFieldDiffs[ro] = []*dcl.FieldDiff{fd}
 			}
 		}
@@ -5840,5 +5873,309 @@ func convertOpNameToInstanceGroupManagerApiOperation(opName string, fieldDiffs [
 }
 
 func extractInstanceGroupManagerFields(r *InstanceGroupManager) error {
+	vDistributionPolicy := r.DistributionPolicy
+	if vDistributionPolicy == nil {
+		// note: explicitly not the empty object.
+		vDistributionPolicy = &InstanceGroupManagerDistributionPolicy{}
+	}
+	if err := extractInstanceGroupManagerDistributionPolicyFields(r, vDistributionPolicy); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vDistributionPolicy) {
+		r.DistributionPolicy = vDistributionPolicy
+	}
+	vCurrentActions := r.CurrentActions
+	if vCurrentActions == nil {
+		// note: explicitly not the empty object.
+		vCurrentActions = &InstanceGroupManagerCurrentActions{}
+	}
+	if err := extractInstanceGroupManagerCurrentActionsFields(r, vCurrentActions); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vCurrentActions) {
+		r.CurrentActions = vCurrentActions
+	}
+	vStatus := r.Status
+	if vStatus == nil {
+		// note: explicitly not the empty object.
+		vStatus = &InstanceGroupManagerStatus{}
+	}
+	if err := extractInstanceGroupManagerStatusFields(r, vStatus); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vStatus) {
+		r.Status = vStatus
+	}
+	vUpdatePolicy := r.UpdatePolicy
+	if vUpdatePolicy == nil {
+		// note: explicitly not the empty object.
+		vUpdatePolicy = &InstanceGroupManagerUpdatePolicy{}
+	}
+	if err := extractInstanceGroupManagerUpdatePolicyFields(r, vUpdatePolicy); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vUpdatePolicy) {
+		r.UpdatePolicy = vUpdatePolicy
+	}
+	vStatefulPolicy := r.StatefulPolicy
+	if vStatefulPolicy == nil {
+		// note: explicitly not the empty object.
+		vStatefulPolicy = &InstanceGroupManagerStatefulPolicy{}
+	}
+	if err := extractInstanceGroupManagerStatefulPolicyFields(r, vStatefulPolicy); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vStatefulPolicy) {
+		r.StatefulPolicy = vStatefulPolicy
+	}
+	return nil
+}
+func extractInstanceGroupManagerDistributionPolicyFields(r *InstanceGroupManager, o *InstanceGroupManagerDistributionPolicy) error {
+	return nil
+}
+func extractInstanceGroupManagerDistributionPolicyZonesFields(r *InstanceGroupManager, o *InstanceGroupManagerDistributionPolicyZones) error {
+	return nil
+}
+func extractInstanceGroupManagerVersionsFields(r *InstanceGroupManager, o *InstanceGroupManagerVersions) error {
+	// *InstanceGroupManagerFixedOrPercent is a reused type - that's not compatible with function extractors.
+
+	return nil
+}
+func extractInstanceGroupManagerFixedOrPercentFields(r *InstanceGroupManager, o *InstanceGroupManagerFixedOrPercent) error {
+	return nil
+}
+func extractInstanceGroupManagerCurrentActionsFields(r *InstanceGroupManager, o *InstanceGroupManagerCurrentActions) error {
+	return nil
+}
+func extractInstanceGroupManagerStatusFields(r *InstanceGroupManager, o *InstanceGroupManagerStatus) error {
+	vVersionTarget := o.VersionTarget
+	if vVersionTarget == nil {
+		// note: explicitly not the empty object.
+		vVersionTarget = &InstanceGroupManagerStatusVersionTarget{}
+	}
+	if err := extractInstanceGroupManagerStatusVersionTargetFields(r, vVersionTarget); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vVersionTarget) {
+		o.VersionTarget = vVersionTarget
+	}
+	vStateful := o.Stateful
+	if vStateful == nil {
+		// note: explicitly not the empty object.
+		vStateful = &InstanceGroupManagerStatusStateful{}
+	}
+	if err := extractInstanceGroupManagerStatusStatefulFields(r, vStateful); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vStateful) {
+		o.Stateful = vStateful
+	}
+	return nil
+}
+func extractInstanceGroupManagerStatusVersionTargetFields(r *InstanceGroupManager, o *InstanceGroupManagerStatusVersionTarget) error {
+	return nil
+}
+func extractInstanceGroupManagerStatusStatefulFields(r *InstanceGroupManager, o *InstanceGroupManagerStatusStateful) error {
+	vPerInstanceConfigs := o.PerInstanceConfigs
+	if vPerInstanceConfigs == nil {
+		// note: explicitly not the empty object.
+		vPerInstanceConfigs = &InstanceGroupManagerStatusStatefulPerInstanceConfigs{}
+	}
+	if err := extractInstanceGroupManagerStatusStatefulPerInstanceConfigsFields(r, vPerInstanceConfigs); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vPerInstanceConfigs) {
+		o.PerInstanceConfigs = vPerInstanceConfigs
+	}
+	return nil
+}
+func extractInstanceGroupManagerStatusStatefulPerInstanceConfigsFields(r *InstanceGroupManager, o *InstanceGroupManagerStatusStatefulPerInstanceConfigs) error {
+	return nil
+}
+func extractInstanceGroupManagerAutoHealingPoliciesFields(r *InstanceGroupManager, o *InstanceGroupManagerAutoHealingPolicies) error {
+	return nil
+}
+func extractInstanceGroupManagerUpdatePolicyFields(r *InstanceGroupManager, o *InstanceGroupManagerUpdatePolicy) error {
+	// *InstanceGroupManagerFixedOrPercent is a reused type - that's not compatible with function extractors.
+
+	// *InstanceGroupManagerFixedOrPercent is a reused type - that's not compatible with function extractors.
+
+	return nil
+}
+func extractInstanceGroupManagerNamedPortsFields(r *InstanceGroupManager, o *InstanceGroupManagerNamedPorts) error {
+	return nil
+}
+func extractInstanceGroupManagerStatefulPolicyFields(r *InstanceGroupManager, o *InstanceGroupManagerStatefulPolicy) error {
+	vPreservedState := o.PreservedState
+	if vPreservedState == nil {
+		// note: explicitly not the empty object.
+		vPreservedState = &InstanceGroupManagerStatefulPolicyPreservedState{}
+	}
+	if err := extractInstanceGroupManagerStatefulPolicyPreservedStateFields(r, vPreservedState); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vPreservedState) {
+		o.PreservedState = vPreservedState
+	}
+	return nil
+}
+func extractInstanceGroupManagerStatefulPolicyPreservedStateFields(r *InstanceGroupManager, o *InstanceGroupManagerStatefulPolicyPreservedState) error {
+	return nil
+}
+func extractInstanceGroupManagerStatefulPolicyPreservedStateDisksFields(r *InstanceGroupManager, o *InstanceGroupManagerStatefulPolicyPreservedStateDisks) error {
+	return nil
+}
+
+func postReadExtractInstanceGroupManagerFields(r *InstanceGroupManager) error {
+	vDistributionPolicy := r.DistributionPolicy
+	if vDistributionPolicy == nil {
+		// note: explicitly not the empty object.
+		vDistributionPolicy = &InstanceGroupManagerDistributionPolicy{}
+	}
+	if err := postReadExtractInstanceGroupManagerDistributionPolicyFields(r, vDistributionPolicy); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vDistributionPolicy) {
+		r.DistributionPolicy = vDistributionPolicy
+	}
+	vCurrentActions := r.CurrentActions
+	if vCurrentActions == nil {
+		// note: explicitly not the empty object.
+		vCurrentActions = &InstanceGroupManagerCurrentActions{}
+	}
+	if err := postReadExtractInstanceGroupManagerCurrentActionsFields(r, vCurrentActions); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vCurrentActions) {
+		r.CurrentActions = vCurrentActions
+	}
+	vStatus := r.Status
+	if vStatus == nil {
+		// note: explicitly not the empty object.
+		vStatus = &InstanceGroupManagerStatus{}
+	}
+	if err := postReadExtractInstanceGroupManagerStatusFields(r, vStatus); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vStatus) {
+		r.Status = vStatus
+	}
+	vUpdatePolicy := r.UpdatePolicy
+	if vUpdatePolicy == nil {
+		// note: explicitly not the empty object.
+		vUpdatePolicy = &InstanceGroupManagerUpdatePolicy{}
+	}
+	if err := postReadExtractInstanceGroupManagerUpdatePolicyFields(r, vUpdatePolicy); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vUpdatePolicy) {
+		r.UpdatePolicy = vUpdatePolicy
+	}
+	vStatefulPolicy := r.StatefulPolicy
+	if vStatefulPolicy == nil {
+		// note: explicitly not the empty object.
+		vStatefulPolicy = &InstanceGroupManagerStatefulPolicy{}
+	}
+	if err := postReadExtractInstanceGroupManagerStatefulPolicyFields(r, vStatefulPolicy); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vStatefulPolicy) {
+		r.StatefulPolicy = vStatefulPolicy
+	}
+	return nil
+}
+func postReadExtractInstanceGroupManagerDistributionPolicyFields(r *InstanceGroupManager, o *InstanceGroupManagerDistributionPolicy) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerDistributionPolicyZonesFields(r *InstanceGroupManager, o *InstanceGroupManagerDistributionPolicyZones) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerVersionsFields(r *InstanceGroupManager, o *InstanceGroupManagerVersions) error {
+	// *InstanceGroupManagerFixedOrPercent is a reused type - that's not compatible with function extractors.
+
+	return nil
+}
+func postReadExtractInstanceGroupManagerFixedOrPercentFields(r *InstanceGroupManager, o *InstanceGroupManagerFixedOrPercent) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerCurrentActionsFields(r *InstanceGroupManager, o *InstanceGroupManagerCurrentActions) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatusFields(r *InstanceGroupManager, o *InstanceGroupManagerStatus) error {
+	vVersionTarget := o.VersionTarget
+	if vVersionTarget == nil {
+		// note: explicitly not the empty object.
+		vVersionTarget = &InstanceGroupManagerStatusVersionTarget{}
+	}
+	if err := extractInstanceGroupManagerStatusVersionTargetFields(r, vVersionTarget); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vVersionTarget) {
+		o.VersionTarget = vVersionTarget
+	}
+	vStateful := o.Stateful
+	if vStateful == nil {
+		// note: explicitly not the empty object.
+		vStateful = &InstanceGroupManagerStatusStateful{}
+	}
+	if err := extractInstanceGroupManagerStatusStatefulFields(r, vStateful); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vStateful) {
+		o.Stateful = vStateful
+	}
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatusVersionTargetFields(r *InstanceGroupManager, o *InstanceGroupManagerStatusVersionTarget) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatusStatefulFields(r *InstanceGroupManager, o *InstanceGroupManagerStatusStateful) error {
+	vPerInstanceConfigs := o.PerInstanceConfigs
+	if vPerInstanceConfigs == nil {
+		// note: explicitly not the empty object.
+		vPerInstanceConfigs = &InstanceGroupManagerStatusStatefulPerInstanceConfigs{}
+	}
+	if err := extractInstanceGroupManagerStatusStatefulPerInstanceConfigsFields(r, vPerInstanceConfigs); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vPerInstanceConfigs) {
+		o.PerInstanceConfigs = vPerInstanceConfigs
+	}
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatusStatefulPerInstanceConfigsFields(r *InstanceGroupManager, o *InstanceGroupManagerStatusStatefulPerInstanceConfigs) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerAutoHealingPoliciesFields(r *InstanceGroupManager, o *InstanceGroupManagerAutoHealingPolicies) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerUpdatePolicyFields(r *InstanceGroupManager, o *InstanceGroupManagerUpdatePolicy) error {
+	// *InstanceGroupManagerFixedOrPercent is a reused type - that's not compatible with function extractors.
+
+	// *InstanceGroupManagerFixedOrPercent is a reused type - that's not compatible with function extractors.
+
+	return nil
+}
+func postReadExtractInstanceGroupManagerNamedPortsFields(r *InstanceGroupManager, o *InstanceGroupManagerNamedPorts) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatefulPolicyFields(r *InstanceGroupManager, o *InstanceGroupManagerStatefulPolicy) error {
+	vPreservedState := o.PreservedState
+	if vPreservedState == nil {
+		// note: explicitly not the empty object.
+		vPreservedState = &InstanceGroupManagerStatefulPolicyPreservedState{}
+	}
+	if err := extractInstanceGroupManagerStatefulPolicyPreservedStateFields(r, vPreservedState); err != nil {
+		return err
+	}
+	if !dcl.IsNotReturnedByServer(vPreservedState) {
+		o.PreservedState = vPreservedState
+	}
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatefulPolicyPreservedStateFields(r *InstanceGroupManager, o *InstanceGroupManagerStatefulPolicyPreservedState) error {
+	return nil
+}
+func postReadExtractInstanceGroupManagerStatefulPolicyPreservedStateDisksFields(r *InstanceGroupManager, o *InstanceGroupManagerStatefulPolicyPreservedStateDisks) error {
 	return nil
 }

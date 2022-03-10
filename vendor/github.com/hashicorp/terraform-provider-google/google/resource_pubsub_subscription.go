@@ -19,12 +19,10 @@ import (
 	"log"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"google.golang.org/api/googleapi"
 )
 
 func comparePubsubSubscriptionExpirationPolicy(_, old, new string, _ *schema.ResourceData) bool {
@@ -51,9 +49,9 @@ func resourcePubsubSubscription() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(6 * time.Minute),
-			Update: schema.DefaultTimeout(6 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -319,12 +317,6 @@ A duration in seconds with up to nine fractional digits, terminated by 's'. Exam
 					},
 				},
 			},
-			"path": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Deprecated:  "Deprecated in favor of id, which contains an identical value. This field will be removed in the next major release of the provider.",
-				Description: " Path of the subscription in the format projects/{project}/subscriptions/{name}",
-			},
 			"project": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -494,18 +486,6 @@ func resourcePubsubSubscriptionPollRead(d *schema.ResourceData, meta interface{}
 		if err != nil {
 			return res, err
 		}
-		res, err = resourcePubsubSubscriptionDecoder(d, meta, res)
-		if err != nil {
-			return nil, err
-		}
-		if res == nil {
-			// Decoded object not found, spoof a 404 error for poll
-			return nil, &googleapi.Error{
-				Code:    404,
-				Message: "could not find object PubsubSubscription",
-			}
-		}
-
 		return res, nil
 	}
 }
@@ -538,18 +518,6 @@ func resourcePubsubSubscriptionRead(d *schema.ResourceData, meta interface{}) er
 	res, err := sendRequest(config, "GET", billingProject, url, userAgent, nil)
 	if err != nil {
 		return handleNotFoundError(err, d, fmt.Sprintf("PubsubSubscription %q", d.Id()))
-	}
-
-	res, err = resourcePubsubSubscriptionDecoder(d, meta, res)
-	if err != nil {
-		return err
-	}
-
-	if res == nil {
-		// Decoding the object has resulted in it being gone. It may be marked deleted
-		log.Printf("[DEBUG] Removing PubsubSubscription because it no longer exists.")
-		d.SetId("")
-		return nil
 	}
 
 	if err := d.Set("project", project); err != nil {
@@ -854,7 +822,7 @@ func flattenPubsubSubscriptionPushConfigAttributes(v interface{}, d *schema.Reso
 func flattenPubsubSubscriptionAckDeadlineSeconds(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -916,7 +884,7 @@ func flattenPubsubSubscriptionDeadLetterPolicyDeadLetterTopic(v interface{}, d *
 func flattenPubsubSubscriptionDeadLetterPolicyMaxDeliveryAttempts(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -1201,15 +1169,4 @@ func resourcePubsubSubscriptionUpdateEncoder(d *schema.ResourceData, meta interf
 	newObj := make(map[string]interface{})
 	newObj["subscription"] = obj
 	return newObj, nil
-}
-
-func resourcePubsubSubscriptionDecoder(d *schema.ResourceData, meta interface{}, res map[string]interface{}) (map[string]interface{}, error) {
-
-	// path is a derived field from the API-side `name`
-	path := fmt.Sprintf("projects/%s/subscriptions/%s", d.Get("project"), d.Get("name"))
-	if err := d.Set("path", path); err != nil {
-		return nil, fmt.Errorf("Error setting path: %s", err)
-	}
-
-	return res, nil
 }

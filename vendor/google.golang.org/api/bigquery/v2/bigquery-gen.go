@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC.
+// Copyright 2022 Google LLC.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -530,7 +530,7 @@ type ArimaForecastingMetrics struct {
 	// are supported for one time series.
 	//
 	// Possible values:
-	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED"
+	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED" - Unspecified seasonal period.
 	//   "NO_SEASONALITY" - No seasonality
 	//   "DAILY" - Daily period, 24 hours.
 	//   "WEEKLY" - Weekly period, 7 days.
@@ -598,7 +598,7 @@ type ArimaModelInfo struct {
 	// are supported for one time series.
 	//
 	// Possible values:
-	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED"
+	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED" - Unspecified seasonal period.
 	//   "NO_SEASONALITY" - No seasonality
 	//   "DAILY" - Daily period, 24 hours.
 	//   "WEEKLY" - Weekly period, 7 days.
@@ -692,7 +692,7 @@ type ArimaResult struct {
 	// are supported for one time series.
 	//
 	// Possible values:
-	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED"
+	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED" - Unspecified seasonal period.
 	//   "NO_SEASONALITY" - No seasonality
 	//   "DAILY" - Daily period, 24 hours.
 	//   "WEEKLY" - Weekly period, 7 days.
@@ -754,7 +754,7 @@ type ArimaSingleModelForecastingMetrics struct {
 	// are supported for one time series.
 	//
 	// Possible values:
-	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED"
+	//   "SEASONAL_PERIOD_TYPE_UNSPECIFIED" - Unspecified seasonal period.
 	//   "NO_SEASONALITY" - No seasonality
 	//   "DAILY" - Daily period, 24 hours.
 	//   "WEEKLY" - Weekly period, 7 days.
@@ -893,6 +893,37 @@ type AuditLogConfig struct {
 
 func (s *AuditLogConfig) MarshalJSON() ([]byte, error) {
 	type NoMethod AuditLogConfig
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
+type AvroOptions struct {
+	// UseAvroLogicalTypes: [Optional] If sourceFormat is set to "AVRO",
+	// indicates whether to interpret logical types as the corresponding
+	// BigQuery data type (for example, TIMESTAMP), instead of using the raw
+	// type (for example, INTEGER).
+	UseAvroLogicalTypes bool `json:"useAvroLogicalTypes,omitempty"`
+
+	// ForceSendFields is a list of field names (e.g. "UseAvroLogicalTypes")
+	// to unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "UseAvroLogicalTypes") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *AvroOptions) MarshalJSON() ([]byte, error) {
+	type NoMethod AvroOptions
 	raw := NoMethod(*s)
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
@@ -1287,19 +1318,19 @@ func (s *BinaryConfusionMatrix) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Binding: Associates `members` with a `role`.
+// Binding: Associates `members`, or principals, with a `role`.
 type Binding struct {
 	// Condition: The condition that is associated with this binding. If the
 	// condition evaluates to `true`, then this binding applies to the
 	// current request. If the condition evaluates to `false`, then this
 	// binding does not apply to the current request. However, a different
-	// role binding might grant the same role to one or more of the members
-	// in this binding. To learn which resources support conditions in their
-	// IAM policies, see the IAM documentation
+	// role binding might grant the same role to one or more of the
+	// principals in this binding. To learn which resources support
+	// conditions in their IAM policies, see the IAM documentation
 	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	Condition *Expr `json:"condition,omitempty"`
 
-	// Members: Specifies the identities requesting access for a Cloud
+	// Members: Specifies the principals requesting access for a Cloud
 	// Platform resource. `members` can have the following values: *
 	// `allUsers`: A special identifier that represents anyone who is on the
 	// internet; with or without a Google account. *
@@ -1333,8 +1364,8 @@ type Binding struct {
 	// For example, `google.com` or `example.com`.
 	Members []string `json:"members,omitempty"`
 
-	// Role: Role that is assigned to `members`. For example,
-	// `roles/viewer`, `roles/editor`, or `roles/owner`.
+	// Role: Role that is assigned to the list of `members`, or principals.
+	// For example, `roles/viewer`, `roles/editor`, or `roles/owner`.
 	Role string `json:"role,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Condition") to
@@ -1988,6 +2019,9 @@ type Dataset struct {
 	// DatasetReference: [Required] A reference that identifies the dataset.
 	DatasetReference *DatasetReference `json:"datasetReference,omitempty"`
 
+	// DefaultCollation: [Output-only] The default collation of the dataset.
+	DefaultCollation string `json:"defaultCollation,omitempty"`
+
 	DefaultEncryptionConfiguration *EncryptionConfiguration `json:"defaultEncryptionConfiguration,omitempty"`
 
 	// DefaultPartitionExpirationMs: [Optional] The default partition
@@ -2360,6 +2394,10 @@ type DestinationTableProperties struct {
 	// the table already exists and a value different than the current
 	// description is provided, the job will fail.
 	Description string `json:"description,omitempty"`
+
+	// ExpirationTime: [Internal] This field is for Google internal use
+	// only.
+	ExpirationTime string `json:"expirationTime,omitempty"`
 
 	// FriendlyName: [Optional] The friendly name for the destination table.
 	// This will only be used if the destination table is newly created. If
@@ -2839,6 +2877,10 @@ type ExternalDataConfiguration struct {
 	// Any option specified explicitly will be honored.
 	Autodetect bool `json:"autodetect,omitempty"`
 
+	// AvroOptions: Additional properties to set if sourceFormat is set to
+	// Avro.
+	AvroOptions *AvroOptions `json:"avroOptions,omitempty"`
+
 	// BigtableOptions: [Optional] Additional options if sourceFormat is set
 	// to BIGTABLE.
 	BigtableOptions *BigtableOptions `json:"bigtableOptions,omitempty"`
@@ -3041,13 +3083,17 @@ func (s *GetIamPolicyRequest) MarshalJSON() ([]byte, error) {
 
 // GetPolicyOptions: Encapsulates settings provided to GetIamPolicy.
 type GetPolicyOptions struct {
-	// RequestedPolicyVersion: Optional. The policy format version to be
-	// returned. Valid values are 0, 1, and 3. Requests specifying an
-	// invalid value will be rejected. Requests for policies with any
-	// conditional bindings must specify version 3. Policies without any
-	// conditional bindings may specify any valid value or leave the field
-	// unset. To learn which resources support conditions in their IAM
-	// policies, see the IAM documentation
+	// RequestedPolicyVersion: Optional. The maximum policy version that
+	// will be used to format the policy. Valid values are 0, 1, and 3.
+	// Requests specifying an invalid value will be rejected. Requests for
+	// policies with any conditional role bindings must specify version 3.
+	// Policies with no conditional role bindings may specify any valid
+	// value or leave the field unset. The policy in the response might use
+	// the policy version that you specified, or it might use a lower policy
+	// version. For example, if you specify version 3, but the policy has no
+	// conditional role bindings, the response uses version 1. To learn
+	// which resources support conditions in their IAM policies, see the IAM
+	// documentation
 	// (https://cloud.google.com/iam/help/conditions/resource-policies).
 	RequestedPolicyVersion int64 `json:"requestedPolicyVersion,omitempty"`
 
@@ -3293,14 +3339,7 @@ func (s *HivePartitioningOptions) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
-// IterationResult: Information about a single iteration of the training
-// run.
 type IterationResult struct {
-	ArimaResult *ArimaResult `json:"arimaResult,omitempty"`
-
-	// ClusterInfos: Information about top clusters for clustering models.
-	ClusterInfos []*ClusterInfo `json:"clusterInfos,omitempty"`
-
 	// DurationMs: Time taken to run the iteration in milliseconds.
 	DurationMs int64 `json:"durationMs,omitempty,string"`
 
@@ -3317,7 +3356,7 @@ type IterationResult struct {
 	// iteration.
 	TrainingLoss float64 `json:"trainingLoss,omitempty"`
 
-	// ForceSendFields is a list of field names (e.g. "ArimaResult") to
+	// ForceSendFields is a list of field names (e.g. "DurationMs") to
 	// unconditionally include in API requests. By default, fields with
 	// empty or default values are omitted from API requests. However, any
 	// non-pointer, non-interface field appearing in ForceSendFields will be
@@ -3325,10 +3364,10 @@ type IterationResult struct {
 	// This may be used to include empty fields in Patch requests.
 	ForceSendFields []string `json:"-"`
 
-	// NullFields is a list of field names (e.g. "ArimaResult") to include
-	// in API requests with the JSON null value. By default, fields with
-	// empty values are omitted from API requests. However, any field with
-	// an empty value appearing in NullFields will be sent to the server as
+	// NullFields is a list of field names (e.g. "DurationMs") to include in
+	// API requests with the JSON null value. By default, fields with empty
+	// values are omitted from API requests. However, any field with an
+	// empty value appearing in NullFields will be sent to the server as
 	// null. It is an error if a field in this list has a non-empty value.
 	// This may be used to include null fields in Patch requests.
 	NullFields []string `json:"-"`
@@ -3780,9 +3819,9 @@ type JobConfigurationLoad struct {
 	TimePartitioning *TimePartitioning `json:"timePartitioning,omitempty"`
 
 	// UseAvroLogicalTypes: [Optional] If sourceFormat is set to "AVRO",
-	// indicates whether to enable interpreting logical types into their
-	// corresponding types (ie. TIMESTAMP), instead of only using their raw
-	// types (ie. INTEGER).
+	// indicates whether to interpret logical types as the corresponding
+	// BigQuery data type (for example, TIMESTAMP), instead of using the raw
+	// type (for example, INTEGER).
 	UseAvroLogicalTypes bool `json:"useAvroLogicalTypes,omitempty"`
 
 	// WriteDisposition: [Optional] Specifies the action that occurs if the
@@ -4397,6 +4436,9 @@ type JobStatistics2 struct {
 	// processed for the job.
 	EstimatedBytesProcessed int64 `json:"estimatedBytesProcessed,omitempty,string"`
 
+	// MlStatistics: [Output-only] Statistics of a BigQuery ML training job.
+	MlStatistics *MlStatistics `json:"mlStatistics,omitempty"`
+
 	// ModelTraining: [Output-only, Beta] Information about create model
 	// query job progress.
 	ModelTraining *BigQueryModelTraining `json:"modelTraining,omitempty"`
@@ -4846,6 +4888,39 @@ func (s *MaterializedViewDefinition) MarshalJSON() ([]byte, error) {
 	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
 }
 
+type MlStatistics struct {
+	// IterationResults: Results for all completed iterations.
+	IterationResults []*IterationResult `json:"iterationResults,omitempty"`
+
+	// MaxIterations: Maximum number of iterations specified as
+	// max_iterations in the 'CREATE MODEL' query. The actual number of
+	// iterations may be less than this number due to early stop.
+	MaxIterations int64 `json:"maxIterations,omitempty,string"`
+
+	// ForceSendFields is a list of field names (e.g. "IterationResults") to
+	// unconditionally include in API requests. By default, fields with
+	// empty or default values are omitted from API requests. However, any
+	// non-pointer, non-interface field appearing in ForceSendFields will be
+	// sent to the server regardless of whether the field is empty or not.
+	// This may be used to include empty fields in Patch requests.
+	ForceSendFields []string `json:"-"`
+
+	// NullFields is a list of field names (e.g. "IterationResults") to
+	// include in API requests with the JSON null value. By default, fields
+	// with empty values are omitted from API requests. However, any field
+	// with an empty value appearing in NullFields will be sent to the
+	// server as null. It is an error if a field in this list has a
+	// non-empty value. This may be used to include null fields in Patch
+	// requests.
+	NullFields []string `json:"-"`
+}
+
+func (s *MlStatistics) MarshalJSON() ([]byte, error) {
+	type NoMethod MlStatistics
+	raw := NoMethod(*s)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields, s.NullFields)
+}
+
 type Model struct {
 	// BestTrialId: The best trial_id across all training runs.
 	BestTrialId int64 `json:"bestTrialId,omitempty,string"`
@@ -5130,17 +5205,17 @@ func (s *ParquetOptions) MarshalJSON() ([]byte, error) {
 
 // Policy: An Identity and Access Management (IAM) policy, which
 // specifies access controls for Google Cloud resources. A `Policy` is a
-// collection of `bindings`. A `binding` binds one or more `members` to
-// a single `role`. Members can be user accounts, service accounts,
-// Google groups, and domains (such as G Suite). A `role` is a named
-// list of permissions; each `role` can be an IAM predefined role or a
-// user-created custom role. For some types of Google Cloud resources, a
-// `binding` can also specify a `condition`, which is a logical
-// expression that allows access to a resource only if the expression
-// evaluates to `true`. A condition can add constraints based on
-// attributes of the request, the resource, or both. To learn which
-// resources support conditions in their IAM policies, see the IAM
-// documentation
+// collection of `bindings`. A `binding` binds one or more `members`, or
+// principals, to a single `role`. Principals can be user accounts,
+// service accounts, Google groups, and domains (such as G Suite). A
+// `role` is a named list of permissions; each `role` can be an IAM
+// predefined role or a user-created custom role. For some types of
+// Google Cloud resources, a `binding` can also specify a `condition`,
+// which is a logical expression that allows access to a resource only
+// if the expression evaluates to `true`. A condition can add
+// constraints based on attributes of the request, the resource, or
+// both. To learn which resources support conditions in their IAM
+// policies, see the IAM documentation
 // (https://cloud.google.com/iam/help/conditions/resource-policies).
 // **JSON example:** { "bindings": [ { "role":
 // "roles/resourcemanager.organizationAdmin", "members": [
@@ -5167,9 +5242,15 @@ type Policy struct {
 	// policy.
 	AuditConfigs []*AuditConfig `json:"auditConfigs,omitempty"`
 
-	// Bindings: Associates a list of `members` to a `role`. Optionally, may
-	// specify a `condition` that determines how and when the `bindings` are
-	// applied. Each of the `bindings` must contain at least one member.
+	// Bindings: Associates a list of `members`, or principals, with a
+	// `role`. Optionally, may specify a `condition` that determines how and
+	// when the `bindings` are applied. Each of the `bindings` must contain
+	// at least one principal. The `bindings` in a `Policy` can refer to up
+	// to 1,500 principals; up to 250 of these principals can be Google
+	// groups. Each occurrence of a principal counts towards these limits.
+	// For example, if the `bindings` grant 50 different roles to
+	// `user:alice@example.com`, and not to any other principal, then you
+	// can add another 1,450 principals to the `bindings` in the `Policy`.
 	Bindings []*Binding `json:"bindings,omitempty"`
 
 	// Etag: `etag` is used for optimistic concurrency control as a way to
@@ -6046,6 +6127,14 @@ type Routine struct {
 	//   "TABLE_VALUED_FUNCTION" - Non-builtin permanent TVF.
 	RoutineType string `json:"routineType,omitempty"`
 
+	// StrictMode: Optional. Can be set for procedures only. If true
+	// (default), the definition body will be validated in the creation and
+	// the updates of the procedure. For procedures with an argument of ANY
+	// TYPE, the definition body validtion is not supported at
+	// creation/update time, and thus this field must be set to false
+	// explicitly.
+	StrictMode bool `json:"strictMode,omitempty"`
+
 	// ServerResponse contains the HTTP response code and headers from the
 	// server.
 	googleapi.ServerResponse `json:"-"`
@@ -6639,6 +6728,9 @@ type Table struct {
 	// CreationTime: [Output-only] The time when this table was created, in
 	// milliseconds since the epoch.
 	CreationTime int64 `json:"creationTime,omitempty,string"`
+
+	// DefaultCollation: [Output-only] The default collation of the table.
+	DefaultCollation string `json:"defaultCollation,omitempty"`
 
 	// Description: [Optional] A user-friendly description of this table.
 	Description string `json:"description,omitempty"`
@@ -7518,9 +7610,39 @@ type TrainingOptions struct {
 	// BatchSize: Batch size for dnn models.
 	BatchSize int64 `json:"batchSize,omitempty,string"`
 
+	// BoosterType: Booster type for boosted tree models.
+	//
+	// Possible values:
+	//   "BOOSTER_TYPE_UNSPECIFIED" - Unspecified booster type.
+	//   "GBTREE" - Gbtree booster.
+	//   "DART" - Dart booster.
+	BoosterType string `json:"boosterType,omitempty"`
+
 	// CleanSpikesAndDips: If true, clean spikes and dips in the input time
 	// series.
 	CleanSpikesAndDips bool `json:"cleanSpikesAndDips,omitempty"`
+
+	// ColsampleBylevel: Subsample ratio of columns for each level for
+	// boosted tree models.
+	ColsampleBylevel float64 `json:"colsampleBylevel,omitempty"`
+
+	// ColsampleBynode: Subsample ratio of columns for each node(split) for
+	// boosted tree models.
+	ColsampleBynode float64 `json:"colsampleBynode,omitempty"`
+
+	// ColsampleBytree: Subsample ratio of columns when constructing each
+	// tree for boosted tree models.
+	ColsampleBytree float64 `json:"colsampleBytree,omitempty"`
+
+	// DartNormalizeType: Type of normalization algorithm for boosted tree
+	// models using dart booster.
+	//
+	// Possible values:
+	//   "DART_NORMALIZE_TYPE_UNSPECIFIED" - Unspecified dart normalize
+	// type.
+	//   "TREE" - New trees have the same weight of each of dropped trees.
+	//   "FOREST" - New trees have the same weight of sum of dropped trees.
+	DartNormalizeType string `json:"dartNormalizeType,omitempty"`
 
 	// DataFrequency: The data frequency of a time series.
 	//
@@ -7756,6 +7878,10 @@ type TrainingOptions struct {
 	// MinSplitLoss: Minimum split loss for boosted tree models.
 	MinSplitLoss float64 `json:"minSplitLoss,omitempty"`
 
+	// MinTreeChildWeight: Minimum sum of instance weight needed in a child
+	// for boosted tree models.
+	MinTreeChildWeight int64 `json:"minTreeChildWeight,omitempty,string"`
+
 	// ModelUri: Google Cloud Storage URI from which the model was imported.
 	// Only applicable for imported models.
 	ModelUri string `json:"modelUri,omitempty"`
@@ -7770,6 +7896,10 @@ type TrainingOptions struct {
 
 	// NumFactors: Num factors specified for matrix factorization models.
 	NumFactors int64 `json:"numFactors,omitempty,string"`
+
+	// NumParallelTree: Number of parallel trees constructed during each
+	// iteration for boosted tree models.
+	NumParallelTree int64 `json:"numParallelTree,omitempty,string"`
 
 	// OptimizationStrategy: Optimization strategy for training linear
 	// regression models.
@@ -7808,6 +7938,17 @@ type TrainingOptions struct {
 	// timestamp for ARIMA model.
 	TimeSeriesTimestampColumn string `json:"timeSeriesTimestampColumn,omitempty"`
 
+	// TreeMethod: Tree construction algorithm for boosted tree models.
+	//
+	// Possible values:
+	//   "TREE_METHOD_UNSPECIFIED" - Unspecified tree method.
+	//   "AUTO" - Use heuristic to choose the fastest method.
+	//   "EXACT" - Exact greedy algorithm.
+	//   "APPROX" - Approximate greedy algorithm using quantile sketch and
+	// gradient histogram.
+	//   "HIST" - Fast histogram optimized approximate greedy algorithm.
+	TreeMethod string `json:"treeMethod,omitempty"`
+
 	// UserColumn: User column specified for matrix factorization models.
 	UserColumn string `json:"userColumn,omitempty"`
 
@@ -7845,6 +7986,9 @@ func (s *TrainingOptions) MarshalJSON() ([]byte, error) {
 func (s *TrainingOptions) UnmarshalJSON(data []byte) error {
 	type NoMethod TrainingOptions
 	var s1 struct {
+		ColsampleBylevel      gensupport.JSONFloat64 `json:"colsampleBylevel"`
+		ColsampleBynode       gensupport.JSONFloat64 `json:"colsampleBynode"`
+		ColsampleBytree       gensupport.JSONFloat64 `json:"colsampleBytree"`
 		DataSplitEvalFraction gensupport.JSONFloat64 `json:"dataSplitEvalFraction"`
 		Dropout               gensupport.JSONFloat64 `json:"dropout"`
 		InitialLearnRate      gensupport.JSONFloat64 `json:"initialLearnRate"`
@@ -7861,6 +8005,9 @@ func (s *TrainingOptions) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &s1); err != nil {
 		return err
 	}
+	s.ColsampleBylevel = float64(s1.ColsampleBylevel)
+	s.ColsampleBynode = float64(s1.ColsampleBynode)
+	s.ColsampleBytree = float64(s1.ColsampleBytree)
 	s.DataSplitEvalFraction = float64(s1.DataSplitEvalFraction)
 	s.Dropout = float64(s1.Dropout)
 	s.InitialLearnRate = float64(s1.InitialLearnRate)
@@ -8091,7 +8238,7 @@ func (c *DatasetsDeleteCall) Header() http.Header {
 
 func (c *DatasetsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8221,7 +8368,7 @@ func (c *DatasetsGetCall) Header() http.Header {
 
 func (c *DatasetsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8366,7 +8513,7 @@ func (c *DatasetsInsertCall) Header() http.Header {
 
 func (c *DatasetsInsertCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8548,7 +8695,7 @@ func (c *DatasetsListCall) Header() http.Header {
 
 func (c *DatasetsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8733,7 +8880,7 @@ func (c *DatasetsPatchCall) Header() http.Header {
 
 func (c *DatasetsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -8887,7 +9034,7 @@ func (c *DatasetsUpdateCall) Header() http.Header {
 
 func (c *DatasetsUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9048,7 +9195,7 @@ func (c *JobsCancelCall) Header() http.Header {
 
 func (c *JobsCancelCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9157,13 +9304,15 @@ type JobsDeleteCall struct {
 	header_    http.Header
 }
 
-// Delete: Requests that a job is deleted. This call will return when
-// the job is deleted. This method is available in limited preview.
+// Delete: Requests the deletion of the metadata of a job. This call
+// returns when the job's metadata is deleted.
 //
-// - jobId: Job ID of the job to be deleted. If this is a parent job
-//   which has child jobs, all child jobs will be deleted as well.
-//   Deletion of child jobs directly is not allowed.
-// - projectId: Project ID of the job to be deleted.
+// - jobId: Job ID of the job for which metadata is to be deleted. If
+//   this is a parent job which has child jobs, the metadata from all
+//   child jobs will be deleted as well. Direct deletion of the metadata
+//   of child jobs is not allowed.
+// - projectId: Project ID of the job for which metadata is to be
+//   deleted.
 func (r *JobsService) Delete(projectId string, jobId string) *JobsDeleteCall {
 	c := &JobsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.projectId = projectId
@@ -9206,7 +9355,7 @@ func (c *JobsDeleteCall) Header() http.Header {
 
 func (c *JobsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9241,7 +9390,7 @@ func (c *JobsDeleteCall) Do(opts ...googleapi.CallOption) error {
 	}
 	return nil
 	// {
-	//   "description": "Requests that a job is deleted. This call will return when the job is deleted. This method is available in limited preview.",
+	//   "description": "Requests the deletion of the metadata of a job. This call returns when the job's metadata is deleted.",
 	//   "flatPath": "projects/{projectsId}/jobs/{jobsId}/delete",
 	//   "httpMethod": "DELETE",
 	//   "id": "bigquery.jobs.delete",
@@ -9251,7 +9400,7 @@ func (c *JobsDeleteCall) Do(opts ...googleapi.CallOption) error {
 	//   ],
 	//   "parameters": {
 	//     "jobId": {
-	//       "description": "Required. Job ID of the job to be deleted. If this is a parent job which has child jobs, all child jobs will be deleted as well. Deletion of child jobs directly is not allowed.",
+	//       "description": "Required. Job ID of the job for which metadata is to be deleted. If this is a parent job which has child jobs, the metadata from all child jobs will be deleted as well. Direct deletion of the metadata of child jobs is not allowed.",
 	//       "location": "path",
 	//       "pattern": "^[^/]+$",
 	//       "required": true,
@@ -9263,7 +9412,7 @@ func (c *JobsDeleteCall) Do(opts ...googleapi.CallOption) error {
 	//       "type": "string"
 	//     },
 	//     "projectId": {
-	//       "description": "Required. Project ID of the job to be deleted.",
+	//       "description": "Required. Project ID of the job for which metadata is to be deleted.",
 	//       "location": "path",
 	//       "pattern": "^[^/]+$",
 	//       "required": true,
@@ -9349,7 +9498,7 @@ func (c *JobsGetCall) Header() http.Header {
 
 func (c *JobsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9550,7 +9699,7 @@ func (c *JobsGetQueryResultsCall) Header() http.Header {
 
 func (c *JobsGetQueryResultsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -9786,7 +9935,7 @@ func (c *JobsInsertCall) Header() http.Header {
 
 func (c *JobsInsertCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10055,7 +10204,7 @@ func (c *JobsListCall) Header() http.Header {
 
 func (c *JobsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10276,7 +10425,7 @@ func (c *JobsQueryCall) Header() http.Header {
 
 func (c *JobsQueryCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10422,7 +10571,7 @@ func (c *ModelsDeleteCall) Header() http.Header {
 
 func (c *ModelsDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10562,7 +10711,7 @@ func (c *ModelsGetCall) Header() http.Header {
 
 func (c *ModelsGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10749,7 +10898,7 @@ func (c *ModelsListCall) Header() http.Header {
 
 func (c *ModelsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -10935,7 +11084,7 @@ func (c *ModelsPatchCall) Header() http.Header {
 
 func (c *ModelsPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11106,7 +11255,7 @@ func (c *ProjectsGetServiceAccountCall) Header() http.Header {
 
 func (c *ProjectsGetServiceAccountCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11263,7 +11412,7 @@ func (c *ProjectsListCall) Header() http.Header {
 
 func (c *ProjectsListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11424,7 +11573,7 @@ func (c *RoutinesDeleteCall) Header() http.Header {
 
 func (c *RoutinesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11572,7 +11721,7 @@ func (c *RoutinesGetCall) Header() http.Header {
 
 func (c *RoutinesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11738,7 +11887,7 @@ func (c *RoutinesInsertCall) Header() http.Header {
 
 func (c *RoutinesInsertCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -11938,7 +12087,7 @@ func (c *RoutinesListCall) Header() http.Header {
 
 func (c *RoutinesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12136,7 +12285,7 @@ func (c *RoutinesUpdateCall) Header() http.Header {
 
 func (c *RoutinesUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12301,7 +12450,7 @@ func (c *RowAccessPoliciesGetIamPolicyCall) Header() http.Header {
 
 func (c *RowAccessPoliciesGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12475,7 +12624,7 @@ func (c *RowAccessPoliciesListCall) Header() http.Header {
 
 func (c *RowAccessPoliciesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12668,7 +12817,7 @@ func (c *RowAccessPoliciesSetIamPolicyCall) Header() http.Header {
 
 func (c *RowAccessPoliciesSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12818,7 +12967,7 @@ func (c *RowAccessPoliciesTestIamPermissionsCall) Header() http.Header {
 
 func (c *RowAccessPoliciesTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -12969,7 +13118,7 @@ func (c *TabledataInsertAllCall) Header() http.Header {
 
 func (c *TabledataInsertAllCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13172,7 +13321,7 @@ func (c *TabledataListCall) Header() http.Header {
 
 func (c *TabledataListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13373,7 +13522,7 @@ func (c *TablesDeleteCall) Header() http.Header {
 
 func (c *TablesDeleteCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13519,7 +13668,7 @@ func (c *TablesGetCall) Header() http.Header {
 
 func (c *TablesGetCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13681,7 +13830,7 @@ func (c *TablesGetIamPolicyCall) Header() http.Header {
 
 func (c *TablesGetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -13828,7 +13977,7 @@ func (c *TablesInsertCall) Header() http.Header {
 
 func (c *TablesInsertCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14004,7 +14153,7 @@ func (c *TablesListCall) Header() http.Header {
 
 func (c *TablesListCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14163,6 +14312,13 @@ func (r *TablesService) Patch(projectId string, datasetId string, tableId string
 	return c
 }
 
+// AutodetectSchema sets the optional parameter "autodetect_schema":
+// When true will autodetect schema, else will keep original schema
+func (c *TablesPatchCall) AutodetectSchema(autodetectSchema bool) *TablesPatchCall {
+	c.urlParams_.Set("autodetect_schema", fmt.Sprint(autodetectSchema))
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -14190,7 +14346,7 @@ func (c *TablesPatchCall) Header() http.Header {
 
 func (c *TablesPatchCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14265,6 +14421,11 @@ func (c *TablesPatchCall) Do(opts ...googleapi.CallOption) (*Table, error) {
 	//     "tableId"
 	//   ],
 	//   "parameters": {
+	//     "autodetect_schema": {
+	//       "description": "When true will autodetect schema, else will keep original schema",
+	//       "location": "query",
+	//       "type": "boolean"
+	//     },
 	//     "datasetId": {
 	//       "description": "Dataset ID of the table to update",
 	//       "location": "path",
@@ -14351,7 +14512,7 @@ func (c *TablesSetIamPolicyCall) Header() http.Header {
 
 func (c *TablesSetIamPolicyCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14501,7 +14662,7 @@ func (c *TablesTestIamPermissionsCall) Header() http.Header {
 
 func (c *TablesTestIamPermissionsCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14626,6 +14787,13 @@ func (r *TablesService) Update(projectId string, datasetId string, tableId strin
 	return c
 }
 
+// AutodetectSchema sets the optional parameter "autodetect_schema":
+// When true will autodetect schema, else will keep original schema
+func (c *TablesUpdateCall) AutodetectSchema(autodetectSchema bool) *TablesUpdateCall {
+	c.urlParams_.Set("autodetect_schema", fmt.Sprint(autodetectSchema))
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -14653,7 +14821,7 @@ func (c *TablesUpdateCall) Header() http.Header {
 
 func (c *TablesUpdateCall) doRequest(alt string) (*http.Response, error) {
 	reqHeaders := make(http.Header)
-	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20210830")
+	reqHeaders.Set("x-goog-api-client", "gl-go/"+gensupport.GoVersion()+" gdcl/20220122")
 	for k, v := range c.header_ {
 		reqHeaders[k] = v
 	}
@@ -14728,6 +14896,11 @@ func (c *TablesUpdateCall) Do(opts ...googleapi.CallOption) (*Table, error) {
 	//     "tableId"
 	//   ],
 	//   "parameters": {
+	//     "autodetect_schema": {
+	//       "description": "When true will autodetect schema, else will keep original schema",
+	//       "location": "query",
+	//       "type": "boolean"
+	//     },
 	//     "datasetId": {
 	//       "description": "Dataset ID of the table to update",
 	//       "location": "path",

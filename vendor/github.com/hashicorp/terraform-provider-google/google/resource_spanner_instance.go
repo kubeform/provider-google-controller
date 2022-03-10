@@ -19,7 +19,6 @@ import (
 	"log"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -74,9 +73,9 @@ func resourceSpannerInstance() *schema.Resource {
 		},
 
 		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(4 * time.Minute),
-			Update: schema.DefaultTimeout(4 * time.Minute),
-			Delete: schema.DefaultTimeout(4 * time.Minute),
+			Create: schema.DefaultTimeout(20 * time.Minute),
+			Update: schema.DefaultTimeout(20 * time.Minute),
+			Delete: schema.DefaultTimeout(20 * time.Minute),
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -122,15 +121,17 @@ Example: { "name": "wrench", "mass": "1.3kg", "count": "3" }.`,
 				Type:     schema.TypeInt,
 				Computed: true,
 				Optional: true,
-				Description: `The number of nodes allocated to this instance. At most one of either node_count or processing_units
-can be present in terraform.`,
+				Description: `The number of nodes allocated to this instance. Exactly one of either node_count or processing_units
+must be present in terraform.`,
+				ExactlyOneOf: []string{"num_nodes", "processing_units"},
 			},
 			"processing_units": {
 				Type:     schema.TypeInt,
 				Computed: true,
 				Optional: true,
-				Description: `The number of processing units allocated to this instance. At most one of processing_units 
-or node_count can be present in terraform.`,
+				Description: `The number of processing units allocated to this instance. Exactly one of processing_units 
+or node_count must be present in terraform.`,
+				ExactlyOneOf: []string{"num_nodes", "processing_units"},
 			},
 			"state": {
 				Type:        schema.TypeString,
@@ -530,7 +531,7 @@ func flattenSpannerInstanceDisplayName(v interface{}, d *schema.ResourceData, co
 func flattenSpannerInstanceNumNodes(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}
@@ -547,7 +548,7 @@ func flattenSpannerInstanceNumNodes(v interface{}, d *schema.ResourceData, confi
 func flattenSpannerInstanceProcessingUnits(v interface{}, d *schema.ResourceData, config *Config) interface{} {
 	// Handles the string fixed64 format
 	if strVal, ok := v.(string); ok {
-		if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
+		if intVal, err := stringToFixed64(strVal); err == nil {
 			return intVal
 		}
 	}

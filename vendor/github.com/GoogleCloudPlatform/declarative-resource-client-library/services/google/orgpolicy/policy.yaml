@@ -1,4 +1,4 @@
-# Copyright 2021 Google LLC. All Rights Reserved.
+# Copyright 2022 Google LLC. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,21 @@
 # limitations under the License.
 info:
   title: OrgPolicy/Policy
-  description: DCL Specification for the OrgPolicy Policy resource
+  description: An organization policy gives you programmatic control over your organization's
+    cloud resources.  Using Organization Policies, you will be able to configure constraints
+    across your entire resource hierarchy.
+  x-dcl-struct-name: Policy
   x-dcl-has-iam: false
+  x-dcl-ref:
+    text: REST API
+    url: https://cloud.google.com/resource-manager/docs/reference/orgpolicy/rest/v2/organizations.policies
+  x-dcl-guides:
+  - text: Understanding Org Policy concepts
+    url: https://cloud.google.com/resource-manager/docs/organization-policy/overview
+  - text: The resource hierarchy
+    url: https://cloud.google.com/resource-manager/docs/cloud-platform-resource-hierarchy
+  - text: All valid constraints
+    url: https://cloud.google.com/resource-manager/docs/organization-policy/org-policy-constraints
 paths:
   get:
     description: The function used to get information about a Policy
@@ -53,6 +66,7 @@ components:
     Policy:
       title: Policy
       x-dcl-id: '{{parent}}/policies/{{name}}'
+      x-dcl-has-iam: false
       type: object
       required:
       - name
@@ -139,6 +153,10 @@ components:
                     x-dcl-go-name: AllowAll
                     description: Setting this to true means that all values are allowed.
                       This field can be set only in Policies for list constraints.
+                    x-dcl-conflicts:
+                    - values
+                    - denyAll
+                    - enforce
                   condition:
                     type: object
                     x-dcl-go-name: Condition
@@ -182,18 +200,30 @@ components:
                     x-dcl-go-name: DenyAll
                     description: Setting this to true means that all values are denied.
                       This field can be set only in Policies for list constraints.
+                    x-dcl-conflicts:
+                    - values
+                    - allowAll
+                    - enforce
                   enforce:
                     type: boolean
                     x-dcl-go-name: Enforce
                     description: If `true`, then the `Policy` is enforced. If `false`,
                       then any configuration is acceptable. This field can be set
                       only in Policies for boolean constraints.
+                    x-dcl-conflicts:
+                    - values
+                    - allowAll
+                    - denyAll
                   values:
                     type: object
                     x-dcl-go-name: Values
                     x-dcl-go-type: PolicySpecRulesValues
                     description: List of values to be used for this PolicyRule. This
                       field can be set only in Policies for list constraints.
+                    x-dcl-conflicts:
+                    - allowAll
+                    - denyAll
+                    - enforce
                     properties:
                       allowedValues:
                         type: array

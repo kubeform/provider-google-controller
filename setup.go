@@ -88,9 +88,9 @@ import (
 	privatecav1alpha1 "kubeform.dev/provider-google-api/apis/privateca/v1alpha1"
 	projectv1alpha1 "kubeform.dev/provider-google-api/apis/project/v1alpha1"
 	pubsubv1alpha1 "kubeform.dev/provider-google-api/apis/pubsub/v1alpha1"
+	recaptchav1alpha1 "kubeform.dev/provider-google-api/apis/recaptcha/v1alpha1"
 	redisv1alpha1 "kubeform.dev/provider-google-api/apis/redis/v1alpha1"
 	resourcev1alpha1 "kubeform.dev/provider-google-api/apis/resource/v1alpha1"
-	runtimeconfigv1alpha1 "kubeform.dev/provider-google-api/apis/runtimeconfig/v1alpha1"
 	sccv1alpha1 "kubeform.dev/provider-google-api/apis/scc/v1alpha1"
 	secretv1alpha1 "kubeform.dev/provider-google-api/apis/secret/v1alpha1"
 	servicev1alpha1 "kubeform.dev/provider-google-api/apis/service/v1alpha1"
@@ -152,9 +152,9 @@ import (
 	controllersprivateca "kubeform.dev/provider-google-controller/controllers/privateca"
 	controllersproject "kubeform.dev/provider-google-controller/controllers/project"
 	controllerspubsub "kubeform.dev/provider-google-controller/controllers/pubsub"
+	controllersrecaptcha "kubeform.dev/provider-google-controller/controllers/recaptcha"
 	controllersredis "kubeform.dev/provider-google-controller/controllers/redis"
 	controllersresource "kubeform.dev/provider-google-controller/controllers/resource"
-	controllersruntimeconfig "kubeform.dev/provider-google-controller/controllers/runtimeconfig"
 	controllersscc "kubeform.dev/provider-google-controller/controllers/scc"
 	controllerssecret "kubeform.dev/provider-google-controller/controllers/secret"
 	controllersservice "kubeform.dev/provider-google-controller/controllers/service"
@@ -526,6 +526,23 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 	case schema.GroupVersionKind{
 		Group:   "apigee.google.kubeform.com",
 		Version: "v1alpha1",
+		Kind:    "EndpointAttachment",
+	}:
+		if err := (&controllersapigee.EndpointAttachmentReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("EndpointAttachment"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_apigee_endpoint_attachment"],
+			TypeName: "google_apigee_endpoint_attachment",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "EndpointAttachment")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
 		Kind:    "Envgroup",
 	}:
 		if err := (&controllersapigee.EnvgroupReconciler{
@@ -572,6 +589,57 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			TypeName: "google_apigee_environment",
 		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Environment")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnvironmentIamBinding",
+	}:
+		if err := (&controllersapigee.EnvironmentIamBindingReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("EnvironmentIamBinding"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_apigee_environment_iam_binding"],
+			TypeName: "google_apigee_environment_iam_binding",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "EnvironmentIamBinding")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnvironmentIamMember",
+	}:
+		if err := (&controllersapigee.EnvironmentIamMemberReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("EnvironmentIamMember"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_apigee_environment_iam_member"],
+			TypeName: "google_apigee_environment_iam_member",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "EnvironmentIamMember")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnvironmentIamPolicy",
+	}:
+		if err := (&controllersapigee.EnvironmentIamPolicyReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("EnvironmentIamPolicy"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_apigee_environment_iam_policy"],
+			TypeName: "google_apigee_environment_iam_policy",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "EnvironmentIamPolicy")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -1558,6 +1626,23 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			TypeName: "google_cloudbuild_trigger",
 		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Trigger")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "cloudbuild.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "WorkerPool",
+	}:
+		if err := (&controllerscloudbuild.WorkerPoolReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("WorkerPool"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_cloudbuild_worker_pool"],
+			TypeName: "google_cloudbuild_worker_pool",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "WorkerPool")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -3348,6 +3433,91 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 	case schema.GroupVersionKind{
 		Group:   "container.google.kubeform.com",
 		Version: "v1alpha1",
+		Kind:    "AwsCluster",
+	}:
+		if err := (&controllerscontainer.AwsClusterReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("AwsCluster"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_container_aws_cluster"],
+			TypeName: "google_container_aws_cluster",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AwsCluster")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AwsNodePool",
+	}:
+		if err := (&controllerscontainer.AwsNodePoolReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("AwsNodePool"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_container_aws_node_pool"],
+			TypeName: "google_container_aws_node_pool",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AwsNodePool")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AzureClient",
+	}:
+		if err := (&controllerscontainer.AzureClientReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("AzureClient"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_container_azure_client"],
+			TypeName: "google_container_azure_client",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AzureClient")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AzureCluster",
+	}:
+		if err := (&controllerscontainer.AzureClusterReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("AzureCluster"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_container_azure_cluster"],
+			TypeName: "google_container_azure_cluster",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AzureCluster")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AzureNodePool",
+	}:
+		if err := (&controllerscontainer.AzureNodePoolReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("AzureNodePool"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_container_azure_node_pool"],
+			TypeName: "google_container_azure_node_pool",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "AzureNodePool")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
 		Kind:    "Cluster",
 	}:
 		if err := (&controllerscontainer.ClusterReconciler{
@@ -3564,6 +3734,23 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			TypeName: "google_data_catalog_tag_template_iam_policy",
 		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "CatalogTagTemplateIamPolicy")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "data.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "FusionInstance",
+	}:
+		if err := (&controllersdata.FusionInstanceReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("FusionInstance"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_data_fusion_instance"],
+			TypeName: "google_data_fusion_instance",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "FusionInstance")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -5932,6 +6119,40 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 	case schema.GroupVersionKind{
 		Group:   "network.google.kubeform.com",
 		Version: "v1alpha1",
+		Kind:    "ConnectivityHub",
+	}:
+		if err := (&controllersnetwork.ConnectivityHubReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("ConnectivityHub"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_network_connectivity_hub"],
+			TypeName: "google_network_connectivity_hub",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ConnectivityHub")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "network.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "ConnectivitySpoke",
+	}:
+		if err := (&controllersnetwork.ConnectivitySpokeReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("ConnectivitySpoke"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_network_connectivity_spoke"],
+			TypeName: "google_network_connectivity_spoke",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ConnectivitySpoke")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "network.google.kubeform.com",
+		Version: "v1alpha1",
 		Kind:    "ManagementConnectivityTest",
 	}:
 		if err := (&controllersnetwork.ManagementConnectivityTestReconciler{
@@ -6100,6 +6321,74 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			return err
 		}
 	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "Runtime",
+	}:
+		if err := (&controllersnotebooks.RuntimeReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("Runtime"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_notebooks_runtime"],
+			TypeName: "google_notebooks_runtime",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Runtime")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "RuntimeIamBinding",
+	}:
+		if err := (&controllersnotebooks.RuntimeIamBindingReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("RuntimeIamBinding"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_notebooks_runtime_iam_binding"],
+			TypeName: "google_notebooks_runtime_iam_binding",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "RuntimeIamBinding")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "RuntimeIamMember",
+	}:
+		if err := (&controllersnotebooks.RuntimeIamMemberReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("RuntimeIamMember"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_notebooks_runtime_iam_member"],
+			TypeName: "google_notebooks_runtime_iam_member",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "RuntimeIamMember")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "RuntimeIamPolicy",
+	}:
+		if err := (&controllersnotebooks.RuntimeIamPolicyReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("RuntimeIamPolicy"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_notebooks_runtime_iam_policy"],
+			TypeName: "google_notebooks_runtime_iam_policy",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "RuntimeIamPolicy")
+			return err
+		}
+	case schema.GroupVersionKind{
 		Group:   "org.google.kubeform.com",
 		Version: "v1alpha1",
 		Kind:    "PolicyPolicy",
@@ -6233,6 +6522,23 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			TypeName: "google_organization_policy",
 		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Policy")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "os.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "ConfigOsPolicyAssignment",
+	}:
+		if err := (&controllersos.ConfigOsPolicyAssignmentReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("ConfigOsPolicyAssignment"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_os_config_os_policy_assignment"],
+			TypeName: "google_os_config_os_policy_assignment",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ConfigOsPolicyAssignment")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -6780,6 +7086,23 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			return err
 		}
 	case schema.GroupVersionKind{
+		Group:   "recaptcha.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnterpriseKey",
+	}:
+		if err := (&controllersrecaptcha.EnterpriseKeyReconciler{
+			Client:   mgr.GetClient(),
+			Log:      ctrl.Log.WithName("controllers").WithName("EnterpriseKey"),
+			Scheme:   mgr.GetScheme(),
+			Gvk:      gvk,
+			Provider: _provider,
+			Resource: _provider.ResourcesMap["google_recaptcha_enterprise_key"],
+			TypeName: "google_recaptcha_enterprise_key",
+		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "EnterpriseKey")
+			return err
+		}
+	case schema.GroupVersionKind{
 		Group:   "redis.google.kubeform.com",
 		Version: "v1alpha1",
 		Kind:    "Instance",
@@ -6811,91 +7134,6 @@ func SetupManager(ctx context.Context, mgr manager.Manager, gvk schema.GroupVers
 			TypeName: "google_resource_manager_lien",
 		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "ManagerLien")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "Config",
-	}:
-		if err := (&controllersruntimeconfig.ConfigReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Config"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: _provider,
-			Resource: _provider.ResourcesMap["google_runtimeconfig_config"],
-			TypeName: "google_runtimeconfig_config",
-		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Config")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "ConfigIamBinding",
-	}:
-		if err := (&controllersruntimeconfig.ConfigIamBindingReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigIamBinding"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: _provider,
-			Resource: _provider.ResourcesMap["google_runtimeconfig_config_iam_binding"],
-			TypeName: "google_runtimeconfig_config_iam_binding",
-		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ConfigIamBinding")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "ConfigIamMember",
-	}:
-		if err := (&controllersruntimeconfig.ConfigIamMemberReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigIamMember"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: _provider,
-			Resource: _provider.ResourcesMap["google_runtimeconfig_config_iam_member"],
-			TypeName: "google_runtimeconfig_config_iam_member",
-		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ConfigIamMember")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "ConfigIamPolicy",
-	}:
-		if err := (&controllersruntimeconfig.ConfigIamPolicyReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("ConfigIamPolicy"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: _provider,
-			Resource: _provider.ResourcesMap["google_runtimeconfig_config_iam_policy"],
-			TypeName: "google_runtimeconfig_config_iam_policy",
-		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ConfigIamPolicy")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "Variable",
-	}:
-		if err := (&controllersruntimeconfig.VariableReconciler{
-			Client:   mgr.GetClient(),
-			Log:      ctrl.Log.WithName("controllers").WithName("Variable"),
-			Scheme:   mgr.GetScheme(),
-			Gvk:      gvk,
-			Provider: _provider,
-			Resource: _provider.ResourcesMap["google_runtimeconfig_variable"],
-			TypeName: "google_runtimeconfig_variable",
-		}).SetupWithManager(ctx, mgr, auditor, restrictToNamespace); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Variable")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -7987,6 +8225,15 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	case schema.GroupVersionKind{
 		Group:   "apigee.google.kubeform.com",
 		Version: "v1alpha1",
+		Kind:    "EndpointAttachment",
+	}:
+		if err := (&apigeev1alpha1.EndpointAttachment{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "EndpointAttachment")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
 		Kind:    "Envgroup",
 	}:
 		if err := (&apigeev1alpha1.Envgroup{}).SetupWebhookWithManager(mgr); err != nil {
@@ -8009,6 +8256,33 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	}:
 		if err := (&apigeev1alpha1.Environment{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Environment")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnvironmentIamBinding",
+	}:
+		if err := (&apigeev1alpha1.EnvironmentIamBinding{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "EnvironmentIamBinding")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnvironmentIamMember",
+	}:
+		if err := (&apigeev1alpha1.EnvironmentIamMember{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "EnvironmentIamMember")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "apigee.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnvironmentIamPolicy",
+	}:
+		if err := (&apigeev1alpha1.EnvironmentIamPolicy{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "EnvironmentIamPolicy")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -8531,6 +8805,15 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	}:
 		if err := (&cloudbuildv1alpha1.Trigger{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Trigger")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "cloudbuild.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "WorkerPool",
+	}:
+		if err := (&cloudbuildv1alpha1.WorkerPool{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "WorkerPool")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -9481,6 +9764,51 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	case schema.GroupVersionKind{
 		Group:   "container.google.kubeform.com",
 		Version: "v1alpha1",
+		Kind:    "AwsCluster",
+	}:
+		if err := (&containerv1alpha1.AwsCluster{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "AwsCluster")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AwsNodePool",
+	}:
+		if err := (&containerv1alpha1.AwsNodePool{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "AwsNodePool")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AzureClient",
+	}:
+		if err := (&containerv1alpha1.AzureClient{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "AzureClient")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AzureCluster",
+	}:
+		if err := (&containerv1alpha1.AzureCluster{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "AzureCluster")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "AzureNodePool",
+	}:
+		if err := (&containerv1alpha1.AzureNodePool{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "AzureNodePool")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "container.google.kubeform.com",
+		Version: "v1alpha1",
 		Kind:    "Cluster",
 	}:
 		if err := (&containerv1alpha1.Cluster{}).SetupWebhookWithManager(mgr); err != nil {
@@ -9593,6 +9921,15 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	}:
 		if err := (&datav1alpha1.CatalogTagTemplateIamPolicy{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CatalogTagTemplateIamPolicy")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "data.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "FusionInstance",
+	}:
+		if err := (&datav1alpha1.FusionInstance{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "FusionInstance")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -10849,6 +11186,24 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	case schema.GroupVersionKind{
 		Group:   "network.google.kubeform.com",
 		Version: "v1alpha1",
+		Kind:    "ConnectivityHub",
+	}:
+		if err := (&networkv1alpha1.ConnectivityHub{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ConnectivityHub")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "network.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "ConnectivitySpoke",
+	}:
+		if err := (&networkv1alpha1.ConnectivitySpoke{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ConnectivitySpoke")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "network.google.kubeform.com",
+		Version: "v1alpha1",
 		Kind:    "ManagementConnectivityTest",
 	}:
 		if err := (&networkv1alpha1.ManagementConnectivityTest{}).SetupWebhookWithManager(mgr); err != nil {
@@ -10937,6 +11292,42 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 			return err
 		}
 	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "Runtime",
+	}:
+		if err := (&notebooksv1alpha1.Runtime{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Runtime")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "RuntimeIamBinding",
+	}:
+		if err := (&notebooksv1alpha1.RuntimeIamBinding{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "RuntimeIamBinding")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "RuntimeIamMember",
+	}:
+		if err := (&notebooksv1alpha1.RuntimeIamMember{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "RuntimeIamMember")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "notebooks.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "RuntimeIamPolicy",
+	}:
+		if err := (&notebooksv1alpha1.RuntimeIamPolicy{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "RuntimeIamPolicy")
+			return err
+		}
+	case schema.GroupVersionKind{
 		Group:   "org.google.kubeform.com",
 		Version: "v1alpha1",
 		Kind:    "PolicyPolicy",
@@ -11006,6 +11397,15 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	}:
 		if err := (&organizationv1alpha1.Policy{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Policy")
+			return err
+		}
+	case schema.GroupVersionKind{
+		Group:   "os.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "ConfigOsPolicyAssignment",
+	}:
+		if err := (&osv1alpha1.ConfigOsPolicyAssignment{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ConfigOsPolicyAssignment")
 			return err
 		}
 	case schema.GroupVersionKind{
@@ -11297,6 +11697,15 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 			return err
 		}
 	case schema.GroupVersionKind{
+		Group:   "recaptcha.google.kubeform.com",
+		Version: "v1alpha1",
+		Kind:    "EnterpriseKey",
+	}:
+		if err := (&recaptchav1alpha1.EnterpriseKey{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "EnterpriseKey")
+			return err
+		}
+	case schema.GroupVersionKind{
 		Group:   "redis.google.kubeform.com",
 		Version: "v1alpha1",
 		Kind:    "Instance",
@@ -11312,51 +11721,6 @@ func SetupWebhook(mgr manager.Manager, gvk schema.GroupVersionKind) error {
 	}:
 		if err := (&resourcev1alpha1.ManagerLien{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ManagerLien")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "Config",
-	}:
-		if err := (&runtimeconfigv1alpha1.Config{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Config")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "ConfigIamBinding",
-	}:
-		if err := (&runtimeconfigv1alpha1.ConfigIamBinding{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ConfigIamBinding")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "ConfigIamMember",
-	}:
-		if err := (&runtimeconfigv1alpha1.ConfigIamMember{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ConfigIamMember")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "ConfigIamPolicy",
-	}:
-		if err := (&runtimeconfigv1alpha1.ConfigIamPolicy{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ConfigIamPolicy")
-			return err
-		}
-	case schema.GroupVersionKind{
-		Group:   "runtimeconfig.google.kubeform.com",
-		Version: "v1alpha1",
-		Kind:    "Variable",
-	}:
-		if err := (&runtimeconfigv1alpha1.Variable{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Variable")
 			return err
 		}
 	case schema.GroupVersionKind{

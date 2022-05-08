@@ -701,7 +701,7 @@ github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.2.0
 ## explicit; go 1.9
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.18.0
+# github.com/prometheus/common v0.26.0
 ## explicit; go 1.11
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
@@ -1646,8 +1646,8 @@ kmodules.xyz/resource-metrics/api
 ## explicit; go 1.16
 kubeform.dev/apimachinery/api/v1alpha1
 kubeform.dev/apimachinery/pkg/util
-# kubeform.dev/provider-google-api v0.4.1-0.20220308122014-97541a712533
-## explicit; go 1.15
+# kubeform.dev/provider-google-api v0.5.0
+## explicit; go 1.17
 kubeform.dev/provider-google-api/api/provider
 kubeform.dev/provider-google-api/apis/accesscontext
 kubeform.dev/provider-google-api/apis/accesscontext/v1alpha1
